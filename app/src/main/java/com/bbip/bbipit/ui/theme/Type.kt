@@ -1,34 +1,53 @@
 package com.bbip.bbipit.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.bbip.bbipit.R
 
-// Set of Material typography styles to start with
+val regular = FontFamily(
+    Font(R.font.tmoney_round_wind_regular)
+)
+val extraBold = FontFamily(
+    Font(R.font.tmoney_round_wind_extra_bold)
+)
 val Typography = Typography(
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp
-    )
-    /* Other default text styles to override
+
+    //앱 이름 등 강조되는 글씨
     titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = 0.sp
+        fontFamily = extraBold,
+        fontSize = 40.sp,
+        lineHeight = 60.sp,
+        letterSpacing = -2.sp,
+        color = primary
     ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+
+    //앱 바 타이틀등 세미 강조
+    bodyLarge = TextStyle(
+        fontFamily = regular,
+        fontSize = 27.sp,
+        color = primary,
+        fontWeight = FontWeight.Bold
+    ),
+
+    //기본 글씨
+    bodyMedium = TextStyle(
+        fontFamily = regular,
+        fontSize = 19.sp,
+        lineHeight = 27.sp,
+        color = fontDefault
+    ),
+
+    //세미 글씨용
+    bodySmall = TextStyle(
+        fontFamily = regular,
+        fontSize = 15.sp,
+        lineHeight = 21.sp,
+        color = fontHint
     )
-    */
+
 )
