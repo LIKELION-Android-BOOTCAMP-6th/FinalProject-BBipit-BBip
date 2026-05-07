@@ -1,4 +1,4 @@
-package com.bbip.bbipit.ui.theme
+package com.bbip.bbipit.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 val primary = Color(0xFF7800CE)
