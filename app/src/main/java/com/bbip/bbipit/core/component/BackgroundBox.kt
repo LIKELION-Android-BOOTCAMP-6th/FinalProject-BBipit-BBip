@@ -9,12 +9,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.bbip.bbipit.core.ui.theme.backLeft
+import com.bbip.bbipit.core.ui.theme.backRight
 
 @Composable
 fun BackgroundBox(
     modifier: Modifier = Modifier,
-    colorA: Color = Color(0xFFE5D1FE), // 좌상 & 우하
-    colorB: Color = Color(0xFFDBF2FF), // 우상 & 좌하
+    colorA: Color = backLeft, // 좌상 & 우하
+    colorB: Color = backRight, // 우상 & 좌하
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = modifier.fillMaxSize()) {

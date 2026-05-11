@@ -113,6 +113,7 @@ dependencies {
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation(libs.compose.nav)
     implementation(libs.coroutine.core)

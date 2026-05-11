@@ -4,7 +4,10 @@ import androidx.compose.ui.graphics.Color
 val primary = Color(0xFF7800CE)
 val fontDefault = Color(0xFF1C1B1B)
 val background = Color(0xFFFCFBFB)
-val bottomBarBack = Color(0xFFECDEF5)
+val backLeft = Color(0xFFE5D1FE)
+val backRight = Color(0xFFDBF2FF)
+val bottomBarBack = Color(0xC89697A5)
+val sub1 = Color(0xFFEBDEF7)
 
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
