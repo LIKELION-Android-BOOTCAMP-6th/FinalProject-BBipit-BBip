@@ -1,0 +1,14 @@
+node_modules/
+*.local
+# 파이어베이스 서비스 계정 키
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+.env
+.env.*
+
+# 파이어베이스 디버그 토큰
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+npm-debug.log*

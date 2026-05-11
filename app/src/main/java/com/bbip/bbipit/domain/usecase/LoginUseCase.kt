@@ -1,0 +1,38 @@
+package com.bbip.bbipit.domain.usecase
+
+import com.bbip.bbipit.domain.error.AppError
+import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.repository.UserRepository
+import com.bbip.bbipit.domain.result.ApiResult
+import javax.inject.Inject
+
+/**
+ 여기서 구현한 걸 뷰모델에서 활용
+
+ */
+
+class LoginUseCase (
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository
+) {
+    suspend fun google(idToken: String): ApiResult<Unit> = runCatching {
+        authRepository.signInWithGoogleIdToken(idToken)
+        //프로필 연동
+    }
+
+    suspend fun kakao(): ApiResult<Unit> = runCatching {
+        authRepository.kakaoLogin()
+    }
+
+    suspend fun loginWithEmail(email: String, password: String): ApiResult<Unit> = runCatching {
+        authRepository.signInWithEmail(email, password)
+    }
+
+    private suspend fun <T> runCatching(action: suspend () -> T): ApiResult<T> {
+        return try {
+            ApiResult.Success(action())
+        } catch (e: Exception) {
+            ApiResult.Failure(if (e is AppError) e else AppError.Custom(e.message ?: "로그인 실패"))
+        }
+    }
+}

@@ -1,14 +1,23 @@
 plugins {
+    id("org.jetbrains.kotlin.kapt")
+
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    alias(libs.plugins.hilt.android)
+    kotlin("plugin.serialization") version "2.0.21"
+
+
 }
 
 android {
     namespace = "com.bbip.bbipit"
     compileSdk {
         version = release(36)
+    }
+    buildFeatures {
+        buildConfig = true  // BuildConfig 활성화
     }
 
     defaultConfig {
@@ -19,6 +28,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["MAP_KEY"] =
+            properties["MAP_KEY"] ?: ""
+        manifestPlaceholders["KAKAO_KEY"] =
+            properties["KAKAO_KEY"] ?: ""
+
+        buildConfigField("String", "KAKAO_KEY", "\"${properties["KAKAO_KEY"]}\"")
     }
 
     buildTypes {
@@ -65,7 +80,39 @@ dependencies {
 
     //파이어베이스 인증(이메일/구글)
     implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
+//    implementation("com.google.android.gms:play-services-auth:21.2.0")
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
+
+    ///파이어스토어
+    implementation("com.google.firebase:firebase-firestore")
+    //fcm
+    implementation("com.google.firebase:firebase-messaging")
+    //storage
+    implementation("com.google.firebase:firebase-storage")
+    //functions
+    implementation("com.google.firebase:firebase-functions")
+//    realtime-database
+//    implementation("com.google.firebase:firebase-database")
+
+    //coil
+    implementation(libs.coil)
+
+    //kakao
+    implementation(libs.kakao.user)
+    implementation(libs.kakao.share)
+
+    //google map
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
+    implementation(libs.play.services.location) //geofencing
+
+    //hilt
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
+
 
     implementation(libs.compose.nav)
     implementation(libs.coroutine.core)
