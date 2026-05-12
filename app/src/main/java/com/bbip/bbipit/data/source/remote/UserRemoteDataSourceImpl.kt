@@ -1,4 +1,4 @@
-package com.bbip.bbipit.data.source.remote.user
+package com.bbip.bbipit.data.source.remote
 
 import com.google.firebase.firestore.FirebaseFirestore
 import javax.inject.Inject
