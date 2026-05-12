@@ -1,4 +1,4 @@
-package com.bbip.bbipit.core.component
+package com.bbip.bbipit.presentation.component
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box

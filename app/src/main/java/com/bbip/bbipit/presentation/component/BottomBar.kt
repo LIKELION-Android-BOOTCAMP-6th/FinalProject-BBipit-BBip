@@ -1,4 +1,4 @@
-package com.bbip.bbipit.core.component
+package com.bbip.bbipit.presentation.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -17,8 +17,10 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -56,23 +58,6 @@ fun BottomBar(navController: NavController){
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically) {
 
-            val isChatSelected = currentDestination?.hasRoute<Routes.ChatList>() == true
-            IconButton(
-                onClick = {
-                    if (!isChatSelected){
-                        navController.navigate(Routes.ChatList){
-                            popUpTo(Routes.Map){ inclusive = false}
-                            launchSingleTop = true
-                        }
-                    }
-                },
-            ) {
-                Icon(imageVector = if(isChatSelected) Icons.AutoMirrored.Filled.Chat else Icons.Default.ChatBubbleOutline,
-                    contentDescription = "홈",
-                    tint = if (isChatSelected) primary else Color.Gray
-                )
-            }
-
             val isMapSelected = currentDestination?.hasRoute<Routes.Map>() == true
             IconButton(
                 onClick = {
@@ -90,6 +75,39 @@ fun BottomBar(navController: NavController){
                 )
             }
 
+            val isChatSelected = currentDestination?.hasRoute<Routes.ChatList>() == true
+            IconButton(
+                onClick = {
+                    if (!isChatSelected){
+                        navController.navigate(Routes.ChatList){
+                            popUpTo(Routes.Map){ inclusive = false}
+                            launchSingleTop = true
+                        }
+                    }
+                },
+            ) {
+                Icon(imageVector = if(isChatSelected) Icons.AutoMirrored.Filled.Chat else Icons.Default.ChatBubbleOutline,
+                    contentDescription = "채팅",
+                    tint = if (isChatSelected) primary else Color.Gray
+                )
+            }
+
+            val isNotiSelected = currentDestination?.hasRoute<Routes.Noti>() == true
+            IconButton(
+                onClick = {
+                    if (!isNotiSelected){
+                        navController.navigate(Routes.Noti){
+                            popUpTo(Routes.Noti){ inclusive = false}
+                            launchSingleTop = true
+                        }
+                    }
+                },
+            ) {
+                Icon(imageVector = if(isNotiSelected) Icons.Default.Notifications else Icons.Outlined.Notifications,
+                    contentDescription = "알림",
+                    tint = if (isNotiSelected) primary else Color.Gray
+                )
+            }
             val isMyPageSelected = currentDestination?.hasRoute<Routes.MyPage>() == true
             IconButton(
                 onClick = {

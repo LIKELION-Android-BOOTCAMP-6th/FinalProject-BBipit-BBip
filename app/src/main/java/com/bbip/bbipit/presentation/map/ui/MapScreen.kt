@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.bbip.bbipit.core.component.BackgroundBox
+import com.bbip.bbipit.presentation.component.BackgroundBox
 
 
 /**

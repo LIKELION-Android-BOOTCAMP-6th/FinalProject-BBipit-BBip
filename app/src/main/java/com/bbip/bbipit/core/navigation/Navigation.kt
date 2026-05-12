@@ -9,6 +9,7 @@ import com.bbip.bbipit.presentation.auth.ui.SignInScreen
 import com.bbip.bbipit.presentation.auth.ui.SignUpScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatListScreen
 import com.bbip.bbipit.presentation.map.ui.MapScreen
+import com.bbip.bbipit.presentation.noti.NotiScreen
 import com.bbip.bbipit.presentation.user.ui.MyPageScreen
 
 @Composable
@@ -29,6 +30,7 @@ fun BBipItNavigation(
         composable<Routes.Map> { MapScreen(navController) }
         composable<Routes.MyPage> { MyPageScreen(navController) }
         composable<Routes.ChatList> { ChatListScreen(navController) }
+        composable<Routes.Noti> { NotiScreen(navController) }
 
 
     }

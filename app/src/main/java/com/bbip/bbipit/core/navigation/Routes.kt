@@ -11,6 +11,7 @@ sealed interface Routes {
     @Serializable data object ChatList : Routes
     @Serializable data class ChatRoom(val roomId: String) : Routes
     @Serializable data object MyPage : Routes
+    @Serializable data object Noti : Routes
     @Serializable data object Setting : Routes
 
 }
