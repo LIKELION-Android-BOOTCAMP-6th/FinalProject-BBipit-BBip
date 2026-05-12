@@ -1,6 +1,6 @@
 package com.bbip.bbipit.data.repository
 
-import com.bbip.bbipit.data.source.remote.AuthRemoteDataSource
+import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
 import com.bbip.bbipit.domain.repository.AuthRepository
 import javax.inject.Inject
 import javax.inject.Singleton

@@ -1,9 +1,9 @@
 package com.bbip.bbipit.di
 
-import com.bbip.bbipit.data.source.remote.AuthRemoteDataSource
-import com.bbip.bbipit.data.source.remote.AuthRemoteDataSourceImpl
-import com.bbip.bbipit.data.source.remote.UserRemoteDataSource
-import com.bbip.bbipit.data.source.remote.UserRemoteDataSourceImpl
+import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
+import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSourceImpl
+import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSource
+import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.data.repository.AuthRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
 import com.bbip.bbipit.domain.repository.AuthRepository
