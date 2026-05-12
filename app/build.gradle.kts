@@ -1,3 +1,8 @@
+import java.util.Properties
+
+val properties = Properties().apply {
+    load(rootProject.file("local.properties").inputStream())
+}
 plugins {
     id("org.jetbrains.kotlin.kapt")
 

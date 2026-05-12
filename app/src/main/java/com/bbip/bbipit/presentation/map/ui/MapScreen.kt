@@ -10,10 +10,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.bbip.bbipit.presentation.base.BackgroundBox
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.rememberCameraPositionState
 
 
 /**
- 홈 스크린
+홈 스크린
 
  */
 @Composable
@@ -28,18 +32,16 @@ fun MapScreen(navController: NavController) {
                     .padding(10.dp)
             ) {
                 Text("홈")
+                val seoul = LatLng(37.5665, 126.9780)
+                val cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(seoul, 12f)
+                }
 
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState
+                )
             }
         }
     }
 }
-
-//                            val seoul = LatLng(37.5665, 126.9780)
-//                            val cameraPositionState = rememberCameraPositionState {
-//                                position = CameraPosition.fromLatLngZoom(seoul, 12f)
-//                            }
-//
-//                            GoogleMap(
-//                                modifier = Modifier.fillMaxSize(),
-//                                cameraPositionState = cameraPositionState
-//                            )
