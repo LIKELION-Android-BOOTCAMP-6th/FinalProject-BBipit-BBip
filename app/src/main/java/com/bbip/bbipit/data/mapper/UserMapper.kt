@@ -1,7 +1,7 @@
 package com.bbip.bbipit.data.mapper
 
-import com.bbip.bbipit.data.model.UserDto
-import com.bbip.bbipit.domain.model.CurrentUser
+import com.bbip.bbipit.data.source.model.UserDto
+import com.bbip.bbipit.domain.entity.CurrentUser
 
 /**
  UserDto와 CurrentUser 간의 변환 담당

@@ -1,4 +1,4 @@
-package com.bbip.bbipit.data.datasource
+package com.bbip.bbipit.data.source.remote.auth
 
 import android.content.Context
 import com.google.firebase.auth.FirebaseAuth

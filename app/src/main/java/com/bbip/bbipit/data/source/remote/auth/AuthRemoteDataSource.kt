@@ -1,4 +1,4 @@
-package com.bbip.bbipit.data.datasource
+package com.bbip.bbipit.data.source.remote.auth
 
 /**
  서버와 통신을 위한 함수명만 선언

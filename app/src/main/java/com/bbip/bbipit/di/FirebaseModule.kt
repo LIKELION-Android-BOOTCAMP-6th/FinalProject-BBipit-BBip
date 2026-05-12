@@ -1,4 +1,4 @@
-package com.bbip.bbipit.data.di
+package com.bbip.bbipit.di
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,7 +23,7 @@ object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
+    fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.Companion.getInstance()
 
     @Provides
     @Singleton

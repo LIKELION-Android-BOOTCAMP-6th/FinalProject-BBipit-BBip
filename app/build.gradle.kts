@@ -120,4 +120,7 @@ dependencies {
     implementation(libs.coroutine.android)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.serialization)
+
+    implementation(libs.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.service)
 }

@@ -1,4 +1,4 @@
-package com.bbip.bbipit.domain.model
+package com.bbip.bbipit.domain.entity
 
 data class CurrentUser(
     val id: String = "",

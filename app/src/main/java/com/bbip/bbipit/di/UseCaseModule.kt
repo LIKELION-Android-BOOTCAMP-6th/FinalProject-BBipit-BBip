@@ -1,4 +1,4 @@
-package com.bbip.bbipit.domain.di
+package com.bbip.bbipit.di
 
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
