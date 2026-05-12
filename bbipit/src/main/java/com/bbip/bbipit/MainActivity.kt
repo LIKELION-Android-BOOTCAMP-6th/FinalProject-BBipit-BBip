@@ -3,7 +3,7 @@
  * most up to date changes to the libraries and their usages.
  */
 
-package com.bbip.bbipit.presentation
+package com.bbip.bbipit
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -23,8 +23,7 @@ import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
-import com.bbip.bbipit.R
-import com.bbip.bbipit.presentation.theme.BbipitTheme
+import com.bbip.bbipit.theme.BbipitTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,4 +1,4 @@
-package com.bbip.bbipit.presentation.theme
+package com.bbip.bbipit.theme
 
 import androidx.compose.runtime.Composable
 import androidx.wear.compose.material.MaterialTheme
