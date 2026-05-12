@@ -3,8 +3,7 @@ package com.bbip.bbipit.domain.usecase
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
-import com.bbip.bbipit.domain.result.ApiResult
-import javax.inject.Inject
+import com.bbip.bbipit.core.result.ApiResult
 
 /**
  여기서 구현한 걸 뷰모델에서 활용

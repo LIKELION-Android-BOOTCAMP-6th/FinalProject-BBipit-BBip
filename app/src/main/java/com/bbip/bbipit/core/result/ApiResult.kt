@@ -1,4 +1,4 @@
-package com.bbip.bbipit.domain.result
+package com.bbip.bbipit.core.result
 
 import com.bbip.bbipit.domain.error.AppError
 

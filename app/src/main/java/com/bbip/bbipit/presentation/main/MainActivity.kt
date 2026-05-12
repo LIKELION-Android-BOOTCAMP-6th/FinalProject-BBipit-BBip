@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.bbip.bbipit.presentation.component.BottomBar
+import com.bbip.bbipit.presentation.base.BottomBar
 import com.bbip.bbipit.core.navigation.BBipItNavigation
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.BbipitTheme

@@ -1,4 +1,4 @@
-package com.bbip.bbipit.data.model
+package com.bbip.bbipit.data.source.model
 import com.google.firebase.firestore.PropertyName
 
 /**
