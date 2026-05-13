@@ -107,8 +107,8 @@ fun NotiCard(
             .clickable(
                 enabled = item.type != "REQ", onClick = onClick
             ), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(
-            containerColor = if (item.isExpired) background.copy(alpha = 0.5f)
-            else background.copy(alpha = 0.9f)
+            containerColor = if (item.isExpired) background.copy(0.5f)
+            else background.copy(0.9f)
         ), elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp
         )
@@ -137,7 +137,7 @@ fun NotiCard(
                     text = item.senderName,
                     style = Typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (item.isExpired) Color.Gray else fontDefault
+                    color = if (item.isExpired) bottomBarBack else fontDefault
                 )
 
                 Spacer(
@@ -148,7 +148,7 @@ fun NotiCard(
                     Text(
                         text = "님이 친구 요청을 보냈습니다",
                         style = Typography.bodySmall,
-                        color = if (item.isExpired) Color.Gray else fontDefault
+                        color = if (item.isExpired) bottomBarBack else fontDefault
                     )
                 } else {
                     Text(
@@ -158,7 +158,7 @@ fun NotiCard(
                             else -> item.content
                         },
                         style = Typography.bodySmall,
-                        color = if (item.isExpired) Color.Gray else fontDefault,
+                        color = if (item.isExpired) bottomBarBack else fontDefault,
                         maxLines = 1
                     )
                 }
@@ -171,7 +171,7 @@ fun NotiCard(
                     text = formatTimestamp(item.createdAt),
                     style = Typography.bodySmall,
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = bottomBarBack
                 )
 
                 if (item.type == "REQ") {
@@ -186,12 +186,12 @@ fun NotiCard(
                             onClick = onRejectFriend,
                             modifier = Modifier.height(32.dp),
                             shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
+                            colors = ButtonDefaults.buttonColors(containerColor = fontDefault.copy(0.2f)),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
                             Text(
                                 text = "거절",
-                                color = Color.White,
+                                color = background,
                                 fontSize = 12.sp,
                             )
                         }
@@ -224,7 +224,7 @@ fun NotiCard(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                             style = Typography.bodySmall,
                             fontSize = 11.sp,
-                            color = Color.Gray
+                            color = bottomBarBack
                         )
                     }
                 }
@@ -247,9 +247,7 @@ fun NotiHeader(
         ) {
             Text(
                 text = "알림",
-                style = Typography.bodyLarge,
-                color = primary,
-                fontWeight = FontWeight.Bold
+                style = Typography.bodyLarge
             )
         }
     }
@@ -272,8 +270,7 @@ fun NotiFilterBar(
             .fillMaxWidth()
             .height(54.dp),
         shape = RoundedCornerShape(27.dp),
-        color = sub1.copy(alpha = 0.4f),
-        border = BorderStroke(1.dp, background.copy(alpha = 0.5f))
+        color = background.copy(0.4f),
     ) {
         LazyRow(
             modifier = Modifier.fillMaxSize(),
