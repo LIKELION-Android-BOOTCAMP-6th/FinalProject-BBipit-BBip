@@ -1,6 +1,5 @@
 package com.bbip.bbipit.presentation.noti
 
-import android.R.attr.textColor
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.* // 💡 정의하신 컬러 변수들을 가져옵/니다.
 import com.bbip.bbipit.domain.entity.NotiItem
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.google.firebase.Timestamp
@@ -61,8 +60,7 @@ fun NotiScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     NotiHeader(
-                        onReadAll = { viewModel.onReadAllClick() },
-                        onEdit = { }
+                        onReadAll = { viewModel.onReadAllClick() }
                     )
 
                     Spacer(
@@ -118,35 +116,38 @@ fun NotiCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
-                // 💡 REQ(친구 요청)는 버튼을 눌러야 하므로 카드 전체 클릭 비활성화
                 enabled = item.type != "REQ",
                 onClick = onClick
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (item.isExpired) Color.White.copy(alpha = 0.5f)
-            else Color.White.copy(alpha = 0.9f)
+            // 💡 배경색 테마 반영 (background 컬러 사용)
+            containerColor = if (item.isExpired) background.copy(alpha = 0.5f)
+            else background.copy(alpha = 0.9f)
         ),
-        elevation = CardDefaults.cardElevation(0.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp
+        )
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 프로필 이미지 영역
             Box(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
                     .background(
-                        if (item.isExpired) Color.LightGray.copy(alpha = 0.5f)
-                        else Color.LightGray
+                        // 💡 sub1 컬러를 프로필 배경으로 활용
+                        if (item.isExpired) sub1.copy(alpha = 0.5f)
+                        else sub1
                     )
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(
+                modifier = Modifier.width(16.dp)
+            )
 
-            // 텍스트 내용 영역
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -154,34 +155,34 @@ fun NotiCard(
                     text = item.senderName,
                     style = Typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (item.isExpired) Color.Gray else Color.Unspecified
+                    // 💡 fontDefault 컬러 적용
+                    color = if (item.isExpired) Color.Gray else fontDefault
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(
+                    modifier = Modifier.height(4.dp)
+                )
+
                 if (item.type == "REQ") {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "님이 친구 요청을 보냈습니다",
-                            style = Typography.bodySmall,
-                            color = if (item.isExpired) Color.Gray else Color.DarkGray
-                        )
-                    }
+                    Text(
+                        text = "님이 친구 요청을 보냈습니다",
+                        style = Typography.bodySmall,
+                        color = if (item.isExpired) Color.Gray else fontDefault.copy(alpha = 0.7f)
+                    )
                 } else {
-                Text(
-                    text = when (item.type) {
-                        "WALKIE" -> "무전을 보냈습니다" // 무전 안내만 노출
-                        "DM" -> item.content.take(20) // DM 내용 일부 노출 (최대 20자)
-                        else -> item.content
-                    },
-                    style = Typography.bodySmall,
-                    color = if (item.isExpired) Color.Gray else Color.DarkGray,
-                    maxLines = 1
-                )
-            }}
+                    Text(
+                        text = when (item.type) {
+                            "WALKIE" -> "무전을 보냈습니다"
+                            "DM" -> item.content.take(20)
+                            else -> item.content
+                        },
+                        style = Typography.bodySmall,
+                        color = if (item.isExpired) Color.Gray else fontDefault.copy(alpha = 0.7f),
+                        maxLines = 1
+                    )
+                }
+            }
 
-            // 시간 및 버튼 영역
             Column(
                 horizontalAlignment = Alignment.End
             ) {
@@ -193,7 +194,9 @@ fun NotiCard(
                 )
 
                 if (item.type == "REQ") {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -203,16 +206,17 @@ fun NotiCard(
                             modifier = Modifier.height(32.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
+                                // 💡 거절 버튼: PurpleGrey40 스타일 참고하여 회색 계열 적용
                                 containerColor = Color.LightGray,
                                 contentColor = Color.White
                             ),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
                             Text(
-                                "거절",
-                                color = Color.White,
+                                text = "거절",
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold)
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         Button(
@@ -220,21 +224,25 @@ fun NotiCard(
                             modifier = Modifier.height(32.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF6200EE),
+                                // 💡 수락 버튼: primary 컬러 적용
+                                containerColor = primary,
                                 contentColor = Color.White
                             ),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
-                            Text("수락",
-                                color = Color.White,
+                            Text(
+                                text = "수락",
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold)
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 } else if (item.isExpired) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
                     Surface(
-                        color = Color(0xFFEEEEEE),
+                        color = sub1.copy(alpha = 0.3f),
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
@@ -250,6 +258,7 @@ fun NotiCard(
         }
     }
 }
+
 @Composable
 fun NotiFilterBar(
     selected: String,
@@ -267,8 +276,9 @@ fun NotiFilterBar(
             .fillMaxWidth()
             .height(54.dp),
         shape = RoundedCornerShape(27.dp),
-        color = Color.White.copy(alpha = 0.2f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+        // 💡 필터바 배경을 sub1의 투명도 버전으로 변경
+        color = sub1.copy(alpha = 0.4f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
     ) {
         LazyRow(
             modifier = Modifier.fillMaxSize(),
@@ -282,7 +292,8 @@ fun NotiFilterBar(
                         .height(40.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .clickable { onSelect(item.name) },
-                    color = if (isSelected) Color(0xFF6200EE) else Color.Transparent,
+                    // 💡 선택 시 primary 컬러 적용
+                    color = if (isSelected) primary else Color.Transparent,
                     shape = RoundedCornerShape(20.dp)
                 ) {
                     Row(
@@ -293,12 +304,14 @@ fun NotiFilterBar(
                             imageVector = item.icon,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = if (isSelected) Color.White else Color(0xFF6200EE)
+                            tint = if (isSelected) Color.White else primary
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(
+                            modifier = Modifier.width(6.dp)
+                        )
                         Text(
                             text = item.name,
-                            color = if (isSelected) Color.White else Color.Black,
+                            color = if (isSelected) Color.White else fontDefault,
                             style = Typography.bodySmall
                         )
                     }
@@ -310,8 +323,7 @@ fun NotiFilterBar(
 
 @Composable
 fun NotiHeader(
-    onReadAll: () -> Unit,
-    onEdit: () -> Unit
+    onReadAll: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -323,7 +335,16 @@ fun NotiHeader(
         ) {
             Text(
                 text = "알림",
-                style = Typography.bodyLarge
+                style = Typography.bodyLarge,
+                // 💡 제목에 fontDefault 적용
+                color = fontDefault,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "전체 읽음",
+                modifier = Modifier.clickable { onReadAll() },
+                style = Typography.bodySmall,
+                color = primary // 💡 액션 텍스트에 primary 적용
             )
         }
     }
