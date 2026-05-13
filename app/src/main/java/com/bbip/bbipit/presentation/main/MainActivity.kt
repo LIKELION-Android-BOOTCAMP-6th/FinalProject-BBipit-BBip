@@ -2,6 +2,7 @@ package com.bbip.bbipit.presentation.main
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,6 +21,7 @@ import com.bbip.bbipit.core.navigation.BBipItNavigation
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.BbipitTheme
 import com.bbip.bbipit.domain.repository.UserRepository
+import com.kakao.sdk.common.util.Utility
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -32,8 +34,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-//        var keyHash = Utility.getKeyHash(this)
-//        Log.d("keyHash", keyHash)
+        var keyHash = Utility.getKeyHash(this)
+        Log.d("keyHash", keyHash)
         setContent {
             BbipitTheme {
                 Surface(

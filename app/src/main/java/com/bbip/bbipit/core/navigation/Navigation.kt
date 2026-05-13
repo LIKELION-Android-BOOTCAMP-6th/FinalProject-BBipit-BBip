@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.presentation.auth.ui.SignInScreen
 import com.bbip.bbipit.presentation.auth.ui.SignUpScreen
+import com.bbip.bbipit.presentation.chat.ui.ChatDetailScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatListScreen
 import com.bbip.bbipit.presentation.map.ui.MapScreen
 import com.bbip.bbipit.presentation.noti.NotiScreen
@@ -31,7 +32,7 @@ fun BBipItNavigation(
         composable<Routes.MyPage> { MyPageScreen(navController) }
         composable<Routes.ChatList> { ChatListScreen(navController) }
         composable<Routes.Noti> { NotiScreen(navController) }
-
+        composable<Routes.ChatRoom> { ChatDetailScreen(navController) }
 
     }
 }
