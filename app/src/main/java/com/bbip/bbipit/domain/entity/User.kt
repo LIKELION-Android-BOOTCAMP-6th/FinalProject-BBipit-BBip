@@ -1,6 +1,6 @@
 package com.bbip.bbipit.domain.entity
 
-data class CurrentUser(
+data class User(
     val id: String = "",
     val nickname: String = "",
     val profileImageUrl: String = "",

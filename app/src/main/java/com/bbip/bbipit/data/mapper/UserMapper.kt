@@ -1,13 +1,13 @@
 package com.bbip.bbipit.data.mapper
 
 import com.bbip.bbipit.data.source.model.UserDto
-import com.bbip.bbipit.domain.entity.CurrentUser
+import com.bbip.bbipit.domain.entity.User
 
 /**
  UserDto와 CurrentUser 간의 변환 담당
  */
 
-fun UserDto.toDomain(): CurrentUser = CurrentUser(
+fun UserDto.toDomain(): User = User(
     id = uid,
     nickname = nickname,
     profileImageUrl = profileImageUrl,
@@ -18,7 +18,7 @@ fun UserDto.toDomain(): CurrentUser = CurrentUser(
     lastActive = lastActive,
 )
 
-fun CurrentUser.toDto(): UserDto = UserDto(
+fun User.toDto(): UserDto = UserDto(
     uid = id,
     nickname = nickname,
     profileImageUrl = profileImageUrl,
