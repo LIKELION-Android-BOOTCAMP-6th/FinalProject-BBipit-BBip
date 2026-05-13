@@ -41,7 +41,7 @@ class NotiViewModel @Inject constructor(
                 NotiItem(
                     id = "2",
                     type = "DM",
-                    senderName = "박미나",
+                    senderName = "박미나1",
                     content = "오늘 저녁 어때?",
                     roomId = "room_123",
                     createdAt = Timestamp(Date(now - 600000))
