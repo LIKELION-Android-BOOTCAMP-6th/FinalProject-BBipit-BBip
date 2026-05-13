@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.bbip.bbipit.core.ui.theme.* // 💡 정의하신 컬러 변수들을 가져옵/니다.
+import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.NotiItem
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.google.firebase.Timestamp
@@ -121,7 +121,6 @@ fun NotiCard(
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            // 💡 배경색 테마 반영 (background 컬러 사용)
             containerColor = if (item.isExpired) background.copy(alpha = 0.5f)
             else background.copy(alpha = 0.9f)
         ),
@@ -138,7 +137,6 @@ fun NotiCard(
                     .size(52.dp)
                     .clip(CircleShape)
                     .background(
-                        // 💡 sub1 컬러를 프로필 배경으로 활용
                         if (item.isExpired) sub1.copy(alpha = 0.5f)
                         else sub1
                     )
@@ -155,7 +153,6 @@ fun NotiCard(
                     text = item.senderName,
                     style = Typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    // 💡 fontDefault 컬러 적용
                     color = if (item.isExpired) Color.Gray else fontDefault
                 )
 
@@ -167,7 +164,7 @@ fun NotiCard(
                     Text(
                         text = "님이 친구 요청을 보냈습니다",
                         style = Typography.bodySmall,
-                        color = if (item.isExpired) Color.Gray else fontDefault.copy(alpha = 0.7f)
+                        color = if (item.isExpired) Color.Gray else fontDefault
                     )
                 } else {
                     Text(
@@ -177,7 +174,7 @@ fun NotiCard(
                             else -> item.content
                         },
                         style = Typography.bodySmall,
-                        color = if (item.isExpired) Color.Gray else fontDefault.copy(alpha = 0.7f),
+                        color = if (item.isExpired) Color.Gray else fontDefault,
                         maxLines = 1
                     )
                 }
@@ -206,14 +203,13 @@ fun NotiCard(
                             modifier = Modifier.height(32.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                // 💡 거절 버튼: PurpleGrey40 스타일 참고하여 회색 계열 적용
-                                containerColor = Color.LightGray,
-                                contentColor = Color.White
+                                containerColor = sub1,
                             ),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
                             Text(
                                 text = "거절",
+                                color = fontDefault,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -224,14 +220,13 @@ fun NotiCard(
                             modifier = Modifier.height(32.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                // 💡 수락 버튼: primary 컬러 적용
                                 containerColor = primary,
-                                contentColor = Color.White
                             ),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
                             Text(
                                 text = "수락",
+                                color = background,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -276,9 +271,8 @@ fun NotiFilterBar(
             .fillMaxWidth()
             .height(54.dp),
         shape = RoundedCornerShape(27.dp),
-        // 💡 필터바 배경을 sub1의 투명도 버전으로 변경
         color = sub1.copy(alpha = 0.4f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, background.copy(alpha = 0.5f))
     ) {
         LazyRow(
             modifier = Modifier.fillMaxSize(),
@@ -292,7 +286,6 @@ fun NotiFilterBar(
                         .height(40.dp)
                         .clip(RoundedCornerShape(20.dp))
                         .clickable { onSelect(item.name) },
-                    // 💡 선택 시 primary 컬러 적용
                     color = if (isSelected) primary else Color.Transparent,
                     shape = RoundedCornerShape(20.dp)
                 ) {
@@ -304,14 +297,14 @@ fun NotiFilterBar(
                             imageVector = item.icon,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp),
-                            tint = if (isSelected) Color.White else primary
+                            tint = if (isSelected) background else primary
                         )
                         Spacer(
                             modifier = Modifier.width(6.dp)
                         )
                         Text(
                             text = item.name,
-                            color = if (isSelected) Color.White else fontDefault,
+                            color = if (isSelected) background else fontDefault,
                             style = Typography.bodySmall
                         )
                     }
@@ -336,15 +329,8 @@ fun NotiHeader(
             Text(
                 text = "알림",
                 style = Typography.bodyLarge,
-                // 💡 제목에 fontDefault 적용
-                color = fontDefault,
+                color = primary,
                 fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "전체 읽음",
-                modifier = Modifier.clickable { onReadAll() },
-                style = Typography.bodySmall,
-                color = primary // 💡 액션 텍스트에 primary 적용
             )
         }
     }
