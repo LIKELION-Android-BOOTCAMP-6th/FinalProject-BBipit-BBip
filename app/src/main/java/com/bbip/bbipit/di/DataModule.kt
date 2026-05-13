@@ -5,8 +5,10 @@ import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSourceImpl
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSource
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.data.repository.AuthRepositoryImpl
+import com.bbip.bbipit.data.repository.NotiRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
 import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.repository.NotiRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import dagger.Binds
 import dagger.Module
@@ -33,6 +35,10 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotiRepository(impl: NotiRepositoryImpl): NotiRepository
 
     /**
      데이터소스
