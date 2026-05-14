@@ -1,9 +1,10 @@
+// data/mapper/NotiMapper.kt
 package com.bbip.bbipit.data.mapper
 
 import com.bbip.bbipit.data.source.model.NotiDto
-import com.bbip.bbipit.domain.entity.NotiItem
+import com.bbip.bbipit.domain.entity.Notifications
 
-fun NotiDto.toEntity(id: String): NotiItem {
+fun NotiDto.toEntity(id: String): Notifications {
     val createdAtMillis = created_at?.toDate()?.time ?: 0L
     val isExpired = if (type == "WALKIE") {
         System.currentTimeMillis() - createdAtMillis > 3 * 60 * 60 * 1000L
@@ -11,14 +12,16 @@ fun NotiDto.toEntity(id: String): NotiItem {
         false
     }
 
-    return NotiItem(
-        id = id,
+    return Notifications(
+        notiId = id,
         type = type,
         senderId = sender_id,
         senderName = sender_name,
         content = content,
-        audioUrl = audio_url,
+        audioUrl = voice_url,
+        roomId = room_id,
         isRead = is_read,
-        createdAt = created_at
+        createdAt = created_at,
+        expiresAt = expires_at,
     )
 }

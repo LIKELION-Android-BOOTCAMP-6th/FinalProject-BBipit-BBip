@@ -1,7 +1,7 @@
 package com.bbip.bbipit.domain.repository
 
-import com.bbip.bbipit.domain.entity.NotiItem
+import com.bbip.bbipit.domain.entity.Notifications
 
 interface NotiRepository {
-    suspend fun getNotiList(userId: String): Result<List<NotiItem>>
+    suspend fun getNotiList(userId: String): Result<List<Notifications>>
 }
