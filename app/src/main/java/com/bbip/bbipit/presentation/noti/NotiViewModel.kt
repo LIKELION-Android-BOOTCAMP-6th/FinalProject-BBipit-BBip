@@ -4,12 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.domain.entity.NotiItem
 import com.bbip.bbipit.domain.usecase.GetNotiListUseCase
-import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.Date
 import javax.inject.Inject
 
 @HiltViewModel
@@ -36,7 +34,7 @@ class NotiViewModel @Inject constructor(
                     type = "WALKIE",
                     senderName = "Alex Rivera",
                     content = "",
-                    createdAt = Timestamp(Date(now - 120000)),
+                    createdAt = now - (5 * 60 * 60 * 1000L)
                 ),
                 NotiItem(
                     id = "2",
@@ -44,19 +42,19 @@ class NotiViewModel @Inject constructor(
                     senderName = "박미나",
                     content = "오늘 저녁 어때?",
                     roomId = "room_123",
-                    createdAt = Timestamp(Date(now - 600000))
+                    createdAt = now - (5 * 60 * 60 * 1000L)
                 ),
                 NotiItem(
                     id = "3",
                     type = "REQ",
                     senderName = "Jordan",
-                    createdAt = Timestamp(Date(now - 1800000))
+                    createdAt = now - (5 * 60 * 60 * 1000L)
                 ),
             NotiItem(
                 id = "noti_2",
                 type = "WALKIE",
                 senderName = "김민성",
-                createdAt = Timestamp(Date(now - (5 * 60 * 60 * 1000L)))
+                createdAt = now - (5 * 60 * 60 * 1000L)
             ))
         }
     }
@@ -67,6 +65,7 @@ class NotiViewModel @Inject constructor(
             _notifications.value = currentList.toList()
         }
     }
+
 
     fun onAcceptFriendClick(notiId: String) = markAsReadAndDelete(notiId)
     fun onRejectFriendClick(notiId: String) = markAsReadAndDelete(notiId)

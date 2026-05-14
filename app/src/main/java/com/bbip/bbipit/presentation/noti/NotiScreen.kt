@@ -1,6 +1,5 @@
 package com.bbip.bbipit.presentation.noti
 
-import android.R.attr.maxLines
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -311,6 +310,28 @@ fun NotiFilterBar(
                     }
                 }
             }
+        }
+    }
+}
+
+fun formatTimestamp(timestamp: Long?): String {
+    // 1. null 체크 및 기본값 처리
+    val timeMillis = timestamp ?: return ""
+
+    val now = System.currentTimeMillis()
+    val diff = now - timeMillis
+
+    // 2. 미래 시간인 경우 처리 (선택 사항)
+    if (diff < 0) return "방금 전"
+
+    return when {
+        diff < 60_000 -> "방금 전" // 1분 미만
+        diff < 3_600_000 -> "${diff / 60_000}분 전" // 1시간 미만
+        diff < 86_400_000 -> "${diff / 3_600_000}시간 전" // 24시간 미만
+        else -> {
+            // 3. SimpleDateFormat 재사용 고려 (성능)
+            val sdf = SimpleDateFormat("MM.dd", Locale.KOREA)
+            sdf.format(Date(timeMillis))
         }
     }
 }

@@ -9,4 +9,9 @@ interface AuthRepository {
     suspend fun signInWithGoogleIdToken(idToken: String)
     suspend fun signUpWithEmail(email: String, password: String)
     suspend fun signInWithEmail(email: String, password: String)
+
+    /**
+     * 현재 로그인된 사용자 UID 가져오기
+     */
+    fun getCurrentUserUid(): String?
 }
