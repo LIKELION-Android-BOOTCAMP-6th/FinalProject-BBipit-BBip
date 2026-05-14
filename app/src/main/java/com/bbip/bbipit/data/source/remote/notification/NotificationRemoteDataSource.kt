@@ -1,6 +1,6 @@
-package com.bbip.bbipit.data.source.remote.notification
+package com.bbip.bbipit.data.source.remote.noti
 
-import com.bbip.bbipit.data.source.model.NotificationDto
+import com.bbip.bbipit.data.source.model.NotiDto
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await

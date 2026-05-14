@@ -1,13 +1,9 @@
 package com.bbip.bbipit.data.source.model
+
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.PropertyName
 
-/**
- DB와 통신 시 사용 (예시용 확정 X)
- */
 data class UserDto(
-    @get:PropertyName("uid") @set:PropertyName("uid")
-    var uid: String = "",
-
     @get:PropertyName("nickname") @set:PropertyName("nickname")
     var nickname: String = "",
 
@@ -18,17 +14,17 @@ data class UserDto(
     var status: String = "",
 
     @get:PropertyName("is_sharing") @set:PropertyName("is_sharing")
-    var isSharing: Boolean = true,
+    var isSharing: Boolean = false,
 
     @get:PropertyName("is_online") @set:PropertyName("is_online")
-    var isOnline: Boolean = true,
+    var isOnline: Boolean = false,
 
     @get:PropertyName("fcm_token") @set:PropertyName("fcm_token")
     var fcmToken: String = "",
 
     @get:PropertyName("last_active") @set:PropertyName("last_active")
-    var lastActive: Long = 0L,
+    var lastActive: Timestamp? = null,
 
-
-
+    @get:PropertyName("friendUids") @set:PropertyName("friendUids")
+    var friendUids: List<String> = emptyList()
 )

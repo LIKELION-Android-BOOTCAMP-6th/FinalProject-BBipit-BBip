@@ -23,10 +23,11 @@ object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseFunctions(): FirebaseFunctions = FirebaseFunctions.Companion.getInstance()
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
 
     @Provides
     @Singleton
-    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+    fun provideFirebaseFunctions(): FirebaseFunctions =
+        FirebaseFunctions.getInstance("asia-northeast3") // 전역 지역 설정
 
 }

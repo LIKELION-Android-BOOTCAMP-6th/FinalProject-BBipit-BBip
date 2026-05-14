@@ -5,8 +5,9 @@ data class User(
     val nickname: String = "",
     val profileImageUrl: String = "",
     val status: String = "",
-    val isSharing: Boolean = true, //위치 공유 여부
-    val isOnline: Boolean = true, //온라인 여부
+    val isSharing: Boolean = false,
+    val isOnline: Boolean = false,
     val fcmToken: String = "",
     val lastActive: Long = 0L,
+    val friendUids: List<String> = emptyList()
 )
