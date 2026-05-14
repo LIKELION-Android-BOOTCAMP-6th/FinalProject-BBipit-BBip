@@ -11,7 +11,7 @@ import com.bbip.bbipit.presentation.chat.ui.ChatDetailScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatListScreen
 import com.bbip.bbipit.presentation.map.ui.MapScreen
 import com.bbip.bbipit.presentation.noti.NotiScreen
-import com.bbip.bbipit.presentation.user.ui.MyPageScreen
+import com.bbip.bbipit.presentation.mypage.MyPageScreen
 
 @Composable
 fun BBipItNavigation(
