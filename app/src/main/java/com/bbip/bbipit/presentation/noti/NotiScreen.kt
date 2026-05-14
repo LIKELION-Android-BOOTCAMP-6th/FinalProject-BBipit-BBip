@@ -1,8 +1,6 @@
 package com.bbip.bbipit.presentation.noti
 
-import android.R.attr.maxLines
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.Notifications
 import com.bbip.bbipit.presentation.base.BackgroundBox
@@ -40,6 +39,7 @@ fun NotiScreen(
     navController: NavController, viewModel: NotiViewModel = hiltViewModel()
 ) {
     val notifications by viewModel.notifications.collectAsState()
+    val readAllClicked by viewModel.readAllClicked.collectAsState()
     var selectedFilter by remember { mutableStateOf("전체") }
 
     val filteredList by remember(notifications, selectedFilter) {
@@ -49,94 +49,107 @@ fun NotiScreen(
         }
     }
 
-    Box(
+    Scaffold(
+        containerColor = Color.Transparent,
         modifier = Modifier.fillMaxSize()
-    ) {
-        Scaffold(
-            containerColor = Color.Transparent, modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
-            BackgroundBox(
-                modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        BackgroundBox {
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                NotiHeader(
+                    onReadAll = { viewModel.onReadAllClick() })
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                NotiFilterBar(
+                    selected = selectedFilter, onSelect = { selectedFilter = it })
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    NotiHeader(
-                        onReadAll = { viewModel.onReadAllClick() })
+                    items(items = filteredList, key = { it.notiId }) { item ->
 
-                    Spacer(
-                        modifier = Modifier.height(16.dp)
-                    )
+                        // 스와이프 삭제
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = {
+                                if (it == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.markAsReadAndDelete(item.notiId)
+                                    true
+                                } else false
+                            }
+                        )
 
-                    NotiFilterBar(
-                        selected = selectedFilter, onSelect = { selectedFilter = it })
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                val progress = dismissState.progress
+                                val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
 
-                    Spacer(
-                        modifier = Modifier.height(20.dp)
-                    )
+                                // 스와이프 중일 때만 배경
+                                if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
 
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(bottom = 24.dp)
-                    ) {
-                        items(
-                            items = filteredList, key = { it.notiId }) { item ->
+                                val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
+                                val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
 
-                            // 스와이프 삭제
-                            val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = {
-                                    if (it == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.markAsReadAndDelete(item.notiId)
-                                        true
-                                    } else false
-                                }
-                            )
-
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {
-                                    val progress = dismissState.progress
-                                    val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
-
-                                    if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
-                                    val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
-                                    val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
-
-
-                                    Box(
-                                        Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Color.Red.copy(alpha = bgAlpha),
-                                                RoundedCornerShape(20.dp)
-                                            )
-                                            .padding(horizontal = 20.dp),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(alpha = iconAlpha)
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Color.Red.copy(alpha = bgAlpha),
+                                            RoundedCornerShape(20.dp)
                                         )
+                                        .padding(horizontal = 20.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = iconAlpha)
+                                    )
+                                }
+                            },
+                            enableDismissFromStartToEnd = false
+                        ) {
+                            NotiCard(
+                                item = item,
+                                readAllClicked = readAllClicked,
+                                onClick = {
+                                    viewModel.markAsRead(item.notiId)
+                                    // DM창으로 이동
+                                    if (item.type == "DM") {
+                                        navController.navigate(Routes.ChatRoom(roomId = item.roomId))
+                                    } else if (item.type == "WALKIE" && !item.isExpired) {
+                                        Toast.makeText(
+                                            navController.context,
+                                            "무전을 확인합니다.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                 },
-                                enableDismissFromStartToEnd = false
-                            ) {
-                                NotiCard(item = item, onClick = {
-                                    // DM 클릭 시 이동 및 읽음 처리
-                                    /*
-                                      if (item.type == "DM") navController.navigate("dm_page")
-                                    */
-                                    viewModel.markAsRead(item.notiId) // 삭제하지 않고 읽음 처리만 수행
-                                }, onAcceptFriend = {
+                                onAcceptFriend = {
                                     viewModel.onAcceptFriendClick(item.notiId)
-                                }, onRejectFriend = {
+                                    Toast.makeText(
+                                        navController.context,
+                                        "친구 요청이 수락되었습니다.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                },
+                                onRejectFriend = {
                                     viewModel.onRejectFriendClick(item.notiId)
-                                })
-                            }
+                                    Toast.makeText(
+                                        navController.context,
+                                        "친구 요청이 거절되었습니다.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
                         }
                     }
                 }
@@ -148,10 +161,16 @@ fun NotiScreen(
 // 개별 알림 내용 // 수락/거절 액션 버튼 등
 @Composable
 fun NotiCard(
-    item: Notifications, onClick: () -> Unit, onAcceptFriend: () -> Unit, onRejectFriend: () -> Unit
+    item: Notifications,
+    onClick: () -> Unit,
+    onAcceptFriend: () -> Unit,
+    onRejectFriend: () -> Unit,
+    readAllClicked: Boolean = false
 ) {
-    // 무전만 투명도 적용
-    val isDimmed = (item.isRead || item.isExpired) && item.type == "WALKIE"
+    // 무전은 들었거나(isRead) 3시간 지나면(isExpired) 만료 처리
+    val isWalkieExpired = item.type == "WALKIE" && (item.isRead || item.isExpired)
+    // 만료된 무전만 흐리게
+    val isDimmed = isWalkieExpired
     // 처리 전 친구 요청 클릭 방지
     val isClickable = !(item.type == "REQ" && !item.isRead)
 
@@ -175,7 +194,8 @@ fun NotiCard(
                 contentAlignment = Alignment.CenterStart
             ) {
                 // 읽지 않았고, 만료되지 않은 무전일 때만 보라색 점 표시
-                val showDot = !item.isRead && !(item.type == "WALKIE" && item.isExpired)
+                // 전체 확인 클릭 시에도 점 숨김 (isRead는 유지)
+                val showDot = !item.isRead && !isWalkieExpired && !readAllClicked
                 if (showDot) {
                     Box(
                         modifier = Modifier
@@ -222,7 +242,7 @@ fun NotiCard(
                     // 2줄 이상일 경우
                     style = Typography.bodySmall.copy(
                         fontSize = if (isMultiLine && item.type != "DM") 13.sp else 15.sp,
-                        lineHeight = if(isMultiLine && item.type != "DM") 15.sp else 21.sp
+                        lineHeight = if (isMultiLine && item.type != "DM") 15.sp else 21.sp
                     ),
                     color = if (isDimmed) bottomBarBack else fontDefault,
                     // DM은 1줄 유지
@@ -234,8 +254,8 @@ fun NotiCard(
                         }
                     }
                 )
-                // 유효시간 표시
-                if (item.type == "WALKIE" || item.type == "REQ") {
+                // WALKIE일 때만 유효시간 표시
+                if (item.type == "WALKIE") {
                     Text(
                         text = formatExpiryTime(item.expiresAt, item.createdAt),
                         style = Typography.labelSmall,
@@ -286,8 +306,8 @@ fun NotiCard(
                             color = if (badgeText == "거절됨") bottomBarBack.copy(0.5f) else primary.copy(0.8f)
                         )
                     }
-                    // 무전 만료 시 배지 표시
-                    (item.isRead || item.isExpired) && item.type != "DM" -> {
+                    // 만료된 무전 배지
+                    isWalkieExpired -> {
                         StatusBadge(text = "만료됨", color = bottomBarBack.copy(0.3f))
                     }
                 }
@@ -295,7 +315,6 @@ fun NotiCard(
         }
     }
 }
-
 
 // 상태 배지 컴포넌트
 @Composable
@@ -380,9 +399,7 @@ fun NotiFilterBar(
                             modifier = Modifier.size(16.dp),
                             tint = if (isSelected) background else primary.copy(0.8f)
                         )
-                        Spacer(
-                            modifier = Modifier.width(6.dp)
-                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = item.name,
                             color = if (isSelected) background else fontDefault.copy(0.7f),

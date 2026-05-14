@@ -1,9 +1,11 @@
+// data/repository/NotiRepositoryImpl.kt
 package com.bbip.bbipit.data.repository
 
 import com.bbip.bbipit.data.mapper.toEntity
 import com.bbip.bbipit.data.source.remote.noti.NotiRemoteDataSource
 import com.bbip.bbipit.domain.entity.Notifications
 import com.bbip.bbipit.domain.repository.NotiRepository
+import com.google.firebase.firestore.ListenerRegistration
 import javax.inject.Inject
 
 class NotiRepositoryImpl @Inject constructor(
@@ -19,3 +21,13 @@ class NotiRepositoryImpl @Inject constructor(
         }
     }
 }
+
+    /* override fun observeNewNoti(
+        userId: String,
+        onNew: (Notifications) -> Unit
+    ): ListenerRegistration {
+        return dataSource.observeNewNotification(userId) { id, dto ->
+            onNew(dto.toEntity(id))
+        }
+    }
+}*/
