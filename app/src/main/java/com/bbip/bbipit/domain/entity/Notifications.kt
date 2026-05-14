@@ -2,8 +2,8 @@ package com.bbip.bbipit.domain.entity
 
 import com.google.firebase.Timestamp
 
-data class NotiItem(
-    val id: String = "",
+data class Notifications(
+    val notiId: String = "",
     val type: String = "",
     val senderId: String = "",
     val senderName: String = "",

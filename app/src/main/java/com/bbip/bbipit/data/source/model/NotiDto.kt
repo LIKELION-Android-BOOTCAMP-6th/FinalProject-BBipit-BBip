@@ -7,7 +7,8 @@ data class NotiDto(
     val sender_id: String = "",
     val sender_name: String = "",
     val content: String = "",
-    val audio_url: String = "",
+    val voice_url: String = "",
     val is_read: Boolean = false,
-    val created_at: Timestamp? = null
+    val created_at: Timestamp? = null,
+    val expires_at: Timestamp? = null
 )

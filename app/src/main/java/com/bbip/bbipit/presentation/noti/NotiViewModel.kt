@@ -2,7 +2,7 @@ package com.bbip.bbipit.presentation.noti
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bbip.bbipit.domain.entity.NotiItem
+import com.bbip.bbipit.domain.entity.Notifications
 import com.bbip.bbipit.domain.usecase.GetNotiListUseCase
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,10 +17,10 @@ class NotiViewModel @Inject constructor(
     private val getNotiListUseCase: GetNotiListUseCase
 ) : ViewModel() {
 
-    private val _notifications = MutableStateFlow<List<NotiItem>>(emptyList())
+    private val _notifications = MutableStateFlow<List<Notifications>>(emptyList())
     val notifications = _notifications.asStateFlow()
 
-    private val _topBannerNoti = MutableStateFlow<NotiItem?>(null)
+    private val _topBannerNoti = MutableStateFlow<Notifications?>(null)
     val topBannerNoti = _topBannerNoti.asStateFlow()
 
     init {
@@ -31,29 +31,29 @@ class NotiViewModel @Inject constructor(
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             _notifications.value = listOf(
-                NotiItem(
-                    id = "1",
+                Notifications(
+                    notiId = "1",
                     type = "WALKIE",
                     senderName = "Alex Rivera",
                     content = "",
                     createdAt = Timestamp(Date(now - 120000)),
                 ),
-                NotiItem(
-                    id = "2",
+                Notifications(
+                    notiId = "2",
                     type = "DM",
                     senderName = "박미나",
                     content = "오늘 저녁 어때?",
                     roomId = "room_123",
                     createdAt = Timestamp(Date(now - 600000))
                 ),
-                NotiItem(
-                    id = "3",
+                Notifications(
+                    notiId = "3",
                     type = "REQ",
                     senderName = "Jordan",
                     createdAt = Timestamp(Date(now - 1800000))
                 ),
-            NotiItem(
-                id = "noti_2",
+            Notifications(
+                notiId = "noti_2",
                 type = "WALKIE",
                 senderName = "김민성",
                 createdAt = Timestamp(Date(now - (5 * 60 * 60 * 1000L)))
@@ -61,15 +61,37 @@ class NotiViewModel @Inject constructor(
         }
     }
 
+    // 리스트에서 완전히 삭제 (스와이프 시)
     fun markAsReadAndDelete(notiId: String) {
-        val currentList = _notifications.value.toMutableList()
-        if (currentList.removeAll { it.id == notiId }) {
-            _notifications.value = currentList.toList()
+        _notifications.value = _notifications.value.filter { it.notiId != notiId }
+    }
+
+    // 단순 읽음 처리 (DM 클릭 시 등)
+    fun markAsRead(notiId: String) {
+        _notifications.value = _notifications.value.map {
+            if (it.notiId == notiId) it.copy(isRead = true) else it
         }
     }
 
-    fun onAcceptFriendClick(notiId: String) = markAsReadAndDelete(notiId)
-    fun onRejectFriendClick(notiId: String) = markAsReadAndDelete(notiId)
-    fun onReadAllClick() { _notifications.value = emptyList() }
+    // 친구 수락 클릭 (읽음 처리 + 내용 변경)
+    fun onAcceptFriendClick(notiId: String) {
+        _notifications.value = _notifications.value.map {
+            if (it.notiId == notiId) it.copy(isRead = true, content = "수락됨") else it
+        }
+    }
+
+    // 친구 거절 클릭 (읽음 처리 + 내용 변경)
+    fun onRejectFriendClick(notiId: String) {
+        _notifications.value = _notifications.value.map {
+            if (it.notiId == notiId) it.copy(isRead = true, content = "거절됨") else it
+        }
+    }
+    // 전체 확인 시 읽음 상태로만 변경 (보라색 동그라미 제거)
+    fun onReadAllClick() {
+        _notifications.value = _notifications.value.map {
+            it.copy(isRead = true)
+        }
+    }
+
     fun dismissBanner() { _topBannerNoti.value = null }
 }
