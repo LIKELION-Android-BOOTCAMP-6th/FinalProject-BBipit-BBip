@@ -20,13 +20,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -91,31 +88,33 @@ fun ChatListScreen(
         if (uiState.isLoading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else {
-            // 2. UiState의 chatList 반영
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 100.dp, start = 16.dp, end = 16.dp, bottom = 100.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(uiState.chatList, key = { it.id }) { chatItem ->
-                    ChatItemCard(
-                        chatItem = chatItem,
-                        onClick = { viewModel.onChatItemClicked(chatItem.id) }
+            // 채팅 목록이 비어있는지 확인
+            if (uiState.chatList.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "진행 중인 채팅이 없습니다",
+                        style = Typography.bodyMedium,
+                        color = Color.Gray
                     )
                 }
+            } else {
+                // 기존 리스트 출력 로직
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 100.dp, start = 16.dp, end = 16.dp, bottom = 100.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.chatList, key = { it.id }) { chatItem ->
+                        ChatItemCard(
+                            chatItem = chatItem,
+                            onClick = { viewModel.onChatItemClicked(chatItem.id) }
+                        )
+                    }
+                }
             }
-        }
-
-        ChatListHeader(viewModel = viewModel)
-
-        FloatingActionButton(
-            onClick = { /* 새 채팅 작성 */ },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 120.dp),
-            containerColor = primary,
-            contentColor = Color.White,
-            shape = CircleShape
-        ) {
-            Icon(Icons.Default.Edit, contentDescription = "New Message")
         }
     }
 }
@@ -267,13 +266,13 @@ fun ChatItemCard(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = if (chatItem.hasImage) "(image) ${chatItem.lastMessage}" else chatItem.lastMessage,
+                    text = if (chatItem.hasImage) "(image) ${chatItem.lastMessage}" else chatItem.lastMessage, // 사진이라면 (image) 처리
                     style = Typography.bodySmall,
                     color = if (chatItem.isUnread) Color.Black else Color.Gray,
                     fontSize = 14.sp,
                     fontWeight = if (chatItem.isUnread) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 1, // 한 줄 요약
+                    overflow = TextOverflow.Ellipsis // 한 줄 이상 넘어가면 ... 처리
                 )
             }
 
