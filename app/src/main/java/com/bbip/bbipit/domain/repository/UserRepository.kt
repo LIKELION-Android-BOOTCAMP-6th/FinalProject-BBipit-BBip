@@ -1,6 +1,7 @@
 package com.bbip.bbipit.domain.repository
 
 import com.bbip.bbipit.domain.entity.User
+import com.bbip.bbipit.presentation.mypage.UserProfile
 
 /**
  유저 로그인 및 정보 관리
@@ -46,4 +47,16 @@ interface UserRepository {
      * 친구 요청 거절/취소
      */
     suspend fun declineFriendRequest(targetUid: String): Boolean
+
+
+    /**
+     * 특정 유저의 상세 정보 조회
+     */
+    suspend fun getUserProfile(targetUid: String): Result<User>
+
+    /**
+     * 특정 유저의 상세 정보 및 나와의 관계 상태 조회 (Cloud Functions 호출)
+     * @return User 엔티티와 friendship_status(none, requested, pending, accepted)의 Pair
+     */
+    suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>>
 }

@@ -22,7 +22,7 @@ class FeatureTestViewModel @Inject constructor(
     private val TAG = "FeatureTest"
 
     /**
-     * 1. 로그인 테스트
+     * 로그인 테스트
      */
     fun testLogin(email: String, pass: String) {
         viewModelScope.launch {
@@ -37,7 +37,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 1. 회원가입 테스트
+     * 회원가입 테스트
      */
     fun testSignUp(email: String, pass: String) {
         viewModelScope.launch {
@@ -52,7 +52,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 2. 인증 확인 테스트 (UID 조회)
+     * 인증 확인 테스트 (UID 조회)
      */
     fun testAuth() {
         val uid = authRepository.getCurrentUserUid()
@@ -60,7 +60,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 3. Heartbeat 테스트
+     * Heartbeat 테스트
      */
     fun testHeartbeat(roomId: String? = null) {
         viewModelScope.launch {
@@ -74,7 +74,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 4. 친구 요청 테스트
+     * 친구 요청 테스트
      */
     fun testFriendRequest(targetUid: String) {
         viewModelScope.launch {
@@ -88,7 +88,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 4-1. 친구 삭제 테스트
+     * 친구 삭제 테스트
      */
     fun testDeleteFriend(targetUid: String) {
         viewModelScope.launch {
@@ -102,7 +102,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 4-2. 수락된 친구 목록 조회 테스트
+     * 수락된 친구 목록 조회 테스트
      */
     fun testGetFriends() {
         viewModelScope.launch {
@@ -119,7 +119,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 5. 채팅방 생성 테스트
+     * 채팅방 생성 테스트
      */
     fun testCreateRoom(targetUid: String) {
         viewModelScope.launch {
@@ -133,7 +133,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 6. 메시지 전송 테스트
+     * 메시지 전송 테스트
      */
     fun testSendMessage(roomId: String, targetUid: String, content: String) {
         viewModelScope.launch {
@@ -147,7 +147,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 7. 메시지 수신 테스트 (실시간 구독)
+     * 메시지 수신 테스트 (실시간 구독)
      */
     fun testObserveMessages(roomId: String) {
         viewModelScope.launch {
@@ -166,7 +166,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 7-1. 채팅방 목록 조회 테스트
+     * 채팅방 목록 조회 테스트
      */
     fun testGetChatRooms() {
         viewModelScope.launch {
@@ -183,7 +183,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 7-2. 메시지 읽음 처리 테스트
+     * 메시지 읽음 처리 테스트
      */
     fun testMarkMessagesRead(roomId: String) {
         viewModelScope.launch {
@@ -197,7 +197,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 7-3. 전체 메시지 내역 조회 테스트
+     * 전체 메시지 내역 조회 테스트
      */
     fun testFetchAllMessages(roomId: String) {
         viewModelScope.launch {
@@ -214,7 +214,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 8. 음성 업로드 및 전송 테스트
+     * 음성 업로드 및 전송 테스트
      */
     fun testSendVoice(targetUid: String, fileUri: Uri) {
         viewModelScope.launch {
@@ -228,7 +228,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 8-1. 이미 업로드된 음성 URL 전송 테스트
+     * 이미 업로드된 음성 URL 전송 테스트
      */
     fun testSendVoiceUrl(targetUid: String, voiceUrl: String) {
         viewModelScope.launch {
@@ -238,7 +238,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 9. 음성 수신 테스트 (실시간 구독)
+     * 음성 수신 테스트 (실시간 구독)
      */
     fun testObserveVoice() {
         viewModelScope.launch {
@@ -255,7 +255,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 10. 알림 읽음 처리 테스트
+     * 알림 읽음 처리 테스트
      */
     fun testMarkNotiRead(type: String, notiId: String? = null) {
         viewModelScope.launch {
@@ -266,7 +266,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 11. 알림 삭제 테스트
+     * 알림 삭제 테스트
      */
     fun testDeleteNoti(type: String, notiId: String? = null) {
         viewModelScope.launch {
@@ -277,7 +277,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 12. 온라인/오프라인 상태 업데이트 테스트
+     * 온라인/오프라인 상태 업데이트 테스트
      */
     fun testUpdateOnlineStatus(isOnline: Boolean) {
         viewModelScope.launch {
@@ -287,7 +287,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 13. 친구 요청 수락 테스트
+     * 친구 요청 수락 테스트
      */
     fun testAcceptFriend(targetUid: String) {
         viewModelScope.launch {
@@ -297,7 +297,7 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 14. 친구 요청 거절 테스트
+     * 친구 요청 거절 테스트
      */
     fun testDeclineFriend(targetUid: String) {
         viewModelScope.launch {
@@ -307,16 +307,47 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
-     * 15. 프로필 업데이트 테스트
+     * 프로필 업데이트 테스트
      */
     fun testUpdateProfile(nickname: String, status: String, profileImageUrl: String) {
         viewModelScope.launch {
             try {
                 userRepository.updateProfile(nickname, status, profileImageUrl)
-                Log.d(TAG, "프로필 업데이트 시도 완료: $nickname, $status")
+                Log.d(TAG, "✅ 프로필 업데이트 시도 완료: $nickname, $status")
             } catch (e: Exception) {
-                Log.e(TAG, "프로필 업데이트 테스트 실패: ${e.message}")
+                Log.e(TAG, "❌ 프로필 업데이트 테스트 실패: ${e.message}")
             }
+        }
+    }
+
+    /**
+     * 특정 유저 상세(User) 데이터 조회 테스트
+     */
+    fun testGetUserProfile(targetUid: String) {
+        viewModelScope.launch {
+            userRepository.getUserProfile(targetUid)
+                .onSuccess { user ->
+                    Log.d("FeatureTest", "✅ 유저 프로필 조회 성공: $user")
+                }
+                .onFailure { e ->
+                    Log.e("FeatureTest", "❌ 유저 프로필 조회 실패: ${e.message}")
+                }
+        }
+    }
+
+    /**
+     * 친구 유저 데이터 조회 테스트
+     */
+    fun fetchFriendProfile(targetUid: String) {
+        viewModelScope.launch {
+            Log.d(TAG, "친구 프로필 조회 테스트 시작: $targetUid")
+            userRepository.getFriendProfileWithStatus(targetUid)
+                .onSuccess { (user, status) ->
+                    Log.d(TAG, "✅ 친구 프로필 조회 성공: $user, 관계 상태: $status")
+                }
+                .onFailure { e ->
+                    Log.e(TAG, "❌ 친구 프로필 조회 실패: ${e.message}")
+                }
         }
     }
 }
