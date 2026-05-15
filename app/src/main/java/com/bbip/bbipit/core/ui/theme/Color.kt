@@ -1,9 +1,11 @@
 package com.bbip.bbipit.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
-val primary = Color(0xFF7800CE)
+val primary = Color(0xFF956AFC)
 val fontDefault = Color(0xFF1C1B1B)
-val background = Color(0xFFFCFBFB)
+val background = Color(0xFFF8FAFC)
+//서브 백그라운드, 카드 백 다이얼로그 백 등
+val subBackground = Color(0xFFE9EAF7)
 val backLeft = Color(0xFFE5D1FE)
 val backRight = Color(0xFFDBF2FF)
 val bottomBarBack = Color(0xC89697A5)
