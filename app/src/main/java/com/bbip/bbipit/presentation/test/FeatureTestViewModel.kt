@@ -16,7 +16,7 @@ class FeatureTestViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val chatRepository: ChatRepository,
     private val voiceRepository: VoiceRepository,
-    private val notiRepository: NotiRepository
+    private val notiRepository: NotificationRepository
 ) : ViewModel() {
 
     private val TAG = "FeatureTest"
