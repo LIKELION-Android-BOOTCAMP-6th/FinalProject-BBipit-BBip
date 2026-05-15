@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -74,69 +75,72 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(30.dp)
-        .background(background)
-        .clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-        ){
-            focusManager.clearFocus()
-        },
-        verticalArrangement = Arrangement.spacedBy(17.dp, alignment = Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(modifier = Modifier.fillMaxSize().background(background)) {
+        Column(modifier = Modifier.fillMaxSize().padding(30.dp)
+            .background(background)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ){
+                focusManager.clearFocus()
+            },
+            verticalArrangement = Arrangement.spacedBy(17.dp, alignment = Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally) {
 
-        Image(painter = painterResource(R.drawable.logo),
-            contentDescription = "로고",
-            modifier = Modifier.size(120.dp).padding(top = 20.dp)
-        )
-        Text("삐빗- 심장이 반응하는 거리", style = Typography.bodySmall)
-        Spacer(modifier = Modifier.height(17.dp))
-        Text("이메일", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
-        InputField(value = email,
-            onValueChange = {email = it},
-            placeholder = "이메일을 입력해주세요")
-        Text("비밀번호", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
-        InputField(value = password,
-            onValueChange = {password = it},
-            placeholder = "비밀번호를 입력해주세요",
-            isPassword = true)
-
-        Button({viewModel.signIn()},
-            colors = ButtonDefaults.buttonColors(primary),
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("로그인", style = Typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
-        }
-
-        Row(modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically) {
-            HorizontalDivider(thickness = 0.7.dp, color = Color.LightGray, modifier = Modifier.padding(end = 7.dp).weight(1f))
-            Text("또는", style = Typography.bodySmall)
-            HorizontalDivider(thickness = 0.7.dp, color = Color.LightGray, modifier = Modifier.padding(start = 7.dp).weight(1f))
-        }
-        Row(modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly) {
-            Image(painter = painterResource(R.drawable.ic_signin_google),
-                contentDescription = "구글 소셜 로그인",
-                modifier = Modifier.size(50.dp)
+            Image(painter = painterResource(R.drawable.logo),
+                contentDescription = "로고",
+                modifier = Modifier.size(120.dp).padding(top = 20.dp)
             )
-            Image(painter = painterResource(R.drawable.ic_signin_kakao),
-                contentDescription = "카카오 소셜 로그인",
-                modifier = Modifier.size(50.dp)
-            )
-        }
+            Text("삐빗- 심장이 반응하는 거리", style = Typography.bodySmall)
+            Spacer(modifier = Modifier.height(17.dp))
+            Text("이메일", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
+            InputField(value = email,
+                onValueChange = {email = it},
+                placeholder = "이메일을 입력해주세요")
+            Text("비밀번호", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
+            InputField(value = password,
+                onValueChange = {password = it},
+                placeholder = "비밀번호를 입력해주세요",
+                isPassword = true)
 
-        Row() {
-            Text("계정이 없으신가요? ", style = Typography.bodySmall)
-            Text("회원가입",
-                style = Typography.bodySmall,
-                color = primary,
-                fontWeight = FontWeight.Bold,
-                textDecoration = TextDecoration.Underline,
-                modifier = Modifier.clickable(){viewModel.signUp()})
+            Button({viewModel.signIn()},
+                colors = ButtonDefaults.buttonColors(primary),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("로그인", style = Typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically) {
+                HorizontalDivider(thickness = 0.7.dp, color = Color.LightGray, modifier = Modifier.padding(end = 7.dp).weight(1f))
+                Text("또는", style = Typography.bodySmall)
+                HorizontalDivider(thickness = 0.7.dp, color = Color.LightGray, modifier = Modifier.padding(start = 7.dp).weight(1f))
+            }
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly) {
+                Image(painter = painterResource(R.drawable.ic_signin_google),
+                    contentDescription = "구글 소셜 로그인",
+                    modifier = Modifier.size(50.dp)
+                )
+                Image(painter = painterResource(R.drawable.ic_signin_kakao),
+                    contentDescription = "카카오 소셜 로그인",
+                    modifier = Modifier.size(50.dp)
+                )
+            }
+
+            Row() {
+                Text("계정이 없으신가요? ", style = Typography.bodySmall)
+                Text("회원가입",
+                    style = Typography.bodySmall,
+                    color = primary,
+                    fontWeight = FontWeight.Bold,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable(){viewModel.signUp()})
+            }
         }
     }
+
 
 
 
