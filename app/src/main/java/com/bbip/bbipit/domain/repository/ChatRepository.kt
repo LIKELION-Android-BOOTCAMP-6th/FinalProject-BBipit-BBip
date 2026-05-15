@@ -1,7 +1,7 @@
 package com.bbip.bbipit.domain.repository
 
 import com.bbip.bbipit.domain.entity.ChatRoom
-import com.bbip.bbipit.domain.entity.ChatRoomResponse
+import com.bbip.bbipit.domain.entity.ChatRoomResult
 import com.bbip.bbipit.domain.entity.Message
 import kotlinx.coroutines.flow.Flow
 
@@ -9,7 +9,7 @@ interface ChatRepository {
     /**
      * 상대방과의 1:1 채팅방 개설을 요청합니다.
      */
-    suspend fun createChatRoom(targetUid: String): ChatRoomResponse
+    suspend fun createChatRoom(targetUid: String): ChatRoomResult
 
     /**
      * 서버의 sendMessage Callable 함수를 호출합니다.

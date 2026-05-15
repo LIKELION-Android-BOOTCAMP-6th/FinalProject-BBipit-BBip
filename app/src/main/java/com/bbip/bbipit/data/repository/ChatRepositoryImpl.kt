@@ -5,7 +5,7 @@ import com.bbip.bbipit.data.mapper.toEntity
 import com.bbip.bbipit.data.source.model.ChatRoomDto
 import com.bbip.bbipit.data.source.model.MessageDto
 import com.bbip.bbipit.domain.entity.ChatRoom
-import com.bbip.bbipit.domain.entity.ChatRoomResponse
+import com.bbip.bbipit.domain.entity.ChatRoomResult
 import com.bbip.bbipit.domain.entity.Message
 import com.bbip.bbipit.domain.repository.ChatRepository
 import com.google.firebase.firestore.DocumentChange
@@ -26,7 +26,7 @@ class ChatRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : ChatRepository {
 
-    override suspend fun createChatRoom(targetUid: String): ChatRoomResponse {
+    override suspend fun createChatRoom(targetUid: String): ChatRoomResult {
         val data = hashMapOf("targetUid" to targetUid)
         return try {
             val result = firebaseFunctions
@@ -35,14 +35,14 @@ class ChatRepositoryImpl @Inject constructor(
                 .await()
 
             val res = result.data as? Map<*, *>
-            ChatRoomResponse(
+            ChatRoomResult(
                 success = res?.get("success") as? Boolean ?: false,
                 roomId = res?.get("roomId") as? String,
                 message = res?.get("message") as? String ?: ""
             )
         } catch (e: Exception) {
             Log.e("ChatRepository", "채팅방 개설 실패: ${e.message}")
-            ChatRoomResponse(false, null, e.message ?: "Unknown Error")
+            ChatRoomResult(false, null, e.message ?: "Unknown Error")
         }
     }
 
