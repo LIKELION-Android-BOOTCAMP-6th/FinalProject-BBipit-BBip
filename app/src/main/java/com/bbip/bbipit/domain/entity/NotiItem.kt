@@ -1,5 +1,6 @@
 package com.bbip.bbipit.domain.entity
 
+// ~~
 data class NotiItem(
     val id: String = "",
     val type: String = "",
