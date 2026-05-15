@@ -48,38 +48,40 @@ fun NotificationScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        modifier = Modifier.fillMaxSize()
-    ) { innerPadding ->
-        BackgroundBox {
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        NotificationHeader(
+            onReadAll = { viewModel.onReadAllClick() }
+        )
+
+        BackgroundBox(
+            modifier = Modifier.fillMaxSize()
+        ) {
             Column(
                 modifier = Modifier
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
             ) {
-                NotificationHeader(
-                    onReadAll = { viewModel.onReadAllClick() })
-
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 NotificationFilterBar(
-                    selected = selectedFilter, onSelect = { selectedFilter = it })
+                    selected = selectedFilter,
+                    onSelect = { selectedFilter = it }
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    items(items = filteredList, key = { it.notification }) { item ->
+                    items(items = filteredList, key = { it.notificationId }) { item ->
 
                         // 스와이프 삭제
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = {
                                 if (it == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.markAsReadAndDelete(item.notification)
+                                    viewModel.markAsReadAndDelete(item.notificationId)
                                     true
                                 } else false
                             }
@@ -120,20 +122,26 @@ fun NotificationScreen(
                                 item = item,
                                 readAllClicked = readAllClicked,
                                 onClick = {
-                                    viewModel.markAsRead(item.notification)
                                     // DM창으로 이동
                                     if (item.type == "DM") {
+                                        viewModel.markAsRead(item.notificationId)
                                         navController.navigate(Routes.ChatRoom(roomId = item.roomId))
-                                    } else if (item.type == "WALKIE" && !item.isExpired) {
-                                        Toast.makeText(
-                                            navController.context,
-                                            "무전을 확인합니다.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    }
+                                    // 무전 ㅊ처리
+                                    else if (item.type == "WALKIE") {
+                                        // 아직 읽지 않았고(!isRead), 시간상으로도 만료되지 않았을(!isExpired) 때만 토스트 노출
+                                        if (!item.isRead && !item.isExpired) {
+                                            viewModel.markAsRead(item.notificationId)
+                                            Toast.makeText(
+                                                navController.context,
+                                                "무전을 확인합니다.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     }
                                 },
                                 onAcceptFriend = {
-                                    viewModel.onAcceptFriendClick(item.notification)
+                                    viewModel.onAcceptFriendClick(item.notificationId)
                                     Toast.makeText(
                                         navController.context,
                                         "친구 요청이 수락되었습니다.",
@@ -141,7 +149,7 @@ fun NotificationScreen(
                                     ).show()
                                 },
                                 onRejectFriend = {
-                                    viewModel.onRejectFriendClick(item.notification)
+                                    viewModel.onRejectFriendClick(item.notificationId)
                                     Toast.makeText(
                                         navController.context,
                                         "친구 요청이 거절되었습니다.",
@@ -336,22 +344,32 @@ fun StatusBadge(text: String, color: Color) {
 fun NotificationHeader(
     onReadAll: () -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        color = Color.White,
+        shadowElevation = 1.dp
     ) {
-        Text(
-            text = "알림",
-            style = Typography.bodyLarge
-        )
-        // 전체 확인 버튼
-        Text(
-            text = "전체 확인",
-            modifier = Modifier.clickable { onReadAll() },
-            style = Typography.bodySmall,
-            color = primary
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "알림",
+                style = Typography.bodyLarge
+            )
+
+            // 전체 확인 버튼
+            Text(
+                text = "전체 확인",
+                modifier = Modifier.clickable { onReadAll() },
+                style = Typography.bodySmall,
+                color = primary
+            )
+        }
     }
 }
 

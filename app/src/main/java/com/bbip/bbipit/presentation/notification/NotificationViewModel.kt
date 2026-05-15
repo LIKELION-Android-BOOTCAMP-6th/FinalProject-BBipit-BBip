@@ -48,13 +48,13 @@ class NotificationViewModel @Inject constructor(
             val now = System.currentTimeMillis()
             _notification.value = listOf(
                 Notification(
-                    notification = "1",
+                    notificationId = "1",
                     type = "WALKIE",
                     senderName = "Alex Rivera",
                     createdAt = now - 120000 // 2분 전
                 ),
                 Notification(
-                    notification = "2",
+                    notificationId = "2",
                     type = "DM",
                     senderName = "박미나",
                     content = "오늘 저녁 어때?",
@@ -62,13 +62,13 @@ class NotificationViewModel @Inject constructor(
                     createdAt = now - 600000 // 10분 전
                 ),
                 Notification(
-                    notification = "3",
+                    notificationId = "3",
                     type = "REQ",
                     senderName = "Jordan",
                     createdAt = now - 1800000 // 30분 전
                 ),
                 Notification(
-                    notification = "noti_2",
+                    notificationId = "noti_2",
                     type = "WALKIE",
                     senderName = "김민성",
                     createdAt = now - (5 * 60 * 60 * 1000L)
@@ -79,27 +79,27 @@ class NotificationViewModel @Inject constructor(
 
     // 리스트에서 완전히 삭제 (스와이프 시)
     fun markAsReadAndDelete(notiId: String) {
-        _notification.value = _notification.value.filter { it.notification != notiId }
+        _notification.value = _notification.value.filter { it.notificationId != notiId }
     }
 
     // 단순 읽음 처리 (DM 클릭 시 등)
     fun markAsRead(notiId: String) {
         _notification.value = _notification.value.map {
-            if (it.notification == notiId) it.copy(isRead = true) else it
+            if (it.notificationId == notiId) it.copy(isRead = true) else it
         }
     }
 
     // 친구 수락 클릭 (isRead = true + 배지용 content 변경)
     fun onAcceptFriendClick(notiId: String) {
         _notification.value = _notification.value.map {
-            if (it.notification == notiId) it.copy(isRead = true, content = "수락됨") else it
+            if (it.notificationId == notiId) it.copy(isRead = true, content = "수락됨") else it
         }
     }
 
     // 친구 거절 클릭 (isRead = true + 배지용 content 변경)
     fun onRejectFriendClick(notiId: String) {
         _notification.value = _notification.value.map {
-            if (it.notification == notiId) it.copy(isRead = true, content = "거절됨") else it
+            if (it.notificationId == notiId) it.copy(isRead = true, content = "거절됨") else it
         }
     }
 
@@ -113,4 +113,22 @@ class NotificationViewModel @Inject constructor(
         super.onCleared()
         notificationListener?.remove()
     }
+
+    private val _topNotification = MutableStateFlow<Notification?>(null)
+    val topNotification = _topNotification.asStateFlow()
+
+    // 테스트 버튼을 누르면 배너를 띄워주는 함수
+    fun triggerTestBanner() {
+        _topNotification.value = Notification(
+            notificationId = "test_id",
+            type = "WALKIE", // DM이나 REQ로 바꿔서 테스트 가능
+            senderName = "테스트 유저",
+            content = "이것은 테스트 알림 배너입니다!"
+        )
+    }
+
+    fun clearTopNotification() {
+        _topNotification.value = null
+    }
 }
+
