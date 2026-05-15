@@ -5,11 +5,14 @@ import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSourceImpl
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSource
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.data.repository.AuthRepositoryImpl
-import com.bbip.bbipit.data.repository.NotiRepositoryImpl
+import com.bbip.bbipit.data.repository.NotificationRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
+import com.bbip.bbipit.data.repository.VoiceRepositoryImpl
 import com.bbip.bbipit.domain.repository.AuthRepository
-import com.bbip.bbipit.domain.repository.NotiRepository
+import com.bbip.bbipit.domain.repository.ChatRepository
+import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.UserRepository
+import com.bbip.bbipit.domain.repository.VoiceRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -50,4 +53,12 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindUserRemoteDataSource(impl: UserRemoteDataSourceImpl) : UserRemoteDataSource
+
+    @Binds
+    @Singleton
+    abstract fun bindChatRepository(chatRepositoryImpl: ChatRepositoryImpl): ChatRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVoiceRepository(voiceRepositoryImpl: VoiceRepositoryImpl): VoiceRepository
 }
