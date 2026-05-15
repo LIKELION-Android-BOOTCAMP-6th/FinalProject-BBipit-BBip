@@ -54,7 +54,7 @@ class NotiViewModel @Inject constructor(
                     notiId = "1",
                     type = "WALKIE",
                     senderName = "Alex Rivera",
-                    createdAt = Timestamp(Date(now - 120000))
+                    createdAt = now - 120000 // 2분 전
                 ),
                 Notifications(
                     notiId = "2",
@@ -62,20 +62,20 @@ class NotiViewModel @Inject constructor(
                     senderName = "박미나",
                     content = "오늘 저녁 어때?",
                     roomId = "room_123",
-                    createdAt = Timestamp(Date(now - 600000))
+                    createdAt = now - 600000 // 10분 전
                 ),
                 Notifications(
                     notiId = "3",
                     type = "REQ",
                     senderName = "Jordan",
-                    createdAt = Timestamp(Date(now - 1800000))
+                    createdAt = now - 1800000 // 30분 전
                 ),
                 Notifications(
                     notiId = "noti_2",
                     type = "WALKIE",
                     senderName = "김민성",
-                    createdAt = Timestamp(Date(now - (5 * 60 * 60 * 1000L)))
-                )
+                    createdAt = now - (5 * 60 * 60 * 1000L)
+                ) // 5시간 전 (만료됨)
             )
         }
     }

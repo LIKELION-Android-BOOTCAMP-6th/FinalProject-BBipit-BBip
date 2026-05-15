@@ -1,7 +1,5 @@
 package com.bbip.bbipit.domain.entity
 
-import com.google.firebase.Timestamp
-
 data class Notifications(
     val notiId: String = "",
     val type: String = "",
@@ -9,18 +7,18 @@ data class Notifications(
     val senderName: String = "",
     val content: String = "",
     val audioUrl: String = "",
-    val createdAt: Timestamp? = null,
+    val createdAt: Long = 0L,
     val roomId: String = "",
     val isRead: Boolean = false,
-    val expiresAt: Timestamp? = null
+    val expiresAt: Long? = null
 ) {
     val isExpired: Boolean
         get() {
             if (type != "WALKIE") return false
 
             val now = System.currentTimeMillis()
-            val expireMillis = expiresAt?.toDate()?.time
-                ?: ((createdAt?.toDate()?.time ?: 0L) + (3 * 60 * 60 * 1000L))
+            val expireMillis = expiresAt
+                ?: if (createdAt != 0L) (createdAt + (3 * 60 * 60 * 1000L)) else 0L
 
             return expireMillis != 0L && now > expireMillis
         }

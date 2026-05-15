@@ -5,14 +5,7 @@ import com.bbip.bbipit.data.source.model.NotiDto
 import com.bbip.bbipit.domain.entity.Notifications
 
 fun NotiDto.toEntity(id: String): Notifications {
-    val createdAtMillis = created_at?.toDate()?.time ?: 0L
-    val isExpired = if (type == "WALKIE") {
-        System.currentTimeMillis() - createdAtMillis > 3 * 60 * 60 * 1000L
-    } else {
-        false
-    }
-
-    return Notifications(
+        return Notifications(
         notiId = id,
         type = type,
         senderId = sender_id,
