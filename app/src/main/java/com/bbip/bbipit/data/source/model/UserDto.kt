@@ -1,5 +1,4 @@
 package com.bbip.bbipit.data.source.model
-
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.PropertyName
 

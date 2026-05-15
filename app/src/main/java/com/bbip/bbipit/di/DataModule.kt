@@ -5,6 +5,7 @@ import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSourceImpl
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSource
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.data.repository.AuthRepositoryImpl
+import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.data.repository.NotificationRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
 import com.bbip.bbipit.data.repository.VoiceRepositoryImpl
