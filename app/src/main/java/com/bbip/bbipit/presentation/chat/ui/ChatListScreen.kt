@@ -2,6 +2,7 @@ package com.bbip.bbipit.presentation.chat.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,17 +17,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -37,7 +34,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Close
 import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.subBackground
 
 /**
  * UI State 정의
@@ -67,56 +66,38 @@ fun ChatListScreen(
     navController: NavController,
     viewModel: ChatListViewModel = hiltViewModel()
 ) {
-    // ViewModel의 UiState 구독
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.clearSearch()
-
         viewModel.navigationEvent.collect { route ->
             navController.navigate(route)
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFFF3E5F5), Color(0xFFE3F2FD))
-                )
-            )
-    ) {
-        // UiState의 isLoading 반영
+    Box(modifier = Modifier.fillMaxSize().background(color = background)) {
         if (uiState.isLoading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else {
-            // 2. UiState의 chatList 반영
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 100.dp, start = 16.dp, end = 16.dp, bottom = 100.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(top = 100.dp, bottom = 100.dp)
             ) {
                 items(uiState.chatList, key = { it.id }) { chatItem ->
-                    ChatItemCard(
+                    ChatItemRow( // 이름을 Row로 변경
                         chatItem = chatItem,
                         onClick = { viewModel.onChatItemClicked(chatItem.id) }
+                    )
+                    // 아이템 사이의 얇은 구분선 추가
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        thickness = 0.5.dp,
+                        color = Color.LightGray.copy(alpha = 0.4f)
                     )
                 }
             }
         }
-
         ChatListHeader(viewModel = viewModel)
-
-        FloatingActionButton(
-            onClick = { /* 새 채팅 작성 */ },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 120.dp),
-            containerColor = primary,
-            contentColor = Color.White,
-            shape = CircleShape
-        ) {
-            Icon(Icons.Default.Edit, contentDescription = "New Message")
-        }
     }
 }
 
@@ -131,7 +112,7 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White.copy(alpha = 0.7f),
+        color = background,
         shadowElevation = 0.dp
     ) {
         Row(
@@ -167,7 +148,8 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "닫기",
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
+                                tint = primary
                             )
                         }
                     },
@@ -188,7 +170,7 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                 )
 
                 IconButton(
-                    onClick = { isSearching = true }, // 클릭 시 검색창으로 변신!
+                    onClick = { isSearching = true }, // 클릭 시 검색창으로 변신
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
@@ -204,87 +186,87 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
 }
 
 /**
- * 개별 채팅 카드 (데이터 연결)
+ * 개별 채팅 목록 (데이터 연결)
  */
 @Composable
-fun ChatItemCard(
+fun ChatItemRow(
     chatItem: ChatItem,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.85f)),
-        onClick = onClick // 파라미터 연결
+    // Clickable이 적용된 row
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() } // 클릭 피드백이 들어감
+            .padding(horizontal = 20.dp, vertical = 16.dp), // 적절한 터치 영역 확보
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 프로필 섹션
-            Box {
-                Surface(
-                    modifier = Modifier.size(52.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFE1BEE7)
-                ) {
-                    // TODO: Coil 이미지 로더 연결 (chatItem.profileImageUrl)
-                }
+        // 프로필 섹션
+        Box {
+            Surface(
+                modifier = Modifier.size(56.dp), // 리스트형에 맞춰 살짝 키움
+                shape = CircleShape,
+                color = Color(0xFFE1BEE7)
+            ) { /* TODO: Coil */ }
 
-                // 온라인 상태 점 (isOnline 데이터 기반)
-                if (chatItem.isOnline) {
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .background(Color(0xFF4CAF50), CircleShape)
-                            .border(2.dp, Color.White, CircleShape)
-                            .align(Alignment.BottomEnd)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            // 텍스트 섹션
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = chatItem.senderName,
-                        style = Typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = chatItem.time,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.Gray
-                    )
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (chatItem.hasImage) "(image) ${chatItem.lastMessage}" else chatItem.lastMessage,
-                    style = Typography.bodySmall,
-                    color = if (chatItem.isUnread) Color.Black else Color.Gray,
-                    fontSize = 14.sp,
-                    fontWeight = if (chatItem.isUnread) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            if (chatItem.isOnline) {
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .background(Color(0xFF4CAF50), CircleShape)
+                        .border(2.dp, Color.White, CircleShape)
+                        .align(Alignment.BottomEnd)
                 )
             }
+        }
 
-            // 안 읽은 메시지 표시 (isUnread 데이터 기반)
+        Spacer(modifier = Modifier.width(16.dp))
+
+            // 텍스트 섹션
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = chatItem.senderName,
+                style = Typography.bodySmall,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                // DB의 last_message 연결
+                text = if (chatItem.hasImage) "📷 사진을 보냈습니다" else chatItem.lastMessage,
+                style = Typography.bodySmall,
+                color = if (chatItem.isUnread) Color.Black else Color.Gray,
+                fontWeight = if (chatItem.isUnread) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer (modifier = Modifier.width(12.dp))
+
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // 우측 상단: 시간
+            Text(
+                text = chatItem.time,
+                style = Typography.labelSmall,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(8.dp)) // 시간과 뱃지 사이 간격
+
+            // 우측 하단: 안읽음 뱃지 (자리 차지를 위해 보이지 않더라도 Box 공간 유지 추천)
             if (chatItem.isUnread) {
-                Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
                         .size(10.dp)
                         .background(primary, CircleShape)
                 )
+            } else {
+                // 뱃지가 없을 때 레이아웃이 튀지 않게 공간만 확보 (선택 사항)
+                Spacer(modifier = Modifier.size(10.dp))
             }
         }
     }

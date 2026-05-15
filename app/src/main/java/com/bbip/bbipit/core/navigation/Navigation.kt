@@ -10,8 +10,8 @@ import com.bbip.bbipit.presentation.auth.ui.SignUpScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatDetailScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatListScreen
 import com.bbip.bbipit.presentation.map.ui.MapScreen
+import com.bbip.bbipit.presentation.mypage.MyPageScreen
 import com.bbip.bbipit.presentation.notification.NotificationScreen
-import com.bbip.bbipit.presentation.user.ui.MyPageScreen
 
 @Composable
 fun BBipItNavigation(
