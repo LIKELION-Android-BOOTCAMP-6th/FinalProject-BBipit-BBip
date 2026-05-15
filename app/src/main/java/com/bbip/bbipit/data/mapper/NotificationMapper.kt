@@ -1,12 +1,12 @@
-// data/mapper/NotiMapper.kt
+// data/mapper/NotificationMapper.kt
 package com.bbip.bbipit.data.mapper
 
-import com.bbip.bbipit.data.source.model.NotiDto
-import com.bbip.bbipit.domain.entity.Notifications
+import com.bbip.bbipit.data.source.model.NotificationDto
+import com.bbip.bbipit.domain.entity.Notification
 
-fun NotiDto.toEntity(id: String): Notifications {
-        return Notifications(
-        notiId = id,
+fun NotificationDto.toEntity(id: String): Notification {
+        return Notification(
+        notification = id,
         type = type,
         senderId = sender_id,
         senderName = sender_name,

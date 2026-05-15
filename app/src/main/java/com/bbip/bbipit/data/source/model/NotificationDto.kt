@@ -1,6 +1,6 @@
 package com.bbip.bbipit.data.source.model
 
-data class NotiDto(
+data class NotificationDto(
     val type: String = "",
     val sender_id: String = "",
     val sender_name: String = "",

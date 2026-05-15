@@ -2,19 +2,18 @@
 package com.bbip.bbipit.data.repository
 
 import com.bbip.bbipit.data.mapper.toEntity
-import com.bbip.bbipit.data.source.remote.noti.NotiRemoteDataSource
-import com.bbip.bbipit.domain.entity.Notifications
-import com.bbip.bbipit.domain.repository.NotiRepository
-import com.google.firebase.firestore.ListenerRegistration
+import com.bbip.bbipit.data.source.remote.notification.NotificationRemoteDataSource
+import com.bbip.bbipit.domain.entity.Notification
+import com.bbip.bbipit.domain.repository.NotificationRepository
 import javax.inject.Inject
 
-class NotiRepositoryImpl @Inject constructor(
-    private val dataSource: NotiRemoteDataSource
-) : NotiRepository {
+class NotificationRepositoryImpl @Inject constructor(
+    private val dataSource: NotificationRemoteDataSource
+) : NotificationRepository {
 
-    override suspend fun getNotiList(userId: String): Result<List<Notifications>> {
+    override suspend fun getNotiList(userId: String): Result<List<Notification>> {
         return try {
-            val response = dataSource.fetchNotifications(userId)
+            val response = dataSource.fetchNotification(userId)
             Result.success(response.map { (id, dto) -> dto.toEntity(id) })
         } catch (e: Exception) {
             Result.failure(e)
