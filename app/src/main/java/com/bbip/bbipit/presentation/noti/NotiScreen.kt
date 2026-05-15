@@ -28,7 +28,6 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.Notifications
 import com.bbip.bbipit.presentation.base.BackgroundBox
-import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -412,23 +411,37 @@ fun NotiFilterBar(
     }
 }
 
-// 유효시간 텍스트 포맷 (~M.dd HH:mm)
-fun formatExpiryTime(expiresAt: Timestamp?, createdAt: Timestamp?): String {
-    val expireDate = expiresAt?.toDate()
-        ?: createdAt?.toDate()?.let { Date(it.time + 3 * 60 * 60 * 1000L) }
-        ?: return ""
-    return SimpleDateFormat("~M.dd HH:mm", Locale.KOREA).format(expireDate)
+/**
+ * 유효시간 텍스트 포맷 (~M.dd HH:mm)
+ */
+fun formatExpiryTime(expiresAt: Long?, createdAt: Long): String {
+    // 1. expiresAt이 있으면 사용, 없으면 createdAt 기준 3시간 후 계산
+    val expireMillis = expiresAt ?: (createdAt + 3 * 60 * 60 * 1000L)
+
+    // 데이터가 아예 없는 경우(0L) 빈 문자열 반환
+    if (expireMillis == 0L) return ""
+
+    return try {
+        val sdf = SimpleDateFormat("~M.dd HH:mm", Locale.KOREA)
+        sdf.format(Date(expireMillis))
+    } catch (e: Exception) {
+        ""
+    }
 }
 
-// 원래 시간 표시 포맷 (방금 전, n분 전 등)
-fun formatTimestamp(timestamp: Timestamp?): String {
-    val timeMillis = timestamp?.toDate()?.time ?: return ""
-    val diff = System.currentTimeMillis() - timeMillis
+
+ // * 원래 시간 표시 포맷 (방금 전, n분 전 등)
+
+fun formatTimestamp(createdAt: Long): String {
+    if (createdAt == 0L) return ""
+
+    val diff = System.currentTimeMillis() - createdAt
+
     return when {
         diff < 60000 -> "방금 전"
         diff < 3600000 -> "${diff / 60000}분 전"
         diff < 86400000 -> "${diff / 3600000}시간 전"
-        else -> SimpleDateFormat("MM.dd", Locale.KOREA).format(Date(timeMillis))
+        else -> SimpleDateFormat("MM.dd", Locale.KOREA).format(Date(createdAt))
     }
 }
 
