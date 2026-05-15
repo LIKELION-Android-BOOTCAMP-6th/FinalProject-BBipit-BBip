@@ -32,11 +32,11 @@ class ChatListViewModel : ViewModel() {
 
             // 데이터 생성 로직 (더미 데이터)
             allChatList = listOf(
-                ChatItem("1", "상대방A (1)", "1번 채팅방입니다.", "방금", true, true),
-                ChatItem("2", "상대방B (2)", "2번 채팅방입니다.", "10분 전", false, false),
-                ChatItem("3", "상대방C (3)", "3번 채팅방입니다.", "1시간 전", true, true),
-                ChatItem("4", "상대방D (4)", "사진을 보냈습니다.", "어제", false, false, hasImage = true),
-                ChatItem("5", "상대방E (5)", "5번 채팅방입니다.", "어제", false, false)
+                ChatItem("1", "상대방A (1)", "1번 채팅방입니다.", "16:30", true, true),
+                ChatItem("2", "상대방B (2)", "2번 채팅방입니다.", "16:25", false, false),
+                ChatItem("3", "상대방C (3)", "3번 채팅방입니다.", "13:00", true, true),
+                ChatItem("4", "상대방D (4)", "사진을 보냈습니다.", "5월 10일", false, false, hasImage = true),
+                ChatItem("5", "상대방E (5)", "5번 채팅방입니다.", "5월 1일", false, false),
             )
 
             _uiState.update {
