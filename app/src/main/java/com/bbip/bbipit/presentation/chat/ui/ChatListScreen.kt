@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
@@ -35,6 +36,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Close
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.primary
 
 /**
  * UI State 정의
@@ -62,7 +65,7 @@ data class ChatListUiState(
 @Composable
 fun ChatListScreen(
     navController: NavController,
-    viewModel: ChatListViewModel = viewModel()
+    viewModel: ChatListViewModel = hiltViewModel()
 ) {
     // ViewModel의 UiState 구독
     val uiState by viewModel.uiState.collectAsState()
@@ -108,7 +111,7 @@ fun ChatListScreen(
         FloatingActionButton(
             onClick = { /* 새 채팅 작성 */ },
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 120.dp),
-            containerColor = Color(0xFF6200EE),
+            containerColor = primary,
             contentColor = Color.White,
             shape = CircleShape
         ) {
@@ -147,7 +150,7 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
-                    placeholder = { Text("이름 검색...", fontSize = 14.sp) },
+                    placeholder = { Text("이름 검색...", style = Typography.bodySmall) },
                     shape = RoundedCornerShape(26.dp),
                     singleLine = true,
                     // 키보드 옵션을 '검색'으로 설정
@@ -171,20 +174,17 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = Color.White.copy(alpha = 0.9f),
                         unfocusedContainerColor = Color.White.copy(alpha = 0.9f),
-                        focusedBorderColor = Color(0xFF4A148C),
+                        focusedBorderColor = primary,
                         unfocusedBorderColor = Color.Transparent
                     ),
-                    textStyle = MaterialTheme.typography.bodyMedium
+                    textStyle = Typography.bodyMedium
                 )
             } else {
                 // [일반 모드] 제목과 검색 아이콘 버튼
                 Text(
                     text = "DM",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF4A148C),
-                        letterSpacing = (-0.5).sp
-                    )
+                    style = Typography.titleLarge,
+                    color = primary
                 )
 
                 IconButton(
@@ -194,7 +194,7 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "검색",
-                        tint = Color(0xFF4A148C),
+                        tint = primary,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -256,7 +256,8 @@ fun ChatItemCard(
                 ) {
                     Text(
                         text = chatItem.senderName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        style = Typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
                         text = chatItem.time,
@@ -267,8 +268,9 @@ fun ChatItemCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = if (chatItem.hasImage) "(image) ${chatItem.lastMessage}" else chatItem.lastMessage,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = Typography.bodySmall,
                     color = if (chatItem.isUnread) Color.Black else Color.Gray,
+                    fontSize = 14.sp,
                     fontWeight = if (chatItem.isUnread) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -281,7 +283,7 @@ fun ChatItemCard(
                 Box(
                     modifier = Modifier
                         .size(10.dp)
-                        .background(Color(0xFF6200EE), CircleShape)
+                        .background(primary, CircleShape)
                 )
             }
         }

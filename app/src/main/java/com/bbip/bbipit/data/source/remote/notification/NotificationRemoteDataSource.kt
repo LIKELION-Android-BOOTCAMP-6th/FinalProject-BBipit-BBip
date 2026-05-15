@@ -1,4 +1,4 @@
-package com.bbip.bbipit.data.source.remote.noti
+package com.bbip.bbipit.data.source.remote.notification
 
 import com.bbip.bbipit.data.source.model.NotificationDto
 import com.google.firebase.firestore.FirebaseFirestore
@@ -6,10 +6,11 @@ import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
-class NotiRemoteDataSource @Inject constructor(
+class NotificationRemoteDataSource @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
-    suspend fun fetchNotifications(userId: String): List<Pair<String, NotificationDto>> {
+    // 기존 알림 목록 단건 조회
+    suspend fun fetchNotification(userId: String): List<Pair<String, NotificationDto>> {
         return firestore
             .collection("Users")
             .document(userId)

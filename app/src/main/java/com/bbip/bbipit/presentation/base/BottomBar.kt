@@ -82,12 +82,12 @@ fun BottomBar(navController: NavController){
                 )
             }
 
-            val isNotiSelected = currentDestination?.hasRoute<Routes.Noti>() == true
+            val isNotiSelected = currentDestination?.hasRoute<Routes.Notification>() == true
             IconButton(
                 onClick = {
                     if (!isNotiSelected){
-                        navController.navigate(Routes.Noti){
-                            popUpTo(Routes.Noti){ inclusive = false}
+                        navController.navigate(Routes.Notification){
+                            popUpTo(Routes.Notification){ inclusive = false}
                             launchSingleTop = true
                         }
                     }
