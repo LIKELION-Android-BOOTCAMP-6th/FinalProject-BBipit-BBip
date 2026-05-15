@@ -96,11 +96,19 @@ fun TestScreen(
 
         Text("1. 인증 및 유저", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testLogin(email, password) }, modifier = Modifier.weight(1f)) {
-                Text("로그인")
+            Button(
+                onClick = { viewModel.testGetUserProfile(targetUid) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            ) {
+                Text("일반 프로필")
             }
-            Button(onClick = { viewModel.testSignUp(email, password) }, modifier = Modifier.weight(1f)) {
-                Text("회원가입")
+            Button(
+                onClick = { viewModel.fetchFriendProfile(targetUid) },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            ) {
+                Text("친구 데이터 조회")
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

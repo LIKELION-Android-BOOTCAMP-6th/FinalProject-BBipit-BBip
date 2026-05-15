@@ -1,8 +1,10 @@
 package com.bbip.bbipit.data.repository
 
 import android.util.Log
+import com.bbip.bbipit.data.mapper.toDomain
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.repository.UserRepository
+import com.bbip.bbipit.presentation.mypage.UserProfile
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -143,6 +145,54 @@ class UserRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 거절 실패: ${e.message}")
             false
+        }
+    }
+
+    override suspend fun getUserProfile(targetUid: String): Result<User> {
+        return try {
+            val data = mapOf("targetUid" to targetUid)
+
+            // Cloud Functions 호출
+            val result = firebaseFunctions
+                .getHttpsCallable("getUserProfile")
+                .call(data)
+                .await()
+
+            // 결과 파싱 (Map 구조로 반환됨)
+            val response = result.data as? Map<String, Any>
+            val success = response?.get("success") as? Boolean ?: false
+            val profileMap = response?.get("profile") as? Map<String, Any>
+
+            if (success && profileMap != null) {
+                Result.success(profileMap.toDomain())
+            } else {
+                Result.failure(Exception("유저 정보를 찾을 수 없습니다."))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>> {
+        return try {
+            val data = hashMapOf("targetUid" to targetUid)
+            val result = firebaseFunctions
+                .getHttpsCallable("getFriendProfileByUid")
+                .call(data)
+                .await()
+
+            val response = result.data as Map<String, Any>
+
+            // Mapper를 활용한 유저 정보 변환
+            val profileMap = response["profile"] as? Map<String, Any> ?: throw Exception("친구 정보를 찾을 수 없습니다.")
+            val user = profileMap.toDomain()
+
+            // 친구 상태 추출
+            val friendshipStatus = response["friendship_status"] as? String ?: "none"
+
+            Result.success(Pair(user, friendshipStatus))
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }
