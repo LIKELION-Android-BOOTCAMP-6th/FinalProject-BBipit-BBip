@@ -40,21 +40,24 @@ import androidx.compose.material.icons.filled.Collections
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextAlign
 import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
 
 /**
  * 채팅방 UI 데이터 모델
  */
 data class MessageItem(
-    val id: String,          // Firestore 문서 ID (삭제/수정 시 필요)
-    val text: String,        // Firestore의 'content'
-    val senderId: String,    // Firestore의 'sender_id'
-    val sentAt: Long,        // Firestore의 'sent_at' (Timestamp를 Long으로 변환)
-    val isRead: Boolean,     // Firestore의 'is_read'
-    val isMine: Boolean,     // (senderId == 현재 로그인한 유저 UID)로 판별
+    val id: String,
+    val text: String,
+    val senderId: String,
+    val sentAt: Long,
+    val isRead: Boolean,
+    val isMine: Boolean,
+    val isFailed: Boolean = false, // 전송 실패 예외처리를 위한 전송 실패 여부
     val imageUrl: String? = null
 ) {
     // UI 표시용 시간 포맷팅 (예: "오후 3:49")
@@ -87,35 +90,27 @@ fun ChatDetailScreen(
     val roomId = route?.roomId ?: ""
 
     val focusManager = LocalFocusManager.current // 포커스 매니저 가져오기
+    // UI 상태 구독
+    val uiState by viewModel.uiState.collectAsState()
 
     // roomId가 바뀔 때마다(혹은 화면 진입 시) 데이터 로드
     LaunchedEffect(roomId) {
         viewModel.loadChatRoomData(roomId)
     }
 
-    // UI 상태 구독
-    val uiState by viewModel.uiState.collectAsState()
-
-    BackgroundBox(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    focusManager.clearFocus()
-                })
-            }
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = com.bbip.bbipit.core.ui.theme.background
     ) {
-        // 상태에 따른 화면 분기
         if (uiState.isLoading) {
-            // 1. 데이터를 불러오는 중일 때 (중앙에 로딩 표시)
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = Color(0xFF6200EE)
-            )
+            // 로딩 UI
         } else {
-            // 2. 데이터 로드가 완료되었을 때 실제 UI 표시
-            Column(modifier = Modifier.fillMaxSize()) {
-                // 상단 바 (ViewModel에서 가져온 실제 파트너 이름 등이 반영됨)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+            ) {
+                // 상단 바
                 ChatDetailHeader(navController, uiState)
 
                 // 메시지 영역
@@ -123,41 +118,40 @@ fun ChatDetailScreen(
                     modifier = Modifier
                         .weight(1f)
                         .pointerInput(Unit) {
-                            detectTapGestures(onTap = {
-                                focusManager.clearFocus()
-                            })
+                            detectTapGestures(onTap = { focusManager.clearFocus() })
                         },
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item {
-                        DateHeader("TODAY")
-                    }
-                    items(uiState.messages) { message ->
-                        MessageBubble(message)
-                    }
+                    item { DateHeader("TODAY") }
+                    items(uiState.messages) { message -> MessageBubble(message) }
                 }
 
-                // 하단 입력창 부분
-                if (uiState.friendshipStatus != "ACCEPTED") {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(16.dp),
-                        color = Color.White.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(24.dp)
-                    ) {
-                        Text(
-                            text = "대화가 불가능한 상대입니다.",
-                            modifier = Modifier.padding(vertical = 18.dp),
-                            textAlign = TextAlign.Center,
-                            style = Typography.bodySmall,
-                            color = Color.Gray
-                        )
+                // 입력 세션
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .imePadding() // 키보드 높이만큼 패딩 부여
+                        .navigationBarsPadding() // 시스템 하단 바 공간 확보
+                ) {
+                    if (uiState.friendshipStatus != "ACCEPTED") {
+                        // 대화 불가능 Surface (기존 코드 동일)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            color = Color.White.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(24.dp)
+                        ) {
+                            Text(
+                                text = "대화가 불가능한 상대입니다.",
+                                modifier = Modifier.padding(vertical = 18.dp),
+                                textAlign = TextAlign.Center,
+                                style = Typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                    } else {
+                        ChatInputArea(onSendClick = { viewModel.sendMessage(it) })
                     }
-                } else {
-                    ChatInputArea(onSendClick = { viewModel.sendMessage(it) })
                 }
             }
         }
@@ -180,6 +174,7 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 뒤로가기 버튼
             IconButton(onClick = { navController.popBackStack() }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -188,38 +183,54 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
                 )
             }
 
-            // 프로필 이미지 + 상태 표시 점 (Box로 겹치기)
-            Box(contentAlignment = Alignment.BottomEnd) {
-                Surface(
-                    modifier = Modifier.size(42.dp),
-                    shape = CircleShape, // 동그라미로 수정
-                    color = primary
-                ) { /* Coil 이미지 로드 영역 */ }
+            // 2. 중앙: 프로필 및 이름 정보 (weight를 주어 공간을 꽉 채우게 함)
+            Row(
+                modifier = Modifier.weight(1f), // ✅ 중요: 이 weight가 있어야 나가기 버튼이 오른쪽 끝으로 밀림
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Surface(
+                        modifier = Modifier.size(42.dp),
+                        shape = CircleShape,
+                        color = primary
+                    ) { /* Coil */ }
 
-                // 상태 표시 점 (온라인: 초록색, 오프라인: 회색)
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(
-                            color = if (isOnline) Color(0xFF4CAF50) else Color.LightGray,
-                            shape = CircleShape
-                        )
-                        .border(2.dp, Color.White, CircleShape) // 테두리를 줘서 프로필과 구분
-                )
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(
+                                color = if (isOnline) Color(0xFF4CAF50) else Color.LightGray,
+                                shape = CircleShape
+                            )
+                            .border(2.dp, Color.White, CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        text = state.partnerName,
+                        style = Typography.bodyLarge,
+                        fontSize = 20.sp,
+                        color = fontDefault,
+                    )
+                    Text(
+                        text = state.partnerStatus,
+                        style = Typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Text(
-                    text = state.partnerName,
-                    style = Typography.bodyLarge,
-                    color = primary,
-                )
-                Text(
-                    text = state.partnerStatus,
-                    style = Typography.bodySmall,
-                    color = Color.Gray
+            // 3. 오른쪽 끝: 채팅방 나가기 버튼 추가
+            IconButton(onClick = {
+                /* TODO: 채팅방 나가기 다이얼로그 또는 로직 연결 */
+            }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = "나가기",
+                    tint = Color.Red
                 )
             }
         }
@@ -235,6 +246,8 @@ fun MessageBubble(message: MessageItem) {
     val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
     val textColor = if (message.isMine) Color.White else Color.Black
 
+    var showMenu by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
@@ -249,24 +262,58 @@ fun MessageBubble(message: MessageItem) {
                 Spacer(modifier = Modifier.width(4.dp))
             }
 
-            Surface(
-                modifier = Modifier.widthIn(max = 280.dp),
-                shape = RoundedCornerShape(
-                    topStart = 24.dp, topEnd = 24.dp,
-                    bottomStart = if (message.isMine) 24.dp else 4.dp,
-                    bottomEnd = if (message.isMine) 4.dp else 24.dp
-                ),
-                color = bubbleColor
-            ) {
-                Text(
-                    text = message.text,
-                    color = textColor,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    style = Typography.bodyMedium
-                )
+            Box {
+                Surface(
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        // 롱클릭 감지 인터랙션 추가
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onLongPress = { showMenu = true }
+                            )
+                        },
+                    shape = RoundedCornerShape(
+                        topStart = 24.dp, topEnd = 24.dp,
+                        bottomStart = if (message.isMine) 24.dp else 4.dp,
+                        bottomEnd = if (message.isMine) 4.dp else 24.dp
+                    ),
+                    color = bubbleColor,
+                    shadowElevation = 6.dp
+                ) {
+                    Text(
+                        text = message.text,
+                        color = textColor,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        style = Typography.bodyMedium
+                    )
+                }
+
+                // 롱클릭 시 나타날 메뉴
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier
+                        .width(100.dp)
+                        .background(Color.White, RoundedCornerShape(8.dp))
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                "복사하기",
+                                style = Typography.bodySmall,
+                                color = fontDefault,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    )
+                }
             }
 
-            // [상대 메시지일 때] 시간과 읽음 표시가 말풍선 오른쪽에 위치
             if (!message.isMine) {
                 Spacer(modifier = Modifier.width(4.dp))
                 MessageStatusSection(message)
@@ -320,10 +367,10 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                 onValueChange = { inputText = it },
                 modifier = Modifier
                     .weight(1f)
-                    // heightIn을 제거하거나 min 높이만 설정해서 유연하게 늘어나도록 합니다.
+                    // heightIn을 제거하거나 min 높이만 설정해서 유연하게 늘어나도록
                     .heightIn(min = 54.dp),
                 placeholder = {
-                    Text("Type a message..", style = Typography.bodySmall)
+                    Text("메세지를 입력하세요...", style = Typography.bodySmall)
                 },
                 shape = RoundedCornerShape(27.dp),
 
@@ -332,7 +379,6 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                 maxLines = 4,         // 최대 4줄까지 늘어나고 그 이상은 스크롤
 
                 leadingIcon = {
-                    // 2. Box로 감싸서 DropdownMenu의 위치를 아이콘 버튼에 고정 ★
                     Box {
                         IconButton(onClick = { expanded = true }) {
                             Icon(
@@ -345,7 +391,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                         DropdownMenu(
                             expanded = expanded,
                             onDismissRequest = { expanded = false },
-                            modifier = Modifier.background(Color.White, RoundedCornerShape(16.dp))
+                            modifier = Modifier.background(Color.White)
                         ) {
                             DropdownMenuItem(
                                 text = { Text("카메라", style = Typography.bodyMedium) },

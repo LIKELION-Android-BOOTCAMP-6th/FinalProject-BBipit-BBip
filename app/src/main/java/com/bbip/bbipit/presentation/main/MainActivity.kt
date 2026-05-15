@@ -34,36 +34,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        var keyHash = Utility.getKeyHash(this)
-        Log.d("keyHash", keyHash)
         setContent {
             BbipitTheme {
-                Surface(
-                    modifier = Modifier.Companion.fillMaxSize(),
-                    contentColor = Color.Companion.Transparent,
-                ) {
-                    val navController = rememberNavController()
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
 
                     val showBottomBar = navBackStackEntry?.destination?.let { destination ->
                         destination.hasRoute<Routes.Map>() ||
                                 destination.hasRoute<Routes.ChatList>() ||
                                 destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Notification>()
 
-                    } ?: false
+                } ?: false
 
-                    Scaffold(
-                        modifier = Modifier.Companion.fillMaxSize(),
-                        bottomBar = { if (showBottomBar) BottomBar(navController) }
-                    ) { _ ->
-                        Box(modifier = Modifier.Companion.fillMaxSize()) {
-                            BBipItNavigation(
-                                navController = navController,
-                                userRepository = userRepository
-                            )
-                        }
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = { if (showBottomBar) BottomBar(navController) }
+                ) { _ ->
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        BBipItNavigation(
+                            navController = navController,
+                            userRepository = userRepository
+                        )
                     }
-
                 }
             }
         }

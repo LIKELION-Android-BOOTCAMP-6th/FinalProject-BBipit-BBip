@@ -1,7 +1,6 @@
 package com.bbip.bbipit.domain.repository
 
 import com.bbip.bbipit.domain.entity.Notification
-import com.google.firebase.firestore.ListenerRegistration
 
 interface NotificationRepository {
     suspend fun getNotificationList(userId: String): Result<List<Notification>>
