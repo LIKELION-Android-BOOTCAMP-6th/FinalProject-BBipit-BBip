@@ -128,7 +128,7 @@ class NotificationViewModel @Inject constructor(
 
         // Firestore 비동기 삭제
         viewModelScope.launch {
-            notificationRepository.deleteNotification(currentUserId, notiId)
+            notificationRepository.deleteNotifications(currentUserId, notiId)
                 .onFailure { fetchNotifications() }  // 실패 시 원복
         }
     }

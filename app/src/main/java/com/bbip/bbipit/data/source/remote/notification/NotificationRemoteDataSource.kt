@@ -48,13 +48,15 @@ class NotificationRemoteDataSource @Inject constructor(
     }
 
     // Firestore에서 알림 삭제
-    suspend fun deleteNotification(userId: String, notiId: String) {
-        firestore
-            .collection("Users")
-            .document(userId)
-            .collection("Notifications")
-            .document(notiId)
-            .delete()
-            .await()
+    suspend fun deleteNotification(userId: String, notiId: String?) {
+        if (notiId != null) {
+            firestore
+                .collection("Users")
+                .document(userId)
+                .collection("Notifications")
+                .document(notiId)
+                .delete()
+                .await()
+        }
     }
 }

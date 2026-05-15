@@ -1,13 +1,10 @@
 // data/repository/NotiRepositoryImpl.kt
 package com.bbip.bbipit.data.repository
 
-import android.util.Log
 import com.bbip.bbipit.data.mapper.toEntity
 import com.bbip.bbipit.data.source.remote.notification.NotificationRemoteDataSource
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.NotificationRepository
-import com.google.firebase.functions.FirebaseFunctions
-import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.ListenerRegistration
 import javax.inject.Inject
 
@@ -33,14 +30,14 @@ class NotificationRepositoryImpl @Inject constructor(
 
     override fun observeNewNotification(
         userId: String,
-        onNew: (Notifications) -> Unit
+        onNew: (Notification) -> Unit
     ): ListenerRegistration {
         return dataSource.observeNewNotification(userId) { id, dto ->
             onNew(dto.toEntity(id))
         }
     }
 
-    override suspend fun deleteNotification(userId: String, notiId: String): Result<Unit> {
+    override suspend fun deleteNotifications(userId: String, notiId: String?): Result<Unit> {
         return try {
             dataSource.deleteNotification(userId, notiId)
             Result.success(Unit)
