@@ -26,9 +26,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import com.bbip.bbipit.presentation.base.BackgroundBox
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
@@ -40,6 +41,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalFocusManager
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.primary
 
 /**
  * 채팅방 UI 데이터 모델
@@ -65,7 +68,7 @@ data class ChatDetailUiState(
 @Composable
 fun ChatDetailScreen(
     navController: NavController,
-    viewModel: ChatDetailViewModel = viewModel() // ViewModel 주입
+    viewModel: ChatDetailViewModel = hiltViewModel() // ViewModel 주입
 ) {
     // 인자 추출
     val route = navController.currentBackStackEntry?.toRoute<Routes.ChatRoom>()
@@ -81,14 +84,9 @@ fun ChatDetailScreen(
     // UI 상태 구독
     val uiState by viewModel.uiState.collectAsState()
 
-    Box(
+    BackgroundBox(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFFF3E5F5), Color(0xFFE3F2FD))
-                )
-            )
             .pointerInput(Unit) {
                 detectTapGestures(onTap = {
                     focusManager.clearFocus()
@@ -157,7 +155,7 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "뒤로가기",
-                    tint = Color(0xFF4A148C)
+                    tint = primary
                 )
             }
 
@@ -166,7 +164,7 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
                 Surface(
                     modifier = Modifier.size(42.dp),
                     shape = CircleShape, // 동그라미로 수정
-                    color = Color(0xFF7E57C2)
+                    color = primary
                 ) { /* Coil 이미지 로드 영역 */ }
 
                 // 상태 표시 점 (온라인: 초록색, 오프라인: 회색)
@@ -186,13 +184,12 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
             Column {
                 Text(
                     text = state.partnerName,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4A148C),
-                    fontSize = 18.sp
+                    style = Typography.bodyLarge,
+                    color = primary,
                 )
                 Text(
                     text = state.partnerStatus,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = Typography.bodySmall,
                     color = Color.Gray
                 )
             }
@@ -203,7 +200,7 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
 @Composable
 fun MessageBubble(message: MessageItem) {
     val alignment = if (message.isMine) Alignment.End else Alignment.Start
-    val bubbleColor = if (message.isMine) Color(0xFF6200EE) else Color.White.copy(alpha = 0.9f)
+    val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
     val textColor = if (message.isMine) Color.White else Color.Black
 
     Column(
@@ -256,14 +253,14 @@ fun MessageBubble(message: MessageItem) {
                         text = message.text,
                         color = textColor,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = Typography.bodyMedium
                     )
                 }
             }
         }
         Text(
             text = message.time,
-            style = MaterialTheme.typography.labelSmall,
+            style = Typography.bodySmall,
             modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp),
             color = Color.Gray
         )
@@ -298,7 +295,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                     // heightIn을 제거하거나 min 높이만 설정해서 유연하게 늘어나도록 합니다.
                     .heightIn(min = 54.dp),
                 placeholder = {
-                    Text("Type a message..", style = MaterialTheme.typography.bodyMedium)
+                    Text("Type a message..", style = Typography.bodySmall)
                 },
                 shape = RoundedCornerShape(27.dp),
 
@@ -323,7 +320,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                             modifier = Modifier.background(Color.White, RoundedCornerShape(16.dp))
                         ) {
                             DropdownMenuItem(
-                                text = { Text("카메라", style = MaterialTheme.typography.bodyMedium) },
+                                text = { Text("카메라", style = Typography.bodyMedium) },
                                 leadingIcon = {
                                     Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
@@ -333,7 +330,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("앨범", style = MaterialTheme.typography.bodyMedium) },
+                                text = { Text("앨범", style = Typography.bodyMedium) },
                                 leadingIcon = {
                                     Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(20.dp))
                                 },
@@ -360,7 +357,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent
                 ),
-                textStyle = MaterialTheme.typography.bodyMedium
+                textStyle = Typography.bodyMedium
             )
 
             Spacer(modifier = Modifier.width(10.dp))
@@ -376,7 +373,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                     }
                 },
                 modifier = Modifier.size(54.dp),
-                containerColor = Color(0xFF6200EE),
+                containerColor = primary,
                 contentColor = Color.White,
                 shape = CircleShape,
                 elevation = FloatingActionButtonDefaults.elevation(0.dp)
@@ -402,7 +399,7 @@ fun DateHeader(date: String) {
             Text(
                 text = date,
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                style = Typography.bodySmall,
                 color = Color.Gray
             )
         }
