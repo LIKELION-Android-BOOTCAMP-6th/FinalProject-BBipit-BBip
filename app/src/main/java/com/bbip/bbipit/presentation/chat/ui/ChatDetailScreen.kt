@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.style.TextAlign
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.primary
 
@@ -48,18 +49,29 @@ import com.bbip.bbipit.core.ui.theme.primary
  * 채팅방 UI 데이터 모델
  */
 data class MessageItem(
-    val id: String,
-    val text: String = "",
-    val imageUrl: String? = null,
-    val time: String,
-    val isMine: Boolean
-)
+    val id: String,          // Firestore 문서 ID (삭제/수정 시 필요)
+    val text: String,        // Firestore의 'content'
+    val senderId: String,    // Firestore의 'sender_id'
+    val sentAt: Long,        // Firestore의 'sent_at' (Timestamp를 Long으로 변환)
+    val isRead: Boolean,     // Firestore의 'is_read'
+    val isMine: Boolean,     // (senderId == 현재 로그인한 유저 UID)로 판별
+    val imageUrl: String? = null
+) {
+    // UI 표시용 시간 포맷팅 (예: "오후 3:49")
+    val time: String get() {
+        val date = java.util.Date(sentAt)
+        val sdf = java.text.SimpleDateFormat("a h:mm", java.util.Locale.KOREA)
+        return sdf.format(date)
+    }
+}
 
 data class ChatDetailUiState(
     val isLoading: Boolean = false,
     val partnerName: String = "",
     val partnerStatus: String = "",
-    val messages: List<MessageItem> = emptyList()
+    val messages: List<MessageItem> = emptyList(),
+    val friendshipStatus: String = "NONE", // "ACCEPTED", "PENDING", "NONE"
+    val errorMessage: String? = null       // 서버 에러(500 등) 발생 시 안내 문구용
 )
 
 /**
@@ -126,10 +138,27 @@ fun ChatDetailScreen(
                     }
                 }
 
-                // 하단 입력창 (ViewModel의 sendMessage 함수와 연결)
-                ChatInputArea(onSendClick = { text ->
-                    viewModel.sendMessage(text)
-                })
+                // 하단 입력창 부분
+                if (uiState.friendshipStatus != "ACCEPTED") {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(16.dp),
+                        color = Color.White.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text(
+                            text = "대화가 불가능한 상대입니다.",
+                            modifier = Modifier.padding(vertical = 18.dp),
+                            textAlign = TextAlign.Center,
+                            style = Typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                } else {
+                    ChatInputArea(onSendClick = { viewModel.sendMessage(it) })
+                }
             }
         }
     }
@@ -199,6 +228,9 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
 
 @Composable
 fun MessageBubble(message: MessageItem) {
+    // TODO: 롱클릭 시 클립보드 복사(이모지 유니코드 대응) 로직 추가
+    // TODO: message.isFailed가 true일 경우 말풍선 옆에 에러 아이콘 표시
+
     val alignment = if (message.isMine) Alignment.End else Alignment.Start
     val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
     val textColor = if (message.isMine) Color.White else Color.Black
@@ -207,61 +239,57 @@ fun MessageBubble(message: MessageItem) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
     ) {
-        Surface(
-            modifier = Modifier.widthIn(max = 280.dp),
-            shape = RoundedCornerShape(
-                topStart = 24.dp, topEnd = 24.dp,
-                bottomStart = if (message.isMine) 24.dp else 4.dp,
-                bottomEnd = if (message.isMine) 4.dp else 24.dp
-            ),
-            color = bubbleColor,
-            tonalElevation = 1.dp
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start
         ) {
-            Column(modifier = Modifier.padding(2.dp)) {
-                // 이미지 메시지가 있을 경우
-                if (message.imageUrl != null) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp), // 텍스트와 겹치지 않게 여백
-                        shape = RoundedCornerShape(22.dp),
-                        color = Color.LightGray.copy(alpha = 0.3f)
-                    ) {
-                        // 실제 구현 시 Coil의 AsyncImage를 사용하면 비율 유지가 쉽습니다.
-                        /*
-                        AsyncImage(
-                            model = message.imageUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxWidth(),
-                            contentScale = ContentScale.FillWidth // 가로를 꽉 채우고 세로는 비율대로
-                        )
-                        */
-
-                        // 프리뷰 확인용 임시 Box (비율을 위해 aspectRatio 적용)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(0.7f) // 시안과 비슷한 세로형 비율(가로:세로 = 7:10)
-                                .background(Color.LightGray.copy(alpha = 0.5f))
-                        )
-                    }
-                }
-
-                // 텍스트 메시지가 있을 경우
-                if (message.text.isNotEmpty()) {
-                    Text(
-                        text = message.text,
-                        color = textColor,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        style = Typography.bodyMedium
-                    )
-                }
+            // [내 메시지일 때] 시간과 읽음 표시가 말풍선 왼쪽에 위치
+            if (message.isMine) {
+                MessageStatusSection(message)
+                Spacer(modifier = Modifier.width(4.dp))
             }
+
+            Surface(
+                modifier = Modifier.widthIn(max = 280.dp),
+                shape = RoundedCornerShape(
+                    topStart = 24.dp, topEnd = 24.dp,
+                    bottomStart = if (message.isMine) 24.dp else 4.dp,
+                    bottomEnd = if (message.isMine) 4.dp else 24.dp
+                ),
+                color = bubbleColor
+            ) {
+                Text(
+                    text = message.text,
+                    color = textColor,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    style = Typography.bodyMedium
+                )
+            }
+
+            // [상대 메시지일 때] 시간과 읽음 표시가 말풍선 오른쪽에 위치
+            if (!message.isMine) {
+                Spacer(modifier = Modifier.width(4.dp))
+                MessageStatusSection(message)
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageStatusSection(message: MessageItem) {
+    Column(horizontalAlignment = Alignment.End) {
+        // 읽지 않았을 때만 '1' 표시
+        if (!message.isRead) {
+            Text(
+                text = "1",
+                style = Typography.labelSmall,
+                color = primary,
+                fontWeight = FontWeight.Bold
+            )
         }
         Text(
             text = message.time,
-            style = Typography.bodySmall,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp),
+            style = Typography.labelSmall.copy(fontSize = 10.sp),
             color = Color.Gray
         )
     }
