@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                     val showBottomBar = navBackStackEntry?.destination?.let { destination ->
                         destination.hasRoute<Routes.Map>() ||
                                 destination.hasRoute<Routes.ChatList>() ||
-                                destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Noti>()
+                                destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Notification>()
 
                     } ?: false
 
