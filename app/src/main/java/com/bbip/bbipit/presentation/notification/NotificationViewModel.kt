@@ -90,7 +90,6 @@ class NotificationViewModel @Inject constructor(
                     createdAt = now - 600000L,
                     isRead = false,
                     expiresAt = System.currentTimeMillis() + 3 * 60 * 60 * 1000L)
-
             )
 
 
@@ -232,64 +231,4 @@ class NotificationViewModel @Inject constructor(
         _notification.value = listOf(newNoti) + _notification.value
     }
 }
-
-
-
-
-/*val now = System.currentTimeMillis()
-_notification.value = listOf(
-    Notification(
-        notificationId = "1",
-        type = "WALKIE",
-        senderName = "Alex Rivera",
-        createdAt = now - 120000 // 2분 전
-    ),
-    Notification(
-        notificationId = "2",
-        type = "DM",
-        senderName = "박미나",
-        content = "오늘 저녁 어때?",
-        roomId = "room_123",
-        createdAt = now - 600000 // 10분 전
-    ),
-    Notification(
-        notificationId = "3",
-        type = "REQ",
-        senderName = "Jordan",
-        createdAt = now - 1800000 // 30분 전
-    ),
-    Notification(
-        notificationId = "4",
-        type = "WALKIE",
-        senderName = "김민성",
-        createdAt = now - (5 * 60 * 60 * 1000L) // 5시간 전 (만료됨)
-    ),
-    Notification(
-        notificationId = "5",
-        type = "WALKIE",
-        senderName = "Alex Rivera",
-        createdAt = now - 120000
-    ),
-    Notification(
-        notificationId = "6",
-        type = "DM",
-        senderName = "박미나",
-        content = "오늘 저녁 어때?",
-        roomId = "room_123",
-        createdAt = now - 600000
-    ),
-    Notification(
-        notificationId = "7",
-        type = "REQ",
-        senderName = "Jordan",
-        createdAt = now - 1800000
-    ),
-    Notification(
-        notificationId = "8",
-        type = "WALKIE",
-        senderName = "김민성",
-        createdAt = now - (5 * 60 * 60 * 1000L) // 5시간 전 (만료됨)
-    )
-)*/
-
 
