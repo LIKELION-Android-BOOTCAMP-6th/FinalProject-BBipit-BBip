@@ -1,4 +1,4 @@
-package com.bbip.bbipit.presentation.noti
+package com.bbip.bbipit.presentation.notification
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -26,7 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.*
-import com.bbip.bbipit.domain.entity.Notifications
+import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import java.text.SimpleDateFormat
 import java.util.*
@@ -34,52 +34,54 @@ import java.util.*
 // 전체 레이아웃 / 필터링된 리스트 관리 등
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotiScreen(
-    navController: NavController, viewModel: NotiViewModel = hiltViewModel()
+fun NotificationScreen(
+    navController: NavController, viewModel: NotificationViewModel = hiltViewModel()
 ) {
-    val notifications by viewModel.notifications.collectAsState()
+    val notification by viewModel.notification.collectAsState()
     val readAllClicked by viewModel.readAllClicked.collectAsState()
     var selectedFilter by remember { mutableStateOf("전체") }
 
-    val filteredList by remember(notifications, selectedFilter) {
+    val filteredList by remember(notification, selectedFilter) {
         derivedStateOf {
-            if (selectedFilter == "전체") notifications
-            else notifications.filter { mapFilterToType(selectedFilter, it.type) }
+            if (selectedFilter == "전체") notification
+            else notification.filter { mapFilterToType(selectedFilter, it.type) }
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        modifier = Modifier.fillMaxSize()
-    ) { innerPadding ->
-        BackgroundBox {
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        NotificationHeader(
+            onReadAll = { viewModel.onReadAllClick() }
+        )
+
+        BackgroundBox(
+            modifier = Modifier.fillMaxSize()
+        ) {
             Column(
                 modifier = Modifier
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
             ) {
-                NotiHeader(
-                    onReadAll = { viewModel.onReadAllClick() })
+                Spacer(modifier = Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                NotiFilterBar(
-                    selected = selectedFilter, onSelect = { selectedFilter = it })
+                NotificationFilterBar(
+                    selected = selectedFilter,
+                    onSelect = { selectedFilter = it }
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    items(items = filteredList, key = { it.notiId }) { item ->
+                    items(items = filteredList, key = { it.notificationId }) { item ->
 
                         // 스와이프 삭제
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = {
                                 if (it == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.markAsReadAndDelete(item.notiId)
+                                    viewModel.markAsReadAndDelete(item.notificationId)
                                     true
                                 } else false
                             }
@@ -116,24 +118,30 @@ fun NotiScreen(
                             },
                             enableDismissFromStartToEnd = false
                         ) {
-                            NotiCard(
+                            NotificationCard(
                                 item = item,
                                 readAllClicked = readAllClicked,
                                 onClick = {
-                                    viewModel.markAsRead(item.notiId)
                                     // DM창으로 이동
                                     if (item.type == "DM") {
+                                        viewModel.markAsRead(item.notificationId)
                                         navController.navigate(Routes.ChatRoom(roomId = item.roomId))
-                                    } else if (item.type == "WALKIE" && !item.isExpired) {
-                                        Toast.makeText(
-                                            navController.context,
-                                            "무전을 확인합니다.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    }
+                                    // 무전 ㅊ처리
+                                    else if (item.type == "WALKIE") {
+                                        // 아직 읽지 않았고(!isRead), 시간상으로도 만료되지 않았을(!isExpired) 때만 토스트 노출
+                                        if (!item.isRead && !item.isExpired) {
+                                            viewModel.markAsRead(item.notificationId)
+                                            Toast.makeText(
+                                                navController.context,
+                                                "무전을 확인합니다.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     }
                                 },
                                 onAcceptFriend = {
-                                    viewModel.onAcceptFriendClick(item.notiId)
+                                    viewModel.onAcceptFriendClick(item.notificationId)
                                     Toast.makeText(
                                         navController.context,
                                         "친구 요청이 수락되었습니다.",
@@ -141,7 +149,7 @@ fun NotiScreen(
                                     ).show()
                                 },
                                 onRejectFriend = {
-                                    viewModel.onRejectFriendClick(item.notiId)
+                                    viewModel.onRejectFriendClick(item.notificationId)
                                     Toast.makeText(
                                         navController.context,
                                         "친구 요청이 거절되었습니다.",
@@ -159,8 +167,8 @@ fun NotiScreen(
 
 // 개별 알림 내용 // 수락/거절 액션 버튼 등
 @Composable
-fun NotiCard(
-    item: Notifications,
+fun NotificationCard(
+    item: Notification,
     onClick: () -> Unit,
     onAcceptFriend: () -> Unit,
     onRejectFriend: () -> Unit,
@@ -333,30 +341,40 @@ fun StatusBadge(text: String, color: Color) {
 }
 
 @Composable
-fun NotiHeader(
+fun NotificationHeader(
     onReadAll: () -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        color = Color.White,
+        shadowElevation = 1.dp
     ) {
-        Text(
-            text = "알림",
-            style = Typography.bodyLarge
-        )
-        // 전체 확인 버튼
-        Text(
-            text = "전체 확인",
-            modifier = Modifier.clickable { onReadAll() },
-            style = Typography.bodySmall,
-            color = primary
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "알림",
+                style = Typography.bodyLarge
+            )
+
+            // 전체 확인 버튼
+            Text(
+                text = "전체 확인",
+                modifier = Modifier.clickable { onReadAll() },
+                style = Typography.bodySmall,
+                color = primary
+            )
+        }
     }
 }
 
 @Composable
-fun NotiFilterBar(
+fun NotificationFilterBar(
     selected: String, onSelect: (String) -> Unit
 ) {
     val filters = listOf(

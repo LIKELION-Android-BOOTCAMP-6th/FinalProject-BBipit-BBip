@@ -39,10 +39,10 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
 
-                val showBottomBar = navBackStackEntry?.destination?.let { destination ->
-                    destination.hasRoute<Routes.Map>() ||
-                            destination.hasRoute<Routes.ChatList>() ||
-                            destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Noti>()
+                    val showBottomBar = navBackStackEntry?.destination?.let { destination ->
+                        destination.hasRoute<Routes.Map>() ||
+                                destination.hasRoute<Routes.ChatList>() ||
+                                destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Notification>()
 
                 } ?: false
 
