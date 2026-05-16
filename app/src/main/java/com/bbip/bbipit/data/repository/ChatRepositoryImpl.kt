@@ -6,7 +6,7 @@ import com.bbip.bbipit.data.source.model.ChatRoomDto
 import com.bbip.bbipit.data.source.model.MessageDto
 import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.entity.ChatRoomResult
-import com.bbip.bbipit.domain.entity.Message
+import com.bbip.bbipit.domain.entity.ChatMessage
 import com.bbip.bbipit.domain.repository.ChatRepository
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
@@ -21,11 +21,15 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
+/**
+ * 채팅 데이터 처리 구현체
+ * Firebase Functions와 Firestore를 활용하여 채팅방 생성, 메시지 전송 및 실시간 동기화 수행
+ */
 class ChatRepositoryImpl @Inject constructor(
     private val firebaseFunctions: FirebaseFunctions,
     private val db: FirebaseFirestore
 ) : ChatRepository {
-
+    // 채팅방 생성 요청 처리
     override suspend fun createChatRoom(targetUid: String): ChatRoomResult {
         val data = hashMapOf("targetUid" to targetUid)
         return try {
@@ -33,7 +37,6 @@ class ChatRepositoryImpl @Inject constructor(
                 .getHttpsCallable("createChatRoom")
                 .call(data)
                 .await()
-
             val res = result.data as? Map<*, *>
             ChatRoomResult(
                 success = res?.get("success") as? Boolean ?: false,
@@ -45,7 +48,7 @@ class ChatRepositoryImpl @Inject constructor(
             ChatRoomResult(false, null, e.message ?: "Unknown Error")
         }
     }
-
+    // 메시지 전송 요청 처리
     override suspend fun sendMessage(
         roomId: String,
         receiverId: String,
@@ -56,13 +59,11 @@ class ChatRepositoryImpl @Inject constructor(
             "content" to content,
             "receiverId" to receiverId
         )
-
         return try {
             val result = firebaseFunctions
                 .getHttpsCallable("sendMessage")
                 .call(data)
                 .await()
-
             val map = result.data as? Map<String, Any>
             Log.d("ChatRepository", "메세지 전송 결과: $map")
             map
@@ -71,90 +72,74 @@ class ChatRepositoryImpl @Inject constructor(
             throw e
         }
     }
-
+    // 채팅방 목록 실시간 관찰 스트림 제공
     override fun observeChatRooms(myUid: String): Flow<List<ChatRoom>> = callbackFlow {
         val query = db.collection("DMs")
             .whereArrayContains("participants", myUid)
             .orderBy("updated_at", Query.Direction.DESCENDING)
-
         val subscription = query.addSnapshotListener { snapshot, e ->
             if (e != null) {
                 close(e)
                 return@addSnapshotListener
             }
-
             val rooms = snapshot?.documents?.mapNotNull { doc ->
                 doc.toObject(ChatRoomDto::class.java)?.toEntity(doc.id)
             } ?: emptyList()
-
             trySend(rooms)
         }
-
         awaitClose { subscription.remove() }
     }
-
-
-    override fun observeMessages(roomId: String): Flow<List<Message>> =
+    // 특정 채팅방의 메시지 실시간 관찰 스트림 제공
+    override fun observeMessages(roomId: String): Flow<List<ChatMessage>> =
         callbackFlow {
             val query = db.collection("DMs").document(roomId)
                 .collection("Messages")
                 .orderBy("sent_at", Query.Direction.ASCENDING)
-
-            // 메모리에 현재 채팅 메시지 리스트를 유지합니다.
-            val currentMessages = mutableListOf<Message>()
-
+            // 메모리 내 현재 메시지 리스트 유지
+            val currentChatMessages = mutableListOf<ChatMessage>()
             val subscription = query.addSnapshotListener { snapshot, e ->
                 if (e != null) {
                     close(e)
                     return@addSnapshotListener
                 }
-
                 snapshot?.documentChanges?.forEach { change ->
                     val messageDto = change.document.toObject(MessageDto::class.java)
                     val message = messageDto?.toEntity(change.document.id) ?: return@forEach
-
                     when (change.type) {
-                        // 1. 새 메시지 추가
+                        // 새 메시지 추가 시 리스트 삽입
                         DocumentChange.Type.ADDED -> {
-                            // 신규 메시지는 리스트의 적절한 위치(newIndex)에 삽입
-                            currentMessages.add(change.newIndex, message)
+                            currentChatMessages.add(change.newIndex, message)
                         }
-                        // 2. 메시지 내용 수정 (예: 읽음 상태 변경 등)
+                        // 메시지 수정 시 변경 사항 반영
                         DocumentChange.Type.MODIFIED -> {
                             if (change.oldIndex == change.newIndex) {
-                                currentMessages[change.newIndex] = message
+                                currentChatMessages[change.newIndex] = message
                             } else {
-                                // 인덱스가 바뀌었다면 기존 위치 삭제 후 새 위치 삽입
-                                currentMessages.removeAt(change.oldIndex)
-                                currentMessages.add(change.newIndex, message)
+                                currentChatMessages.removeAt(change.oldIndex)
+                                currentChatMessages.add(change.newIndex, message)
                             }
                         }
-                        // 3. 메시지 삭제
+                        // 메시지 삭제 시 리스트 제거
                         DocumentChange.Type.REMOVED -> {
-                            currentMessages.removeAt(change.oldIndex)
+                            currentChatMessages.removeAt(change.oldIndex)
                         }
                     }
                 }
-
-                // 변경된 부분만 반영된 '전체 리스트'의 복사본을 UI로 보냅니다.
-                // (Immutable 리스트로 보내야 UI 레이어에서 안전하게 처리 가능합니다)
-                trySend(currentMessages.toList())
+                // 업데이트된 메시지 리스트 전송
+                trySend(currentChatMessages.toList())
             }
-
             awaitClose { subscription.remove() }
         }
-
+    // 채팅방 목록 일괄 가져오기
     override suspend fun fetchMyChatRooms(): List<ChatRoom> {
         return try {
             val result = firebaseFunctions
                 .getHttpsCallable("getMyChatRooms")
                 .call()
                 .await()
-
             val res = result.data as? Map<*, *>
             if (res?.get("success") == true) {
                 val roomsMapList = res["rooms"] as? List<Map<String, Any>> ?: emptyList()
-
                 roomsMapList.map { map ->
                     ChatRoom(
                         roomId = map["roomId"] as? String ?: "",
@@ -171,7 +156,7 @@ class ChatRepositoryImpl @Inject constructor(
             throw e
         }
     }
-
+    // 메시지 읽음 처리 요청
     override suspend fun markMessagesAsRead(roomId: String): Boolean {
         val data = hashMapOf("roomId" to roomId)
         return try {
@@ -179,7 +164,6 @@ class ChatRepositoryImpl @Inject constructor(
                 .getHttpsCallable("markMessagesAsRead")
                 .call(data)
                 .await()
-
             val res = result.data as? Map<*, *>
             res?.get("success") as? Boolean ?: false
         } catch (e: Exception) {
@@ -187,22 +171,20 @@ class ChatRepositoryImpl @Inject constructor(
             false
         }
     }
-
-    override suspend fun fetchAllMessages(roomId: String): List<Message> {
+    // 특정 채팅방의 모든 메시지 내역 일괄 가져오기
+    override suspend fun fetchAllMessages(roomId: String): List<ChatMessage> {
         val data = hashMapOf("roomId" to roomId)
         return try {
             val result = firebaseFunctions
                 .getHttpsCallable("getAllMessages")
                 .call(data)
                 .await()
-
             val res = result.data as? Map<*, *>
             if (res?.get("success") == true) {
                 val messagesList = res["messages"] as? List<Map<String, Any>> ?: emptyList()
                 val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
                     timeZone = TimeZone.getTimeZone("UTC")
                 }
-
                 messagesList.map { map ->
                     val isoDate = map["sent_at"] as? String
                     val sentAtMillis = try {
@@ -210,8 +192,7 @@ class ChatRepositoryImpl @Inject constructor(
                     } catch (e: Exception) {
                         0L
                     }
-
-                    Message(
+                    ChatMessage(
                         msgId = map["id"] as? String ?: "",
                         senderId = map["sender_id"] as? String ?: "",
                         content = map["content"] as? String ?: "",

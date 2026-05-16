@@ -2,20 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--    필수 권한 설정   -->
+    <!-- 필수 권한 설정 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 
+    <!-- 외부 앱 연동 설정 -->
     <queries>
         <package android:name="com.kakao.talk" />
     </queries>
@@ -30,6 +31,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Bbipit">
+
+        <!-- 음성 수신 서비스 -->
+        <service
+            android:name=".core.base.MobileAudioReceiverService"
+            android:foregroundServiceType="connectedDevice"
+            android:exported="false"/>
+
+        <!-- 데이터 및 메시지 수신 리스너 서비스 -->
+        <service
+            android:name=".core.base.MobileMessageListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/check_phone_status" />
+            </intent-filter>
+        </service>
+
+        <!-- 메인 액티비티 -->
         <activity
             android:name=".presentation.main.MainActivity"
             android:exported="true"
@@ -37,11 +60,11 @@
             android:theme="@style/Theme.Bbipit">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- 카카오 인증 핸들러 액티비티 -->
         <activity
             android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
             android:exported="true">
@@ -49,10 +72,11 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
                 <data android:host="oauth" android:scheme="kakao${KAKAO_KEY}" />
             </intent-filter>
         </activity>
+
+        <!-- 지도 API 키 메타데이터 -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAP_KEY}" />

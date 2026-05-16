@@ -9,8 +9,12 @@ interface VoiceRepository {
 
     // 나에게 온 음성 메시지 실시간 관찰 (Flow)
     fun observeIncomingVoice(myUid: String): Flow<VoiceMessage>
+    // 파일만 미리 업로드하고 URL을 반환
+    suspend fun uploadVoiceFile(localFileUri: android.net.Uri): Result<String>
 
-    // 음성 파일 업로드 및 전송 결합
-    suspend fun uploadAndSendVoiceMessage(receiverId: String, localFileUri: android.net.Uri, duration: Int): Result<Boolean>
+    // 이미 업로드된 URL을 사용하여 메시지만 전송
+    suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int): Result<Boolean>
 
+    // 특정 음성 메시지 읽음 처리
+    suspend fun markVoiceMessageAsRead(messageId: String): Result<Boolean>
 }
