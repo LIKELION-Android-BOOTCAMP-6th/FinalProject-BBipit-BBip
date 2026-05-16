@@ -15,6 +15,6 @@ fun NotificationDto.toEntity(id: String): Notification {
         roomId = room_id,
         isRead = is_read,
         createdAt = created_at,
-        expiresAt = expires_at,
+        expiresAt = expires_at
     )
 }
