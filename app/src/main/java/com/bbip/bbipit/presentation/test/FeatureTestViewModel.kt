@@ -105,7 +105,7 @@ class FeatureTestViewModel @Inject constructor(
     /**
      * 수락된 친구 목록 조회 테스트
      */
-    suspend fun testGetFriends(): List<User> {
+    suspend fun testGetFriends(): List<User>? {
         return try {
             val friends = userRepository.getMyAcceptedFriends()
             Log.d(TAG, "✅ 친구 목록 조회 성공: ${friends.size}명")
@@ -115,7 +115,7 @@ class FeatureTestViewModel @Inject constructor(
             friends
         } catch (e: Exception) {
             Log.e(TAG, "❌ 친구 목록 조회 실패: ${e.message}")
-            emptyList()
+            null // 빈 리스트와 구별하기 위해 예외 시 null 반환
         }
     }
 
@@ -149,8 +149,9 @@ class FeatureTestViewModel @Inject constructor(
 
     /**
      * 메시지 수신 테스트 (실시간 구독)
+     * 화면단에서 Flow나 이벤트를 수집할 수 있도록 수신 시 콜백(onMessageReceived) 추가
      */
-    suspend fun testObserveMessages(roomId: String): Boolean {
+    suspend fun testObserveMessages(roomId: String, onMessageReceived: (List<ChatMessage>) -> Unit): Boolean {
         return try {
             Log.d(TAG, "🔍 메시지 수신 구독 시작 (Room: $roomId)")
             chatRepository.observeMessages(roomId).collectLatest { messages ->
@@ -158,6 +159,7 @@ class FeatureTestViewModel @Inject constructor(
                 messages.forEach { msg ->
                     Log.d(TAG, " - 💬 [${msg.senderId}]: ${msg.content}")
                 }
+                onMessageReceived(messages)
             }
             true
         } catch (e: Exception) {
@@ -169,7 +171,7 @@ class FeatureTestViewModel @Inject constructor(
     /**
      * 채팅방 목록 조회 테스트
      */
-    suspend fun testGetChatRooms(): List<ChatRoom> {
+    suspend fun testGetChatRooms(): List<ChatRoom>? {
         return try {
             val rooms = chatRepository.fetchMyChatRooms()
             Log.d(TAG, "✅ 채팅방 목록 조회 성공: ${rooms.size}개")
@@ -179,7 +181,7 @@ class FeatureTestViewModel @Inject constructor(
             rooms
         } catch (e: Exception) {
             Log.e(TAG, "❌ 채팅방 목록 조회 실패: ${e.message}")
-            emptyList()
+            null
         }
     }
 
@@ -200,7 +202,7 @@ class FeatureTestViewModel @Inject constructor(
     /**
      * 전체 메시지 내역 조회 테스트
      */
-    suspend fun testFetchAllMessages(roomId: String): List<ChatMessage> {
+    suspend fun testFetchAllMessages(roomId: String): List<ChatMessage>? {
         return try {
             val messages = chatRepository.fetchAllMessages(roomId)
             Log.d(TAG, "✅ 전체 메시지 내역 조회 성공: ${messages.size}개")
@@ -210,7 +212,7 @@ class FeatureTestViewModel @Inject constructor(
             messages
         } catch (e: Exception) {
             Log.e(TAG, "❌ 전체 메시지 내역 조회 실패: ${e.message}")
-            emptyList()
+            null
         }
     }
 
@@ -229,13 +231,15 @@ class FeatureTestViewModel @Inject constructor(
 
     /**
      * 음성 수신 테스트 (실시간 구독)
+     * 화면단 출력을 위해 수신 시 콜백(onVoiceReceived) 추가
      */
-    suspend fun testObserveVoice(): Boolean {
+    suspend fun testObserveVoice(onVoiceReceived: (String, String) -> Unit): Boolean {
         return try {
             val myUid = authRepository.getCurrentUserUid() ?: return false
             Log.d(TAG, "🔍 음성 수신 구독 시작 (UID: $myUid)")
             voiceRepository.observeIncomingVoice(myUid).collectLatest { voiceMsg ->
                 Log.d(TAG, "✅ 실시간 음성 수신됨: 발신자=${voiceMsg.senderId}, 경로=${voiceMsg.voiceUrl}")
+                onVoiceReceived(voiceMsg.senderId, voiceMsg.voiceUrl)
             }
             true
         } catch (e: Exception) {
