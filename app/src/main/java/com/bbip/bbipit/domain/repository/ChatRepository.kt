@@ -2,7 +2,7 @@ package com.bbip.bbipit.domain.repository
 
 import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.entity.ChatRoomResult
-import com.bbip.bbipit.domain.entity.Message
+import com.bbip.bbipit.domain.entity.ChatMessage
 import kotlinx.coroutines.flow.Flow
 
 interface ChatRepository {
@@ -21,7 +21,7 @@ interface ChatRepository {
     fun observeChatRooms(myUid: String): Flow<List<ChatRoom>>
 
     // 특정 채팅방의 메시지 내역 실시간 관찰
-    fun observeMessages(roomId: String): Flow<List<Message>>
+    fun observeMessages(roomId: String): Flow<List<ChatMessage>>
 
     /**
      * 내 채팅방 목록을 서버에서 일회성으로 가져옵니다.
@@ -36,5 +36,5 @@ interface ChatRepository {
     /**
      * 특정 채팅방의 모든 메시지 내역을 서버에서 일회성으로 가져옵니다.
      */
-    suspend fun fetchAllMessages(roomId: String): List<Message>
+    suspend fun fetchAllMessages(roomId: String): List<ChatMessage>
 }

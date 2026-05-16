@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun TestScreen(
@@ -26,6 +27,7 @@ fun TestScreen(
     var statusMessage by remember { mutableStateOf("코딩중..") }
     var profileImageUrl by remember { mutableStateOf("https://picsum.photos/200") }
     var dummyUri by remember { mutableStateOf("https://firebasestorage.googleapis.com/v0/b/bbipit.firebasestorage.app/o/Voices%2Ftest%2Ftest.wav?alt=media&token=a551afa5-aee6-4f89-b7ad-24de513f2fff") }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -97,11 +99,11 @@ fun TestScreen(
         Text("1. 인증 및 유저", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = { viewModel.testGetUserProfile(targetUid) },
+                onClick = { scope.launch { viewModel.testGetUserProfile(targetUid) } },
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
             ) {
-                Text("일반 프로필")
+                Text("특정 유저 데이터 조회")
             }
             Button(
                 onClick = { viewModel.fetchFriendProfile(targetUid) },
@@ -202,17 +204,17 @@ fun TestScreen(
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { 
-                    try {
-                        viewModel.testSendVoice(targetUid, Uri.parse(dummyUri))
-                    } catch(e: Exception) { }
-                }, 
-                modifier = Modifier.weight(1f),
-                enabled = false
-            ) {
-                Text("업로드 후 전송")
-            }
+//            Button(
+//                onClick = {
+//                    try {
+//                        viewModel.testSendVoice(targetUid, Uri.parse(dummyUri))
+//                    } catch(e: Exception) { }
+//                },
+//                modifier = Modifier.weight(1f),
+//                enabled = false
+//            ) {
+//                Text("업로드 후 전송")
+//            }
             Button(
                 onClick = { viewModel.testSendVoiceUrl(targetUid, dummyUri) },
                 modifier = Modifier.weight(1f)
