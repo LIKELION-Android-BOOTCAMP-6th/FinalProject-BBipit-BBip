@@ -37,7 +37,7 @@ fun TestScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("🛠️ Feature 통합 테스트", style = MaterialTheme.typography.headlineMedium)
-        
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("입력 정보", style = MaterialTheme.typography.titleMedium)
@@ -97,6 +97,17 @@ fun TestScreen(
         HorizontalDivider()
 
         Text("1. 인증 및 유저", style = MaterialTheme.typography.titleMedium)
+
+        // 로그인 및 회원가입 추가로 테스트 유연성 확보
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { scope.launch { viewModel.testLogin(email, password) } }, modifier = Modifier.weight(1f)) {
+                Text("이메일 로그인")
+            }
+            Button(onClick = { scope.launch { viewModel.testSignUp(email, password) } }, modifier = Modifier.weight(1f)) {
+                Text("이메일 회원가입")
+            }
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = { scope.launch { viewModel.testGetUserProfile(targetUid) } },
@@ -106,7 +117,7 @@ fun TestScreen(
                 Text("특정 유저 데이터 조회")
             }
             Button(
-                onClick = { viewModel.fetchFriendProfile(targetUid) },
+                onClick = { scope.launch { viewModel.fetchFriendProfile(targetUid) } }, // suspend 함수 대응 완료
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
             ) {
@@ -114,39 +125,39 @@ fun TestScreen(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testHeartbeat(roomId.ifBlank { null }) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testHeartbeat(roomId.ifBlank { null }) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("Heartbeat")
             }
-            Button(onClick = { viewModel.testFriendRequest(targetUid) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testFriendRequest(targetUid) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("친구 요청")
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testDeleteFriend(targetUid) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testDeleteFriend(targetUid) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("친구 삭제")
             }
-            Button(onClick = { viewModel.testGetFriends() }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testGetFriends() } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("친구 목록")
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testUpdateOnlineStatus(true) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testUpdateOnlineStatus(true) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("온라인 전환")
             }
-            Button(onClick = { viewModel.testUpdateOnlineStatus(false) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testUpdateOnlineStatus(false) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("오프라인 전환")
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testAcceptFriend(targetUid) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testAcceptFriend(targetUid) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("친구 수락")
             }
-            Button(onClick = { viewModel.testDeclineFriend(targetUid) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testDeclineFriend(targetUid) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("친구 거절")
             }
         }
         Button(
-            onClick = { viewModel.testUpdateProfile(nickname, statusMessage, profileImageUrl) },
+            onClick = { scope.launch { viewModel.testUpdateProfile(nickname, statusMessage, profileImageUrl) } }, // suspend 함수 대응 완료
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
         ) {
@@ -157,26 +168,26 @@ fun TestScreen(
 
         Text("2. 채팅 테스트", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testCreateRoom(targetUid) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testCreateRoom(targetUid) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("방 생성")
             }
-            Button(onClick = { viewModel.testGetChatRooms() }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testGetChatRooms() } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("방 목록")
             }
         }
-        Button(onClick = { viewModel.testSendMessage(roomId, targetUid, "테스트 메시지") }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { scope.launch { viewModel.testSendMessage(roomId, targetUid, "테스트 메시지") } }, modifier = Modifier.fillMaxWidth()) { // suspend 함수 대응 완료
             Text("메시지 전송")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { viewModel.testMarkMessagesRead(roomId) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testMarkMessagesRead(roomId) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("메시지 읽음")
             }
-            Button(onClick = { viewModel.testObserveMessages(roomId) }, modifier = Modifier.weight(1f)) {
+            Button(onClick = { scope.launch { viewModel.testObserveMessages(roomId) } }, modifier = Modifier.weight(1f)) { // suspend 함수 대응 완료
                 Text("메시지 수신(구독)")
             }
         }
         Button(
-            onClick = { viewModel.testFetchAllMessages(roomId) },
+            onClick = { scope.launch { viewModel.testFetchAllMessages(roomId) } }, // suspend 함수 대응 완료
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
         ) {
@@ -186,7 +197,7 @@ fun TestScreen(
         HorizontalDivider()
 
         Text("3. 음성 테스트", style = MaterialTheme.typography.titleMedium)
-        
+
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let { dummyUri = it.toString() }
         }
@@ -204,25 +215,14 @@ fun TestScreen(
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-//            Button(
-//                onClick = {
-//                    try {
-//                        viewModel.testSendVoice(targetUid, Uri.parse(dummyUri))
-//                    } catch(e: Exception) { }
-//                },
-//                modifier = Modifier.weight(1f),
-//                enabled = false
-//            ) {
-//                Text("업로드 후 전송")
-//            }
             Button(
-                onClick = { viewModel.testSendVoiceUrl(targetUid, dummyUri) },
-                modifier = Modifier.weight(1f)
+                onClick = { scope.launch { viewModel.testSendVoiceUrl(targetUid, dummyUri) } }, // suspend 함수 대응 완료
+                modifier = Modifier.fillMaxWidth() // 1개 버튼만 살아있으므로 가로 폭을 꽉 채우도록 변경
             ) {
                 Text("URL 바로 전송")
             }
         }
-        Button(onClick = { viewModel.testObserveVoice() }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { scope.launch { viewModel.testObserveVoice() } }, modifier = Modifier.fillMaxWidth()) { // suspend 함수 대응 완료
             Text("음성 수신(구독)")
         }
 
@@ -231,13 +231,13 @@ fun TestScreen(
         Text("4. 알림 테스트", style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = { viewModel.testMarkNotiRead("single", notiId.ifBlank { null }) },
+                onClick = { scope.launch { viewModel.testMarkNotiRead("single", notiId.ifBlank { null }) } }, // suspend 함수 대응 완료
                 modifier = Modifier.weight(1f)
             ) {
                 Text("알림 읽음(단일)")
             }
             Button(
-                onClick = { viewModel.testMarkNotiRead("all") },
+                onClick = { scope.launch { viewModel.testMarkNotiRead("all") } }, // suspend 함수 대응 완료
                 modifier = Modifier.weight(1f)
             ) {
                 Text("알림 읽음(전체)")
@@ -245,13 +245,13 @@ fun TestScreen(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = { viewModel.testDeleteNoti("single", notiId.ifBlank { null }) },
+                onClick = { scope.launch { viewModel.testDeleteNoti("single", notiId.ifBlank { null }) } }, // suspend 함수 대응 완료
                 modifier = Modifier.weight(1f)
             ) {
                 Text("알림 삭제(단일)")
             }
             Button(
-                onClick = { viewModel.testDeleteNoti("all") },
+                onClick = { scope.launch { viewModel.testDeleteNoti("all") } }, // suspend 함수 대응 완료
                 modifier = Modifier.weight(1f)
             ) {
                 Text("알림 삭제(전체)")
@@ -259,7 +259,7 @@ fun TestScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-        
+
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.fillMaxWidth(),
