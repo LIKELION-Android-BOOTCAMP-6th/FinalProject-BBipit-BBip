@@ -125,6 +125,24 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
+    // 내 프로필 조회 구현
+    override suspend fun getMyProfile(uid: String): Result<User> {
+        return try {
+            val response = userRemoteDataSource.getMyProfile(uid)
+            val success = response?.get("success") as? Boolean ?: false
+            val profileMap = response?.get("profile") as? Map<String, Any>
+
+            if (success && profileMap != null) {
+                Result.Success(profileMap.toDomain())
+            } else {
+                Result.Failure(AppError.Unknown("내 정보를 찾을 수 없습니다."))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "내 프로필 조회 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "내 프로필 조회 실패"))
+        }
+    }
+
     // 친구 프로필 및 상태 조회
     override suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>> {
         return try {

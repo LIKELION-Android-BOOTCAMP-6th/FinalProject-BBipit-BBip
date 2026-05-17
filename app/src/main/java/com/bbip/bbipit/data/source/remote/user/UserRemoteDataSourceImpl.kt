@@ -100,4 +100,17 @@ class UserRemoteDataSourceImpl @Inject constructor(
         val result = firebaseFunctions.getHttpsCallable("getFriendProfileByUid").call(data).await()
         return result.data as Map<String, Any>
     }
+
+    // 내 프로필 조회 구현
+    override suspend fun getMyProfile(uid: String): Map<String, Any>? {
+        return try {
+            val documentSnapshot = firestore.collection("users")
+                .document(uid)
+                .get()
+                .await()
+            documentSnapshot.data
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

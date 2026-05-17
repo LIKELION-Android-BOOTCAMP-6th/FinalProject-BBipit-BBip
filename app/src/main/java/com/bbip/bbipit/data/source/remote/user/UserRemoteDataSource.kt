@@ -13,4 +13,5 @@ interface UserRemoteDataSource {
     suspend fun declineFriendRequest(targetUid: String): Boolean
     suspend fun getUserProfile(targetUid: String): Map<String, Any>?
     suspend fun getFriendProfileWithStatus(targetUid: String): Map<String, Any>
+    suspend fun getMyProfile(uid: String): Map<String, Any>?
 }
