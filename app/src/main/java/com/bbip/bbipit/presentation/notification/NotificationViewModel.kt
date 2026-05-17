@@ -4,6 +4,8 @@ import android.util.Log
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.usecase.GetNotificationListUseCase

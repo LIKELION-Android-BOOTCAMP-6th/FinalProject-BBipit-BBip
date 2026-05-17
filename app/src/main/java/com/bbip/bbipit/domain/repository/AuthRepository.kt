@@ -1,22 +1,29 @@
 package com.bbip.bbipit.domain.repository
 
+import com.bbip.bbipit.core.result.Result
+import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
 /**
- * 사용자 인증 데이터 처리를 위한 리포지토리 인터페이스
- * 소셜 및 이메일 로그인, 회원가입, 사용자 정보 조회, 인증 상태 감시 기능 정의
+ * 사용자 인증 데이터 처리를 담당하는 리포지토리입니다.
+ * 로그인, 회원가입 및 사용자 인증 상태 관리를 수행합니다.
  */
 interface AuthRepository {
-    // 카카오 로그인 수행
-    suspend fun kakaoLogin()
-    // 구글 ID 토큰을 활용한 로그인 수행
-    suspend fun signInWithGoogleIdToken(idToken: String)
-    // 이메일 기반 회원가입 수행
-    suspend fun signUpWithEmail(email: String, password: String)
-    // 이메일 기반 로그인 수행
-    suspend fun signInWithEmail(email: String, password: String)
-    // 현재 로그인된 사용자 UID 조회
+    // 카카오 로그인
+    suspend fun kakaoLogin(): Result<Unit>
+
+    // 구글 로그인
+    suspend fun signInWithGoogleIdToken(idToken: String): Result<Unit>
+
+    // 이메일 회원가입
+    suspend fun signUpWithEmail(email: String, password: String): Result<AuthResult>
+
+    // 이메일 로그인
+    suspend fun signInWithEmail(email: String, password: String): Result<AuthResult>
+
+    // 사용자 UID 조회
     fun getCurrentUserUid(): String?
-    // 인증 상태 변화 감지 스트림 제공
+
+    // 인증 상태 흐름
     fun getAuthStateFlow(): Flow<String?>
 }

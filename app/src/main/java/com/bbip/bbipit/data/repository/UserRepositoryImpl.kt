@@ -1,190 +1,141 @@
 package com.bbip.bbipit.data.repository
 
 import android.util.Log
+import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.mapper.toDomain
+import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSource
 import com.bbip.bbipit.domain.entity.User
+import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.UserRepository
-import com.google.firebase.functions.FirebaseFunctions
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 사용자 정보 데이터 처리 구현체
- * Firebase Functions를 활용한 사용자 프로필 업데이트, 친구 요청 및 관리 기능 수행
+ * 사용자 관련 데이터 처리를 담당하는 구현체입니다.
+ * 프로필 관리 및 친구 관계 설정을 관리합니다.
  */
 @Singleton
 class UserRepositoryImpl @Inject constructor(
-    private val firebaseFunctions: FirebaseFunctions,
+    private val userRemoteDataSource: UserRemoteDataSource
 ) : UserRepository {
-    // 사용자 프로필 업데이트 처리
-    override suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String) {
-        val data = hashMapOf(
-            "nickname" to nickname,
-            "statusMessage" to status,
-            "photoURL" to profileImageUrl
-        )
-        try {
-            firebaseFunctions
-                .getHttpsCallable("updateProfile")
-                .call(data)
-                .await()
+
+    // 프로필 정보 업데이트
+    override suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): Result<String> {
+        return try {
+            val message = userRemoteDataSource.updateProfile(nickname, status, profileImageUrl)
+            Result.Success(message)
         } catch (e: Exception) {
             Log.e("UserRepository", "프로필 업데이트 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "알 수 없는 오류"))
         }
     }
-    // 친구 요청 전송 처리
-    override suspend fun sendFriendRequest(targetUid: String): String {
-        val data = hashMapOf("targetUid" to targetUid)
+
+    // 친구 요청 전송
+    override suspend fun sendFriendRequest(targetUid: String): Result<String> {
         return try {
-            val result = firebaseFunctions
-                .getHttpsCallable("requestFriend")
-                .call(data)
-                .await()
-            val res = result.data as Map<*, *>
-            res["message"]?.toString() ?: "요청 완료"
+            val message = userRemoteDataSource.sendFriendRequest(targetUid)
+            Result.Success(message)
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 요청 실패: ${e.message}")
-            throw e
+            Result.Failure(AppError.Unknown(e.message ?: "친구 요청 중 오류 발생"))
         }
     }
-    // 친구 삭제 처리
-    override suspend fun deleteFriend(targetUid: String): String {
-        val data = hashMapOf("targetUid" to targetUid)
+
+    // 친구 삭제
+    override suspend fun deleteFriend(targetUid: String): Result<String> {
         return try {
-            val result = firebaseFunctions
-                .getHttpsCallable("deleteFriend")
-                .call(data)
-                .await()
-            val res = result.data as Map<*, *>
-            res["message"]?.toString() ?: "삭제 완료"
+            val message = userRemoteDataSource.deleteFriend(targetUid)
+            Result.Success(message)
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 삭제 실패: ${e.message}")
-            throw e
+            Result.Failure(AppError.Unknown(e.message ?: "친구 삭제 중 오류 발생"))
         }
     }
-    // 승인된 친구 목록 조회 처리
-    override suspend fun getMyAcceptedFriends(): List<User> {
+
+    // 수락된 친구 목록 조회
+    override suspend fun getMyAcceptedFriends(): Result<List<User>> {
         return try {
-            val result = firebaseFunctions
-                .getHttpsCallable("getMyAcceptedFriends")
-                .call()
-                .await()
-            val res = result.data as Map<*, *>
-            val friendsList = res["friends"] as? List<Map<String, Any>> ?: emptyList()
-            friendsList.map { map ->
-                User(
-                    id = map["friend_uid"] as? String ?: "",
-                    nickname = map["nickname"] as? String ?: "",
-                    profileImageUrl = map["profile_image_url"] as? String ?: "",
-                    status = map["status"] as? String ?: "",
-                    isOnline = map["is_online"] as? Boolean ?: false
-                )
-            }
+            val friends = userRemoteDataSource.getMyAcceptedFriends()
+            Result.Success(friends)
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 목록 조회 실패: ${e.message}")
-            throw e
+            Result.Failure(AppError.Unknown(e.message ?: "친구 목록을 가져오지 못했습니다."))
         }
     }
-    // 사용자 온라인 상태 및 접속 중인 방 정보 업데이트
-    override suspend fun updateHeartbeat(currentRoomId: String?) {
-        val data = hashMapOf(
-            "isOnline" to true,
-            "currentRoomId" to currentRoomId
-        )
-        try {
-            firebaseFunctions
-                .getHttpsCallable("updateUserStatus")
-                .call(data)
-                .await()
+
+    // 사용자 생명주기 업데이트
+    override suspend fun updateHeartbeat(currentRoomId: String?): Result<Unit> {
+        return try {
+            userRemoteDataSource.updateHeartbeat(currentRoomId)
+            Result.Success(Unit)
         } catch (e: Exception) {
             Log.e("UserRepository", "Heartbeat 업데이트 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "Heartbeat 실패"))
         }
     }
-    // 온라인 상태 전환 처리
-    override suspend fun updateOnlineStatus(isOnline: Boolean): Boolean {
-        val data = hashMapOf("isOnline" to isOnline)
+
+    // 온라인 상태 업데이트
+    override suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean> {
         return try {
-            val result = firebaseFunctions
-                .getHttpsCallable("updateOnlineStatus")
-                .call(data)
-                .await()
-            val res = result.data as Map<*, *>
-            res["success"] as? Boolean ?: false
+            val isSuccess = userRemoteDataSource.updateOnlineStatus(isOnline)
+            Result.Success(isSuccess)
         } catch (e: Exception) {
             Log.e("UserRepository", "온라인 상태 업데이트 실패: ${e.message}")
-            false
+            Result.Failure(AppError.Unknown(e.message ?: "상태 업데이트 실패"))
         }
     }
-    // 친구 요청 수락 처리
-    override suspend fun acceptFriendRequest(targetUid: String): Boolean {
-        val data = hashMapOf("targetUid" to targetUid)
+
+    // 친구 요청 수락
+    override suspend fun acceptFriendRequest(targetUid: String): Result<Boolean> {
         return try {
-            val result = firebaseFunctions
-                .getHttpsCallable("acceptFriendRequest")
-                .call(data)
-                .await()
-            val res = result.data as Map<*, *>
-            res["success"] as? Boolean ?: false
+            val isSuccess = userRemoteDataSource.acceptFriendRequest(targetUid)
+            Result.Success(isSuccess)
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 수락 실패: ${e.message}")
-            false
+            Result.Failure(AppError.Unknown(e.message ?: "친구 수락 실패"))
         }
     }
-    // 친구 요청 거절 처리
-    override suspend fun declineFriendRequest(targetUid: String): Boolean {
-        val data = hashMapOf("targetUid" to targetUid)
+
+    // 친구 요청 거절
+    override suspend fun declineFriendRequest(targetUid: String): Result<Boolean> {
         return try {
-            val result = firebaseFunctions
-                .getHttpsCallable("declineFriendRequest")
-                .call(data)
-                .await()
-            val res = result.data as Map<*, *>
-            res["success"] as? Boolean ?: false
+            val isSuccess = userRemoteDataSource.declineFriendRequest(targetUid)
+            Result.Success(isSuccess)
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 거절 실패: ${e.message}")
-            false
+            Result.Failure(AppError.Unknown(e.message ?: "친구 거절 실패"))
         }
     }
-    // 사용자 프로필 정보 조회 처리
+
+    // 유저 프로필 조회
     override suspend fun getUserProfile(targetUid: String): Result<User> {
         return try {
-            val data = mapOf("targetUid" to targetUid)
-            // Cloud Functions 통한 사용자 정보 호출
-            val result = firebaseFunctions
-                .getHttpsCallable("getUserProfile")
-                .call(data)
-                .await()
-            // 결과 데이터 파싱
-            val response = result.data as? Map<String, Any>
+            val response = userRemoteDataSource.getUserProfile(targetUid)
             val success = response?.get("success") as? Boolean ?: false
             val profileMap = response?.get("profile") as? Map<String, Any>
+
             if (success && profileMap != null) {
-                Result.success(profileMap.toDomain())
+                Result.Success(profileMap.toDomain())
             } else {
-                Result.failure(Exception("유저 정보를 찾을 수 없습니다."))
+                Result.Failure(AppError.Unknown("유저 정보를 찾을 수 없습니다."))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("UserRepository", "유저 프로필 조회 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "프로필 조회 실패"))
         }
     }
-    // 친구 프로필 정보 및 관계 상태 조회 처리
+
+    // 친구 프로필 및 상태 조회
     override suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>> {
         return try {
-            val data = hashMapOf("targetUid" to targetUid)
-            val result = firebaseFunctions
-                .getHttpsCallable("getFriendProfileByUid")
-                .call(data)
-                .await()
-            val response = result.data as Map<String, Any>
-            // 사용자 정보 변환
+            val response = userRemoteDataSource.getFriendProfileWithStatus(targetUid)
             val profileMap = response["profile"] as? Map<String, Any> ?: throw Exception("친구 정보를 찾을 수 없습니다.")
             val user = profileMap.toDomain()
-            // 친구 관계 상태 추출
             val friendshipStatus = response["friendship_status"] as? String ?: "none"
-            Result.success(Pair(user, friendshipStatus))
+            Result.Success(Pair(user, friendshipStatus))
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("UserRepository", "친구 프로필 조회 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "친구 상태 조회 실패"))
         }
     }
 }
