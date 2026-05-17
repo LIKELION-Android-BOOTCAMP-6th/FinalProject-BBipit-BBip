@@ -1,12 +1,16 @@
 package com.bbip.bbipit.presentation.test
 
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.bbip.bbipit.domain.entity.ChatMessage
 import com.bbip.bbipit.domain.entity.ChatRoom
+import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.repository.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
@@ -16,7 +20,7 @@ class FeatureTestViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val chatRepository: ChatRepository,
     private val voiceRepository: VoiceRepository,
-    private val notiRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     private val TAG = "FeatureTest"
@@ -230,8 +234,34 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
+     * 로컬 음성 파일 업로드 후 전송 테스트
+     */
+    suspend fun testUploadAndSendVoice(targetUid: String, localFileUri: Uri): String {
+        return try {
+            Log.d(TAG, "🔍 음성 파일 업로드 시작: $localFileUri")
+            val uploadResult = voiceRepository.uploadVoiceFile(localFileUri)
+
+            if (uploadResult.isSuccess) {
+                val downloadUrl = uploadResult.getOrThrow()
+                Log.d(TAG, "✅ 스토리지 업로드 성공 -> URL: $downloadUrl")
+
+                // 업로드된 URL로 Functions 전송 트리거
+                val sendResult = voiceRepository.sendVoiceMessage(targetUid, downloadUrl, 5)
+                if (sendResult.isSuccess) {
+                    "성공\n-> 업로드 URL: $downloadUrl"
+                } else {
+                    "업로드 성공했으나 전송 실패\n-> URL: $downloadUrl"
+                }
+            } else {
+                "❌ 업로드 실패: ${uploadResult.exceptionOrNull()?.message}"
+            }
+        } catch (e: Exception) {
+            "❌ 에러 발생: ${e.message}"
+        }
+    }
+
+    /**
      * 음성 수신 테스트 (실시간 구독)
-     * 화면단 출력을 위해 수신 시 콜백(onVoiceReceived) 추가
      */
     suspend fun testObserveVoice(onVoiceReceived: (String, String) -> Unit): Boolean {
         return try {
@@ -249,10 +279,37 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     /**
+     * 알림 수신 테스트 (실시간 구독)
+     */
+    suspend fun testObserveNotification(onNotificationReceived: (Notification) -> Unit): Boolean {
+        return try {
+            val myUid = authRepository.getCurrentUserUid() ?: return false
+            Log.d(TAG, "🔍 알림 수신 구독 시작 (UID: $myUid)")
+
+            callbackFlow {
+                val registration = notificationRepository.observeNewNotification(myUid) { notification ->
+                    trySend(notification)
+                }
+                awaitClose {
+                    Log.d(TAG, "🔒 알림 구독 해제")
+                    registration.remove()
+                }
+            }.collectLatest { notification ->
+                Log.d(TAG, "✅ 실시간 새 알림 수신됨: ID=${notification.notificationId}, Type=${notification.type}")
+                onNotificationReceived(notification)
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 알림 수신 테스트 중 오류 발생: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * 알림 읽음 처리 테스트
      */
-    suspend fun testMarkNotiRead(type: String, notiId: String? = null): Boolean {
-        return notiRepository.markNotificationsAsRead(type, notiId)
+    suspend fun testMarkNotificationRead(type: String, id: String? = null): Boolean {
+        return notificationRepository.markNotificationsAsRead(type, id)
             .onSuccess { Log.d(TAG, "✅ 알림 읽음 처리 성공") }
             .onFailure { Log.e(TAG, "❌ 알림 읽음 처리 실패: ${it.message}") }
             .isSuccess
@@ -261,8 +318,8 @@ class FeatureTestViewModel @Inject constructor(
     /**
      * 알림 삭제 테스트
      */
-    suspend fun testDeleteNoti(type: String, notiId: String? = null): Boolean {
-        return notiRepository.deleteNotifications(type, notiId)
+    suspend fun testDeleteNotification(type: String, id: String? = null): Boolean {
+        return notificationRepository.deleteNotifications(type, id)
             .onSuccess { Log.d(TAG, "✅ 알림 삭제 성공") }
             .onFailure { Log.e(TAG, "❌ 알림 삭제 실패: ${it.message}") }
             .isSuccess
@@ -313,13 +370,13 @@ class FeatureTestViewModel @Inject constructor(
      * 특정 유저 상세(User) 데이터 조회 테스트
      */
     suspend fun testGetUserProfile(targetUid: String): User? {
-        Log.d(TAG, "🔍 특정 유저 프로필 조회 시작: $targetUid")
+        Log.d(TAG, "🔍 특정 유저 상세 데이터 조회 시작: $targetUid")
         return userRepository.getUserProfile(targetUid)
             .onSuccess { user ->
-                Log.d(TAG, "✅ 유저 프로필 조회 성공: $user")
+                Log.d(TAG, "✅ 유저 상세 데이터 조회 성공: $user")
             }
             .onFailure { e ->
-                Log.e(TAG, "❌ 유저 프로필 조회 실패: ${e.message}")
+                Log.e(TAG, "❌ 유저 상세 데이터 조회 실패: ${e.message}")
             }
             .getOrNull()
     }
@@ -328,13 +385,13 @@ class FeatureTestViewModel @Inject constructor(
      * 친구 유저 데이터 조회 테스트
      */
     suspend fun fetchFriendProfile(targetUid: String): User? {
-        Log.d(TAG, "🔍 친구 프로필 조회 시작: $targetUid")
+        Log.d(TAG, "🔍 친구 데이터 조회 시작: $targetUid")
         return userRepository.getFriendProfileWithStatus(targetUid)
             .onSuccess { (user, status) ->
-                Log.d(TAG, "✅ 친구 프로필 조회 성공: $user, 관계 상태: $status")
+                Log.d(TAG, "✅ 친구 데이터 조회 성공: $user, 관계 상태: $status")
             }
             .onFailure { e ->
-                Log.e(TAG, "❌ 친구 프로필 조회 실패: ${e.message}")
+                Log.e(TAG, "❌ 친구 데이터 조회 실패: ${e.message}")
             }
             .getOrNull()?.first
     }

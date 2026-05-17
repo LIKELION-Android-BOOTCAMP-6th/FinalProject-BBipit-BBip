@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.test
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,11 +25,15 @@ fun TestScreen(
     var password by remember { mutableStateOf("123456") }
     var targetUid by remember { mutableStateOf("") }
     var roomId by remember { mutableStateOf("") }
-    var notiId by remember { mutableStateOf("") }
+    var notificationId by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("익명") }
     var statusMessage by remember { mutableStateOf("코딩중..") }
     var profileImageUrl by remember { mutableStateOf("https://picsum.photos/200") }
+
+    // 화면에 텍스트로 보여주거나 수동 입력하기 위한 주소창 상태 변수
     var dummyUri by remember { mutableStateOf("https://firebasestorage.googleapis.com/v0/b/bbipit.firebasestorage.app/o/Voices%2Ftest%2Ftest.wav?alt=media&token=a551afa5-aee6-4f89-b7ad-24de513f2fff") }
+    // 파일 선택기로 가져온 실제 로컬 오디오 Uri를 임시 저장할 변수
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
 
     // 리턴값을 화면에 보여주기 위한 상태 변수
     var testResultConsole by remember { mutableStateOf("버튼을 누르면 결과가 여기에 표시됩니다.") }
@@ -98,8 +103,8 @@ fun TestScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = notiId,
-                    onValueChange = { notiId = it },
+                    value = notificationId,
+                    onValueChange = { notificationId = it },
                     label = { Text("알림 ID (NotiId - 선택)") },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -147,6 +152,20 @@ fun TestScreen(
             }, modifier = Modifier.weight(1f)) {
                 Text("이메일 회원가입")
             }
+        }
+
+        Button(
+            onClick = {
+                val uid = viewModel.testAuth()
+                testResultConsole = "testAuth() 리턴:\n-> 현재 로그인 UID: ${uid ?: "로그인 안 됨 (null)"}"
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+        ) {
+            Text("현재 인증 UID 확인")
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -270,7 +289,7 @@ fun TestScreen(
                     testResultConsole = "testCreateRoom() 리턴:\n-> $res"
                 }
             }, modifier = Modifier.weight(1f)) {
-                Text("방 생성")
+                Text("채팅방 생성")
             }
             Button(onClick = {
                 scope.launch {
@@ -278,7 +297,7 @@ fun TestScreen(
                     testResultConsole = "testGetChatRooms() 리턴:\n-> " + (rooms?.joinToString("\n") { "🏠 RoomID: ${it.roomId}, LastMsg: ${it.lastMsg}" } ?: "조회 실패")
                 }
             }, modifier = Modifier.weight(1f)) {
-                Text("방 목록")
+                Text("채팅방 목록")
             }
         }
         Button(onClick = {
@@ -327,7 +346,10 @@ fun TestScreen(
         Text("3. 음성 테스트", style = MaterialTheme.typography.titleMedium)
 
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            uri?.let { dummyUri = it.toString() }
+            uri?.let {
+                selectedUri = it
+                dummyUri = it.toString() // 유저 시각적 피드백을 위해 텍스트 창에 Uri 매핑
+            }
         }
 
         OutlinedTextField(
@@ -342,39 +364,79 @@ fun TestScreen(
             }
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    scope.launch {
-                        val res = viewModel.testSendVoiceUrl(targetUid, dummyUri)
-                        testResultConsole = "testSendVoiceUrl() 리턴:\n-> $res"
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("URL 바로 전송")
-            }
-        }
-        Button(onClick = {
-            scope.launch {
-                testResultConsole = "음성 구독 시작됨..."
-                viewModel.testObserveVoice { senderId, url ->
-                    testResultConsole = "🎙️ 실시간 음성 수신 알림!:\n발신자: $senderId\nURL: $url"
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (targetUid.isBlank()) {
+                                testResultConsole = "❌ 상대방 UID를 입력해주세요."
+                                return@launch
+                            }
+                            val res = viewModel.testSendVoiceUrl(targetUid, dummyUri)
+                            testResultConsole = "testSendVoiceUrl() 리턴:\n-> $res"
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("URL 바로 전송")
+                }
+
+                Button(
+                    onClick = {
+                        scope.launch {
+                            if (targetUid.isBlank()) {
+                                testResultConsole = "❌ 상대방 UID를 입력해주세요."
+                                return@launch
+                            }
+                            val uriToUpload = selectedUri
+                            if (uriToUpload == null) {
+                                testResultConsole = "❌ '파일 선택' 버튼을 통해 기기 내부 오디오 파일을 먼저 선택해주세요."
+                                return@launch
+                            }
+                            testResultConsole = "⏳ 로컬 오디오 파일 스토리지 업로드 중..."
+                            val res = viewModel.testUploadAndSendVoice(targetUid, uriToUpload)
+                            testResultConsole = "testUploadAndSendVoice() 결과:\n$res"
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Text("파일 업로드 후 전송")
                 }
             }
-        }, modifier = Modifier.fillMaxWidth()) {
-            Text("음성 수신(구독)")
+
+            Button(onClick = {
+                scope.launch {
+                    testResultConsole = "음성 구독 시작됨..."
+                    viewModel.testObserveVoice { senderId, url ->
+                        testResultConsole = "🎙️ 실시간 음성 수신 알림!:\n발신자: $senderId\nURL: $url"
+                    }
+                }
+            }, modifier = Modifier.fillMaxWidth()) {
+                Text("음성 수신(구독)")
+            }
         }
 
         HorizontalDivider()
 
         Text("4. 알림 테스트", style = MaterialTheme.typography.titleMedium)
+
+        // 알림 읽음 처리 (단일 / 전체)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = {
                     scope.launch {
-                        val res = viewModel.testMarkNotiRead("single", notiId.ifBlank { null })
-                        testResultConsole = "testMarkNotiRead(single) 리턴:\n-> $res"
+                        val id = notificationId.ifBlank { null }
+                        if (id.isNullOrBlank()) {
+                            testResultConsole = "❌ 특정 알림을 읽음 처리하려면 '알림 ID (notificationId)'를 입력해주세요."
+                        } else {
+                            val res = viewModel.testMarkNotificationRead("single", id)
+                            testResultConsole = "testMarkNotiRead(single) 리턴:\n-> $res (대상 ID: $id)"
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -384,7 +446,7 @@ fun TestScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        val res = viewModel.testMarkNotiRead("all")
+                        val res = viewModel.testMarkNotificationRead("all")
                         testResultConsole = "testMarkNotiRead(all) 리턴:\n-> $res"
                     }
                 },
@@ -393,12 +455,19 @@ fun TestScreen(
                 Text("알림 읽음(전체)")
             }
         }
+
+        // 알림 삭제 처리
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = {
                     scope.launch {
-                        val res = viewModel.testDeleteNoti("single", notiId.ifBlank { null })
-                        testResultConsole = "testDeleteNoti(single) 리턴:\n-> $res"
+                        val id = notificationId.ifBlank { null }
+                        if (id.isNullOrBlank()) {
+                            testResultConsole = "❌ 특정 알림을 삭제하려면 '알림 ID (NotiId)'를 입력해주세요."
+                        } else {
+                            val res = viewModel.testDeleteNotification("single", id)
+                            testResultConsole = "testDeleteNoti(single) 리턴:\n-> $res (삭제 ID: $id)"
+                        }
                     }
                 },
                 modifier = Modifier.weight(1f)
@@ -408,14 +477,29 @@ fun TestScreen(
             Button(
                 onClick = {
                     scope.launch {
-                        val res = viewModel.testDeleteNoti("all")
+                        val res = viewModel.testDeleteNotification("all", null)
                         testResultConsole = "testDeleteNoti(all) 리턴:\n-> $res"
                     }
                 },
                 modifier = Modifier.weight(1f)
             ) {
-                Text("알림 삭제(전체)")
+                Text("전체 알림 삭제")
             }
+        }
+
+        Button(
+            onClick = {
+                scope.launch {
+                    testResultConsole = "알림 구독 시작됨..."
+                    viewModel.testObserveNotification { notification ->
+                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.notificationId}\n유형: ${notification.type}\n내용: ${notification.content}"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+        ) {
+            Text("알림 수신(구독)")
         }
 
         Spacer(modifier = Modifier.height(20.dp))
