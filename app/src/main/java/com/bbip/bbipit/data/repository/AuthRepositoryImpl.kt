@@ -5,7 +5,11 @@ import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.google.firebase.FirebaseException
 import com.google.firebase.auth.AuthResult
+import com.google.firebase.auth.FirebaseAuthException
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,11 +50,25 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val authResult = authRemoteDataSource.signUpWithEmail(email, password)
             val user = authResult.user
+            user?.let {
+                it.sendEmailVerification().await()
+            }
             Log.d("Auth", "회원가입 성공: ${user?.email} (UID: ${user?.uid})")
             Result.Success(authResult)
-        } catch (e: Exception) {
+        } catch (e: FirebaseAuthException) {
+            val error = when(e.errorCode){
+                "ERROR_EMAIL_ALREADY_IN_USE" -> AppError.Email("이미 가입된 이메일 주소입니다.")
+                "ERROR_INVALID_EMAIL" -> AppError.Email("올바른 이메일 형식이 아닙니다.")
+                "ERROR_WEAK_PASSWORD" -> AppError.Password()
+                else -> AppError.Auth(e.errorCode)
+            }
+            Log.e("Auth", "회원가입 실패: ${e.errorCode}")
+            Result.Failure(error)
+
+        } catch (e: Exception){
             Log.e("Auth", "회원가입 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "회원가입 중 오류 발생"))
+
         }
     }
 
@@ -74,5 +92,16 @@ class AuthRepositoryImpl @Inject constructor(
     // 인증 상태 변경 흐름 반환
     override fun getAuthStateFlow(): kotlinx.coroutines.flow.Flow<String?> {
         return authRemoteDataSource.getAuthStateFlow()
+    }
+
+    override suspend fun getTerms(type: TermsType): Result<String> {
+        return try {
+            val result = authRemoteDataSource.getTerms(type)
+            Result.Success(result)
+        } catch (e: Exception){
+            e.printStackTrace()
+            Log.e("Auth", "약관 불러오기 ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "약관 내용 읽어오기 실패"))
+        }
     }
 }

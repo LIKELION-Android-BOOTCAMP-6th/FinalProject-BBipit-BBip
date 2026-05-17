@@ -1,13 +1,17 @@
 package com.bbip.bbipit.data.source.remote.auth
 
 import android.content.Context
+import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,5 +59,16 @@ class AuthRemoteDataSourceImpl @Inject constructor(
 
         // 리스너 해제
         awaitClose { firebaseAuth.removeAuthStateListener(listener) }
+    }
+
+    override suspend fun getTerms(type: TermsType): String {
+        val rawUrl = if (type == TermsType.PRIVACY) {
+            "https://raw.githubusercontent.com/LIKELION-Android-BOOTCAMP-6th/FinalProject-BBipit-BBip/refs/heads/develop/docs/terms.md"
+        } else {
+            "https://raw.githubusercontent.com/LIKELION-Android-BOOTCAMP-6th/FinalProject-BBipit-BBip/refs/heads/develop/docs/service.md"
+        }
+        return withContext(Dispatchers.IO) {
+            URL(rawUrl).readText()
+        }
     }
 }

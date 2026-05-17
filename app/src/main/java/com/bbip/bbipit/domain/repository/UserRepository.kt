@@ -9,6 +9,8 @@ import com.bbip.bbipit.domain.entity.User
  */
 interface UserRepository {
 
+    fun isLogin() = false
+
     // 프로필 업데이트
     suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): Result<String>
 

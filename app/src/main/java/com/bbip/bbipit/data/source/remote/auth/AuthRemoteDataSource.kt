@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.source.remote.auth
 
+import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
@@ -13,4 +14,6 @@ interface AuthRemoteDataSource {
 
     fun getCurrentUserUid(): String?
     fun getAuthStateFlow(): Flow<String?>
+
+    suspend fun getTerms(type: TermsType): String
 }

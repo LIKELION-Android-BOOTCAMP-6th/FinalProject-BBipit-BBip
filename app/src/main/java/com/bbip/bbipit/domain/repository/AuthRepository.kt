@@ -1,6 +1,7 @@
 package com.bbip.bbipit.domain.repository
 
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
@@ -26,4 +27,7 @@ interface AuthRepository {
 
     // 인증 상태 흐름
     fun getAuthStateFlow(): Flow<String?>
+
+    //약관 내용 불러오기
+    suspend fun getTerms(type: TermsType): Result<String>
 }
