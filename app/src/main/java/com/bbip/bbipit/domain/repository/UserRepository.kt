@@ -33,8 +33,11 @@ interface UserRepository {
     // 친구 요청 거절
     suspend fun declineFriendRequest(targetUid: String): Result<Boolean>
 
-    // 유저 프로필 조회
+    // 유저 프로필 조회 (타인)
     suspend fun getUserProfile(targetUid: String): Result<User>
+
+    // 내 프로필 조회 (자신)
+    suspend fun getMyProfile(uid: String): Result<User>
 
     // 친구 프로필 및 상태 조회
     suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>>

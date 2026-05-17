@@ -168,6 +168,31 @@ fun TestScreen(
             Text("현재 인증 UID 확인")
         }
 
+        Button(
+            onClick = {
+                scope.launch {
+                    val myProfile = viewModel.testGetMyProfile()
+                    testResultConsole = if (myProfile != null) {
+                        "testGetMyProfile() 성공 🎉\n" +
+                                "-> ID: ${myProfile.id}\n" +
+                                "-> 닉네임: ${myProfile.nickname}\n" +
+                                "-> 상태: ${myProfile.status}\n" +
+                                "-> 온라인상태: ${myProfile.isOnline}\n" +
+                                "-> 이미지: ${myProfile.profileImageUrl}"
+                    } else {
+                        "❌ testGetMyProfile() 실패: 현재 미로그인 상태이거나 Firestore에 문서가 존재하지 않습니다."
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        ) {
+            Text("내 유저 데이터 조회")
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = {

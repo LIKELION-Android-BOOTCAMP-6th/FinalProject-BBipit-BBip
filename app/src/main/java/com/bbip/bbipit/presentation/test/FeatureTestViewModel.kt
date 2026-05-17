@@ -400,6 +400,27 @@ class FeatureTestViewModel @Inject constructor(
         return userData
     }
 
+    // 내 정보 직접 조회 테스트
+    suspend fun testGetMyProfile(): User? {
+        val myUid = authRepository.getCurrentUserUid()
+        if (myUid == null) {
+            Log.e(TAG, "❌ 내 정보 조회 실패: 현재 로그인된 유저가 없습니다.")
+            return null
+        }
+
+        Log.d(TAG, "🔍 내 Firestore 프로필 데이터 조회 시작: UID = $myUid")
+        var myData: User? = null
+        userRepository.getMyProfile(myUid)
+            .onSuccess { user ->
+                Log.d(TAG, "✅ 내 정보 조회 성공: $user")
+                myData = user
+            }
+            .onFailure { e ->
+                Log.e(TAG, "❌ 내 정보 조회 실패: ${e.message}")
+            }
+        return myData
+    }
+
     // 친구 데이터 조회 테스트
     suspend fun fetchFriendProfile(targetUid: String): User? {
         Log.d(TAG, "🔍 친구 데이터 조회 시작: $targetUid")
