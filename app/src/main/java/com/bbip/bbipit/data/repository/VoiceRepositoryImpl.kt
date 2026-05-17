@@ -1,132 +1,90 @@
 package com.bbip.bbipit.data.repository
 
-import com.bbip.bbipit.data.source.model.VoiceMessageDto
+import android.util.Log
+import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.data.source.remote.voice.VoiceRemoteDataSource
 import com.bbip.bbipit.domain.entity.VoiceMessage
+import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.VoiceRepository
-import com.google.firebase.firestore.DocumentChange
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.google.firebase.functions.FirebaseFunctions
-import com.google.firebase.storage.FirebaseStorage
-import javax.inject.Inject
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
-import java.util.UUID
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * 음성 메시지 데이터 처리 구현체
- * Firebase Functions, Firestore, Storage를 활용한 음성 메시지 송수신 및 관리 수행
+ * 음성 메시지 관련 데이터 처리를 담당하는 구현체입니다.
+ * 음성 파일 업로드 및 메시지 전송, 수신 관찰 기능을 제공합니다.
  */
+@Singleton
 class VoiceRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val functions: FirebaseFunctions,
-    private val storage: FirebaseStorage
+    private val voiceRemoteDataSource: VoiceRemoteDataSource
 ) : VoiceRepository {
-    // 음성 메시지 전송 요청 처리
+
+    // 음성 메시지 전송
     override suspend fun sendVoiceMessage(
         receiverId: String,
         voiceUrl: String,
         duration: Int
     ): Result<Boolean> {
-        val data = hashMapOf(
-            "receiverId" to receiverId,
-            "voiceUrl" to voiceUrl,
-            "duration" to duration
-        )
         return try {
-            val result = functions.getHttpsCallable("sendVoiceMessage").call(data).await()
-            val isOnline = (result.data as? Map<*, *>)?.get("isOnline") as? Boolean ?: false
-            Result.success(isOnline)
+            val isOnline = voiceRemoteDataSource.sendVoiceMessage(receiverId, voiceUrl, duration)
+            Result.Success(isOnline)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("VoiceRepository", "음성 메시지 전송 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "음성 메시지 전송 중 오류 발생"))
         }
     }
-    // 수신 음성 메시지 실시간 관찰 스트림 제공
-    override fun observeIncomingVoice(myUid: String): Flow<VoiceMessage> =
-        callbackFlow {
-            // 사용자별 보관함 경로의 메시지 컬렉션 감시
-            val query = firestore.collection("VoiceMessages")
-                .document(myUid)
-                .collection("Messages")
-                .orderBy("sent_at", Query.Direction.ASCENDING)
-            val subscription = query.addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    close(e)
-                    return@addSnapshotListener
-                }
-                snapshot?.documentChanges?.forEach { dc ->
-                    // 신규 도착 메시지 스트림 전달
-                    if (dc.type == DocumentChange.Type.ADDED) {
-                        val dto = dc.document.toObject(VoiceMessageDto::class.java)
-                        if (dto.voiceUrl.isNotEmpty()) {
-                            trySend(
-                                VoiceMessage(
-                                    id = dc.document.id,
-                                    senderId = dto.senderId,
-                                    receiverId = dto.receiverId,
-                                    voiceUrl = dto.voiceUrl,
-                                    duration = dto.duration,
-                                    isRead = dto.isRead,
-                                    createdAt = dto.createdAt?.toDate()?.time ?: 0L
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-            awaitClose { subscription.remove() }
+
+    // 수신 음성 메시지 관찰
+    override fun observeIncomingVoice(myUid: String): Flow<VoiceMessage> {
+        return voiceRemoteDataSource.observeIncomingVoice(myUid).map { (id, dto) ->
+            VoiceMessage(
+                id = id,
+                senderId = dto.senderId,
+                receiverId = dto.receiverId,
+                voiceUrl = dto.voiceUrl,
+                duration = dto.duration,
+                isRead = dto.isRead,
+                createdAt = dto.createdAt?.toDate()?.time ?: 0L
+            )
         }
-    // 로컬 오디오 파일 스토리지 업로드 처리
+    }
+
+    // 음성 파일 업로드
     override suspend fun uploadVoiceFile(localFileUri: android.net.Uri): Result<String> {
         return try {
-            val fileName = "voices/${UUID.randomUUID()}.m4a"
-            val voiceRef = storage.reference.child(fileName)
-            // 파일 업로드 및 다운로드 URL 획득 체이닝
-            val downloadUrl = voiceRef.putFile(localFileUri).continueWithTask { task ->
-                if (!task.isSuccessful) task.exception?.let { throw it }
-                voiceRef.downloadUrl
-            }.await().toString()
-            Result.success(downloadUrl)
+            val downloadUrl = voiceRemoteDataSource.uploadVoiceFile(localFileUri)
+            Result.Success(downloadUrl)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("VoiceRepository", "음성 파일 업로드 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "파일 업로드 중 오류 발생"))
         }
     }
-    // 음성 메시지 Firestore 직접 전송 처리
+
+    // 음성 메시지 직접 전송
     override suspend fun sendVoiceMessageDirect(
-        senderid: String,
+        senderId: String,
         receiverId: String,
         voiceUrl: String,
         duration: Int
     ): Result<Boolean> {
         return try {
-            val messageData = hashMapOf(
-                "sender_id" to senderid,
-                "receiver_id" to receiverId,
-                "voice_url" to voiceUrl,
-                "duration" to duration,
-                "sent_at" to com.google.firebase.Timestamp.now(),
-                "is_read" to false
-            )
-            // 메시지 문서 추가
-            firestore.collection("VoiceMessages")
-                .document(receiverId)
-                .collection("Messages")
-                .add(messageData)
-            Result.success(true)
+            voiceRemoteDataSource.sendVoiceMessageDirect(senderId, receiverId, voiceUrl, duration)
+            Result.Success(true)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("VoiceRepository", "음성 메시지 직접 전송 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "Direct 메시지 전송 중 오류 발생"))
         }
     }
-    // 음성 메시지 읽음 상태 업데이트 처리
+
+    // 음성 메시지 읽음 처리
     override suspend fun markVoiceMessageAsRead(messageId: String): Result<Boolean> {
-        val data = hashMapOf("messageId" to messageId)
         return try {
-            functions.getHttpsCallable("markVoiceMessageAsRead").call(data).await()
-            Result.success(true)
+            voiceRemoteDataSource.markVoiceMessageAsRead(messageId)
+            Result.Success(true)
         } catch (e: Exception) {
-            Result.failure(e)
+            Log.e("VoiceRepository", "음성 메시지 읽음 처리 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "읽음 처리 중 오류 발생"))
         }
     }
 }

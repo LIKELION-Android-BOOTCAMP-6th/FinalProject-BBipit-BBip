@@ -1,62 +1,41 @@
 package com.bbip.bbipit.domain.repository
 
+import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.User
-import com.bbip.bbipit.presentation.mypage.UserProfile
 
 /**
- 유저 로그인 및 정보 관리
+ * 사용자 관련 데이터 처리를 담당하는 리포지토리입니다.
+ * 프로필 관리 및 친구 관계 설정을 수행합니다.
  */
-
 interface UserRepository {
 
-    fun isLogin() = false
-    suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String)
+    // 프로필 업데이트
+    suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): Result<String>
 
-    /**
-     * 친구 요청 보내기
-     * @return 성공 시 결과 메시지 등
-     */
-    suspend fun sendFriendRequest(targetUid: String): String
+    // 친구 요청 전송
+    suspend fun sendFriendRequest(targetUid: String): Result<String>
 
-    /**
-     * 친구 삭제
-     */
-    suspend fun deleteFriend(targetUid: String): String
+    // 친구 삭제
+    suspend fun deleteFriend(targetUid: String): Result<String>
 
-    /**
-     * 수락된 친구 목록 조회
-     */
-    suspend fun getMyAcceptedFriends(): List<User>
+    // 친구 목록 조회
+    suspend fun getMyAcceptedFriends(): Result<List<User>>
 
-    /**
-     * 사용자의 실시간 상태(온라인 여부, 현재 채팅방) 업데이트
-     */
-    suspend fun updateHeartbeat(currentRoomId: String?)
+    // 하트비트 상태 업데이트
+    suspend fun updateHeartbeat(currentRoomId: String?): Result<Unit>
 
-    /**
-     * 온라인/오프라인 상태 명시적 업데이트
-     */
-    suspend fun updateOnlineStatus(isOnline: Boolean): Boolean
+    // 온라인 상태 업데이트
+    suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean>
 
-    /**
-     * 친구 요청 수락
-     */
-    suspend fun acceptFriendRequest(targetUid: String): Boolean
+    // 친구 요청 수락
+    suspend fun acceptFriendRequest(targetUid: String): Result<Boolean>
 
-    /**
-     * 친구 요청 거절/취소
-     */
-    suspend fun declineFriendRequest(targetUid: String): Boolean
+    // 친구 요청 거절
+    suspend fun declineFriendRequest(targetUid: String): Result<Boolean>
 
-
-    /**
-     * 특정 유저의 상세 정보 조회
-     */
+    // 유저 프로필 조회
     suspend fun getUserProfile(targetUid: String): Result<User>
 
-    /**
-     * 특정 유저의 상세 정보 및 나와의 관계 상태 조회 (Cloud Functions 호출)
-     * @return User 엔티티와 friendship_status(none, requested, pending, accepted)의 Pair
-     */
+    // 친구 프로필 및 상태 조회
     suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>>
 }

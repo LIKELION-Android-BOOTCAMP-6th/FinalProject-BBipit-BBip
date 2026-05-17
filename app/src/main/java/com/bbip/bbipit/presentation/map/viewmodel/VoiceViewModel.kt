@@ -4,16 +4,18 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.base.BaseViewModel
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.repository.AuthRepository
-import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * 음성 메시지 무전기 기능 상태 관리 ViewModel
+ * 음성 메시지 무전기 기능의 상태를 관리하는 ViewModel입니다.
+ * 녹음 제어 및 음성 파일 업로드 프로세스를 처리합니다.
  */
 data class VoiceUiState(
     val isRecording: Boolean = false,
@@ -31,9 +33,7 @@ class VoiceViewModel @Inject constructor(
     private val voiceRepository: VoiceRepository
 ) : BaseViewModel<VoiceUiState>(VoiceUiState()) {
 
-    /**
-     * 녹음 시작 상태 전환 및 이전 데이터 초기화
-     */
+    // 녹음 시작 상태 전환 및 데이터 초기화
     fun startRecording() {
         updateState {
             copy(
@@ -46,9 +46,7 @@ class VoiceViewModel @Inject constructor(
         Log.d("Voice", "Recording started")
     }
 
-    /**
-     * 녹음 중지 및 음성 메시지 전송 파이프라인 실행
-     */
+    // 녹음 중지 및 음성 메시지 전송 파이프라인 실행
     fun stopRecording(uri: Uri?, duration: Int) {
         updateState { copy(isRecording = false, recordedFileUri = uri, isUploading = true) }
         Log.d("Voice", "Recording stopped, uri: $uri")
@@ -68,7 +66,7 @@ class VoiceViewModel @Inject constructor(
             uploadResult.onSuccess { url ->
                 Log.d("Voice", "Storage upload success: $url")
 
-                // 업로드 완료된 URL 기반 Firestore 기록
+                // 업로드 완료된 URL 기반 메시지 전송
                 val sendResult = voiceRepository.sendVoiceMessageDirect(senderUid!!, targetUid, url, duration)
 
                 sendResult.onSuccess {
@@ -84,16 +82,12 @@ class VoiceViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 음성 메시지 수신자 설정
-     */
+    // 음성 메시지 수신자 설정
     fun setTargetUser(user: User?) {
         updateState { copy(selectedTarget = user) }
     }
 
-    /**
-     * 에러 상태 초기화
-     */
+    // 에러 상태 초기화
     fun clearError() {
         updateState { copy(error = null) }
     }
