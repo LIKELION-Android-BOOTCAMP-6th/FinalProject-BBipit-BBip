@@ -94,7 +94,7 @@ dependencies {
 
     ///파이어스토어
     implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
+//    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
 
     //fcm
     implementation("com.google.firebase:firebase-messaging")

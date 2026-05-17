@@ -26,19 +26,25 @@ class NotificationRemoteDataSource @Inject constructor(
                 Pair(doc.id, dto)
             }
     }
+
     // 실시간 구독 — 새 알림 감지
     fun observeNewNotification(
         userId: String,
         onNew: (String, NotificationDto) -> Unit
     ): ListenerRegistration {
         return firestore
-            .collection("Users")
-            .document(userId)
-            .collection("Notifications")
+            .collection("Notifications")  // 1. 루트 컬렉션을 Notifications로 변경
+            .document(userId)             // 2. 문서 ID는 사용자 userId (receiver_id 위치)
+            .collection("Notification")   // 3. 서브 컬렉션 이름은 단수형인 'Notification'
             .whereEqualTo("is_read", false)
-            .addSnapshotListener { snapshot, _ ->
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    // 에러 로그 기록 필요 시 처리
+                    return@addSnapshotListener
+                }
+
                 snapshot?.documentChanges?.forEach { change ->
-                    // 새로 추가된 알림만 처리
+                    // 새로 추가된(수신된) 미읽음 알림만 처리
                     if (change.type == DocumentChange.Type.ADDED) {
                         val dto = change.document.toObject(NotificationDto::class.java)
                         onNew(change.document.id, dto)
