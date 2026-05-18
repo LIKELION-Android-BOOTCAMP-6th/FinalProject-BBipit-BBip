@@ -20,6 +20,7 @@ import com.bbip.bbipit.presentation.base.BottomBar
 import com.bbip.bbipit.core.navigation.BBipItNavigation
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.BbipitTheme
+import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.presentation.base.VoicePlayerViewModel
 import com.bbip.bbipit.presentation.base.VoiceReceptionOverlay
@@ -38,7 +39,7 @@ import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject
-    lateinit var userRepository: UserRepository
+    lateinit var authRepository: AuthRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,7 +81,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         BBipItNavigation(
                             navController = navController,
-                            userRepository = userRepository
+                            authRepository = authRepository
                         )
 
                         // 전역 음성 수신 오버레이 (바텀 네비게이션 위에 배치)

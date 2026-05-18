@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.auth.ui
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,10 +18,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +38,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.bbip.bbipit.R
 import com.bbip.bbipit.core.navigation.Routes
@@ -45,14 +49,20 @@ import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInViewModel
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ShowToast
 
 @Composable
 fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hiltViewModel()) {
 
     val focusManager = LocalFocusManager.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val isAllEntered by remember {
+        derivedStateOf {
+            uiState.email.isNotBlank() && uiState.password.isNotBlank()
+        }
+    }
+
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -76,35 +86,41 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             ){
                 focusManager.clearFocus()
             },
-            verticalArrangement = Arrangement.spacedBy(17.dp, alignment = Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(27.dp, alignment = Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally) {
 
             Image(painter = painterResource(R.drawable.logo),
                 contentDescription = "로고",
                 modifier = Modifier.size(120.dp).padding(top = 20.dp)
             )
+            Text("BBip-It", style = Typography.titleLarge)
             Text("삐빗- 심장이 반응하는 거리", style = Typography.bodySmall)
-            Spacer(modifier = Modifier.height(17.dp))
-            Text("이메일", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(13.dp))
+//            Text("이메일", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
+            Log.d("AuthUIDebug", "Compose가 그린 에러 상태: ${uiState.emailError}")
             InputField(
-                value = email,
-                onValueChange = { email = it },
-                placeholder = "이메일을 입력해주세요",
-                keyboardType = KeyboardType.Email
+                value = uiState.email,
+                onValueChange = { viewModel.onUpdateEmail(it) },
+                placeholder = "이메일",
+                keyboardType = KeyboardType.Email,
+                errorText = uiState.emailError
             )
-            Text("비밀번호", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
+//            Text("비밀번호", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
             InputField(
-                value = password,
-                onValueChange = { password = it },
-                placeholder = "비밀번호를 입력해주세요",
+                value = uiState.password,
+                onValueChange = { viewModel.onUpdatePassword(it) },
+                placeholder = "비밀번호",
                 isPassword = true,
-                keyboardType = KeyboardType.Password
+                keyboardType = KeyboardType.Password,
+                errorText = uiState.pwError
             )
 
             Button({viewModel.signIn()},
-                colors = ButtonDefaults.buttonColors(primary),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp)
+                enabled = isAllEntered,
+                colors = ButtonDefaults.buttonColors(primary, disabledContainerColor = Color.Gray),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(60.dp),
+                elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
                 Text("로그인", style = Typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
             }
@@ -134,56 +150,20 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                     color = primary,
                     fontWeight = FontWeight.Bold,
                     textDecoration = TextDecoration.Underline,
-                    modifier = Modifier.clickable(){viewModel.signUp()})
+                    modifier = Modifier.clickable(){viewModel.moveToSignUp()})
             }
         }
     }
 
-
-
-
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Color.LightGray)
+        }
+    }
+    uiState.error?.let {
+        ShowToast(it)
+    }
 }
-
-
-//@Composable
-//fun InputField(value: String, onValueChange: (String) -> Unit, placeholder: String, isPassword: Boolean = false){
-//
-//    var passwordVisible by remember { mutableStateOf(false) }
-//
-//    TextField(
-//        value = value,
-//        onValueChange = onValueChange,
-//        textStyle = Typography.bodyMedium,
-//        colors = TextFieldDefaults.colors(
-//            focusedContainerColor = Color.White,
-//            unfocusedContainerColor = Color.White,
-//            focusedIndicatorColor = Color.Transparent,
-//            unfocusedIndicatorColor = Color.Transparent,
-//            errorIndicatorColor = Color.Transparent
-//        ),
-//        shape = RoundedCornerShape(8.dp),
-//
-//        placeholder = {
-//            Text(
-//                text = placeholder,
-//                style = Typography.bodySmall
-//            )
-//        },
-//        modifier = Modifier.fillMaxWidth(),
-//        keyboardOptions =  KeyboardOptions(keyboardType = if(!isPassword) KeyboardType.Email else KeyboardType.Password),
-//        singleLine = true,
-//        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation()
-//        else VisualTransformation.None,
-//        trailingIcon = {
-//            if (isPassword){
-//                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-//                    Icon(imageVector = if(passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-//                        contentDescription = "비밀번호 마스킹",
-//                        tint = Color.LightGray)
-//                }
-//            }
-//
-//        }
-//    )
-//
-//}

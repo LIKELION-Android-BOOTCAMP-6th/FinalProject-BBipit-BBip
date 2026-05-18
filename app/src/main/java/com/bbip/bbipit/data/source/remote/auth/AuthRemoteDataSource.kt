@@ -16,4 +16,5 @@ interface AuthRemoteDataSource {
     fun getAuthStateFlow(): Flow<String?>
 
     suspend fun getTerms(type: TermsType): String
+    fun isAutoLogin() : Boolean
 }
