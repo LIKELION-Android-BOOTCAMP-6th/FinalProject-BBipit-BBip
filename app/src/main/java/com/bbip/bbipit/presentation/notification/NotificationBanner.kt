@@ -32,7 +32,7 @@ fun NotificationBanner(
     onClick: () -> Unit
 ) {
     // 1. 3.5초 후 자동으로 배너가 사라지게 설정
-    LaunchedEffect(key1 = item.notificationId) {
+    LaunchedEffect(key1 = item.id) {
         delay(3500)
         onDismiss()
     }

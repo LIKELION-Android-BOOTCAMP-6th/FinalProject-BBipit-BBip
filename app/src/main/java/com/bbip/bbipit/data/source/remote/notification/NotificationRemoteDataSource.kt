@@ -6,10 +6,10 @@ import com.google.firebase.firestore.ListenerRegistration
 interface NotificationRemoteDataSource {
     suspend fun fetchNotification(userId: String): List<Pair<String, NotificationDto>>
 
-    fun observeNewNotification(
+    fun observeNotification(
         userId: String,
         onNew: (String, NotificationDto) -> Unit
     ): ListenerRegistration
 
-    suspend fun deleteNotification(userId: String, notiId: String?)
+    suspend fun deleteNotification(userId: String, id: String?)
 }

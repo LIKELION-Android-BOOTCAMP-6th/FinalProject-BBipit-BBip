@@ -32,7 +32,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 // 전체 레이아웃 / 필터링된 리스트 관리 등
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationScreen(
     navController: NavController,
@@ -51,16 +50,16 @@ fun NotificationScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            containerColor = Color.Transparent,
-            modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
-            BackgroundBox(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = innerPadding.calculateBottomPadding())
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
+        BackgroundBox(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                modifier = Modifier.fillMaxSize()
+            ) { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = innerPadding.calculateBottomPadding())
+                ) {
                     // 상단 고정 헤더
                     NotificationHeader(onReadAll = { viewModel.onReadAllClick() })
 
@@ -84,12 +83,12 @@ fun NotificationScreen(
                             bottom = 100.dp
                         )
                     ) {
-                        items(items = filteredList, key = { it.notificationId }) { item ->
+                        items(items = filteredList, key = { it.id }) { item ->
                             // 스와이프 삭제 로직
                             val dismissState = rememberSwipeToDismissBoxState(
                                 confirmValueChange = {
                                     if (it == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.markAsReadAndDelete(item.notificationId)
+                                        viewModel.markAsReadAndDelete(item.id)
                                         true
                                     } else false
                                 }
@@ -130,12 +129,12 @@ fun NotificationScreen(
                                     readAllClicked = readAllClicked,
                                     onClick = {
                                         if (item.type == "DM") {
-                                            viewModel.markAsRead(item.notificationId)
+                                            viewModel.markAsRead(item.id)
                                             navController.navigate(Routes.ChatRoom(roomId = item.roomId))
                                         }
                                         else if (item.type == "WALKIE") {
                                             if (!item.isRead && !item.isExpired) {
-                                                viewModel.markAsRead(item.notificationId)
+                                                viewModel.markAsRead(item.id)
                                                 Toast.makeText(
                                                     navController.context,
                                                     "무전을 확인합니다.",
@@ -145,7 +144,8 @@ fun NotificationScreen(
                                         }
                                     },
                                     onAcceptFriend = {
-                                        viewModel.onAcceptFriendClick(item.notificationId)
+                                        viewModel.onAcceptFriendClick(item.id)
+                                        viewModel.markAsRead(item.id)
                                         Toast.makeText(
                                             navController.context,
                                             "친구 요청이 수락되었습니다.",
@@ -153,7 +153,8 @@ fun NotificationScreen(
                                         ).show()
                                     },
                                     onRejectFriend = {
-                                        viewModel.onRejectFriendClick(item.notificationId)
+                                        viewModel.onRejectFriendClick(item.id)
+                                        viewModel.markAsRead(item.id)
                                         Toast.makeText(
                                             navController.context,
                                             "친구 요청이 거절되었습니다.",
@@ -179,7 +180,7 @@ fun NotificationCard(
     readAllClicked: Boolean = false
 ) {
     val isWalkieExpired = item.type == "WALKIE" && (item.isRead || item.isExpired)
-    val isClickable = !(item.type == "REQ" && !item.isRead)
+    val isClickable = !(item.type == "FRIEND_ACCEPTED" && !item.isRead)
 
     Card(
         modifier = Modifier
@@ -235,7 +236,7 @@ fun NotificationCard(
                     text = when (item.type) {
                         "WALKIE" -> "무전을 보냈습니다"
                         "DM" -> item.content.take(20)
-                        "REQ" -> "님이 친구 요청을 보냈습니다"
+                        "FRIEND_ACCEPTED" -> "님이 친구 요청을 보냈습니다"
                         else -> item.content
                     },
                     style = Typography.bodySmall.copy(
@@ -270,7 +271,7 @@ fun NotificationCard(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 when {
-                    item.type == "REQ" && !item.isRead -> {
+                    item.type == "FRIEND_ACCEPTED" && !item.isRead -> {
                         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             Button(
                                 onClick = onRejectFriend,
@@ -296,7 +297,7 @@ fun NotificationCard(
                             }
                         }
                     }
-                    item.type == "REQ" && item.isRead -> {
+                    item.type == "FRIEND_ACCEPTED" && item.isRead -> {
                         val badgeText = if (item.content.contains("거절")) "거절됨" else "수락됨"
                         StatusBadge(
                             text = badgeText,
@@ -332,14 +333,13 @@ fun StatusBadge(text: String, color: Color) {
 fun NotificationHeader(onReadAll: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shadowElevation = 1.dp
+        color = Color.Transparent,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                .padding(start = 16.dp, end = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -348,6 +348,7 @@ fun NotificationHeader(onReadAll: () -> Unit) {
                 text = "전체 확인",
                 modifier = Modifier.clickable { onReadAll() },
                 style = Typography.bodySmall,
+                fontWeight = FontWeight.Bold,
                 color = primary
             )
         }
@@ -396,7 +397,8 @@ fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {
                         Text(
                             text = item.name,
                             color = if (isSelected) background else fontDefault.copy(0.7f),
-                            style = Typography.bodySmall
+                            style = Typography.bodySmall,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -428,7 +430,7 @@ fun formatTimestamp(createdAt: Long): String {
 fun mapFilterToType(filter: String, type: String): Boolean = when (filter) {
     "무전" -> type == "WALKIE"
     "DM" -> type == "DM"
-    "친구 요청" -> type == "REQ"
+    "친구 요청" -> type == "FRIEND_ACCEPTED"
     else -> true
 }
 

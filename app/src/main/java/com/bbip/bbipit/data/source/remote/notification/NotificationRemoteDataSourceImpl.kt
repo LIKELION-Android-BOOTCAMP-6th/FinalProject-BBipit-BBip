@@ -35,7 +35,7 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
     }
 
     // 새 알림 실시간 구독
-    override fun observeNewNotification(
+    override fun observeNotification(
         userId: String,
         onNew: (String, NotificationDto) -> Unit
     ): ListenerRegistration {
@@ -59,13 +59,13 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
     }
 
     // 알림 삭제
-    override suspend fun deleteNotification(userId: String, notiId: String?) {
-        if (notiId != null) {
+    override suspend fun deleteNotification(userId: String, id: String?) {
+        if (id != null) {
             firestore
                 .collection("Notifications")
                 .document(userId)
                 .collection("Notification")
-                .document(notiId)
+                .document(id)
                 .delete()
                 .await()
         }

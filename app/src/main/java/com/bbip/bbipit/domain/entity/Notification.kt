@@ -2,7 +2,7 @@ package com.bbip.bbipit.domain.entity
 
 // ~~
 data class Notification(
-    val notificationId: String = "",
+    val id: String = "",
     val type: String = "",
     val senderId: String = "",
     val senderName: String = "",

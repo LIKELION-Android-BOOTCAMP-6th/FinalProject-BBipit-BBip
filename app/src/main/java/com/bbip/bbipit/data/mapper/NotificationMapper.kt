@@ -6,7 +6,7 @@ import com.bbip.bbipit.domain.entity.Notification
 
 fun NotificationDto.toEntity(id: String): Notification {
         return Notification(
-                notificationId = id,
+                id = id,
                 type = type,
                 senderId = sender_id,
                 senderName = sender_name,
