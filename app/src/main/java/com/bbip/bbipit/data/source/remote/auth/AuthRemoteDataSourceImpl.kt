@@ -4,6 +4,7 @@ import android.content.Context
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -36,8 +37,18 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     }
 
     // 이메일 회원가입
-    override suspend fun signUpWithEmail(email: String, password: String): AuthResult {
-        return firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+    override suspend fun signUpWithEmail(email: String, password: String, nickname: String): AuthResult {
+        val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
+
+        val user = authResult.user
+
+        val profileUpdate = UserProfileChangeRequest.Builder()
+            .setDisplayName(nickname)
+            .build()
+
+        user?.updateProfile(profileUpdate)?.await()
+
+        return authResult
     }
 
     // 이메일 로그인

@@ -9,7 +9,7 @@ interface AuthRemoteDataSource {
     suspend fun loginWithGoogle(idToken: String)
     suspend fun signInWithCustomToken(accessToken: String)
 
-    suspend fun signUpWithEmail(email: String, password: String): AuthResult
+    suspend fun signUpWithEmail(email: String, password: String, nickname: String): AuthResult
     suspend fun signInWithEmail(email: String, password: String): AuthResult
 
     fun getCurrentUserUid(): String?

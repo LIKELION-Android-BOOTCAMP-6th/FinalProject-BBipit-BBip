@@ -80,7 +80,7 @@ class SignUpViewModel @Inject constructor(
                 return@launch
             }
 
-            authRepository.signUpWithEmail(_uiState.value.email, _uiState.value.password)
+            authRepository.signUpWithEmail(_uiState.value.email, _uiState.value.password, _uiState.value.name)
                 .onSuccess {
                     onUpdateLoading(false)
                     userRepository.updateProfile(nickname = _uiState.value.name)

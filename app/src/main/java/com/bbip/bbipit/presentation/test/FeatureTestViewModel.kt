@@ -48,19 +48,19 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     // 회원가입 테스트
-    suspend fun testSignUp(email: String, pass: String): Boolean {
-        Log.d(TAG, "🔍 회원가입 테스트 시작: $email")
-        var isSignUpSuccess = false
-        authRepository.signUpWithEmail(email, pass)
-            .onSuccess {
-                Log.d(TAG, "✅ 회원가입 성공")
-                isSignUpSuccess = true
-            }
-            .onFailure {
-                Log.e(TAG, "❌ 회원가입 실패: ${it.message}")
-            }
-        return isSignUpSuccess
-    }
+//    suspend fun testSignUp(email: String, pass: String, nick): Boolean {
+//        Log.d(TAG, "🔍 회원가입 테스트 시작: $email")
+//        var isSignUpSuccess = false
+//        authRepository.signUpWithEmail(email, pass)
+//            .onSuccess {
+//                Log.d(TAG, "✅ 회원가입 성공")
+//                isSignUpSuccess = true
+//            }
+//            .onFailure {
+//                Log.e(TAG, "❌ 회원가입 실패: ${it.message}")
+//            }
+//        return isSignUpSuccess
+//    }
 
     // 인증 확인 테스트
     fun testAuth(): String? {
