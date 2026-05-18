@@ -53,7 +53,7 @@ class ChatRemoteDataSourceImpl @Inject constructor(
     override fun observeChatRooms(myUid: String): Flow<List<ChatRoom>> = callbackFlow {
         val query = db.collection("DMs")
             .whereArrayContains("participants", myUid)
-            .orderBy("updated_at", Query.Direction.DESCENDING)
+            .orderBy("last_message_at", Query.Direction.DESCENDING)
         val subscription = query.addSnapshotListener { snapshot, e ->
             if (e != null) {
                 close(e)
@@ -79,27 +79,12 @@ class ChatRemoteDataSourceImpl @Inject constructor(
                 close(e)
                 return@addSnapshotListener
             }
-            snapshot?.documentChanges?.forEach { change ->
-                val messageDto = change.document.toObject(MessageDto::class.java)
-                val message = messageDto?.toEntity(change.document.id) ?: return@forEach
-                when (change.type) {
-                    DocumentChange.Type.ADDED -> {
-                        currentChatMessages.add(change.newIndex, message)
-                    }
-                    DocumentChange.Type.MODIFIED -> {
-                        if (change.oldIndex == change.newIndex) {
-                            currentChatMessages[change.newIndex] = message
-                        } else {
-                            currentChatMessages.removeAt(change.oldIndex)
-                            currentChatMessages.add(change.newIndex, message)
-                        }
-                    }
-                    DocumentChange.Type.REMOVED -> {
-                        currentChatMessages.removeAt(change.oldIndex)
-                    }
-                }
-            }
-            trySend(currentChatMessages.toList())
+            // 전체 스냅샷 문서를 통째로 DTO를 거쳐 도메인 엔티티 리스트로 안전하게 매핑
+            val messages = snapshot?.documents?.mapNotNull { doc ->
+                doc.toObject(MessageDto::class.java)?.toEntity(doc.id)
+            } ?: emptyList()
+
+            trySend(messages)
         }
         awaitClose { subscription.remove() }
     }

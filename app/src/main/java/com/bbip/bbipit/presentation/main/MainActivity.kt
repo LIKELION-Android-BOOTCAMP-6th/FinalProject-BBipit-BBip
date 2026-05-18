@@ -25,6 +25,14 @@ import com.bbip.bbipit.presentation.base.VoicePlayerViewModel
 import com.bbip.bbipit.presentation.base.VoiceReceptionOverlay
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.collectAsState
+import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
+
+// 파이어베이스 App Check 관련 임포트 추가
+import com.google.firebase.FirebaseApp
+import com.google.firebase.appcheck.FirebaseAppCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @AndroidEntryPoint
@@ -35,22 +43,35 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // [App Check 디버그 설정 추가]
+        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+            DebugAppCheckProviderFactory.getInstance()
+        )
+
         setContent {
             val voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
+            val chatListViewModel: ChatListViewModel = hiltViewModel()
+
             BbipitTheme {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
 
-                    val showBottomBar = navBackStackEntry?.destination?.let { destination ->
-                        destination.hasRoute<Routes.Map>() ||
-                                destination.hasRoute<Routes.ChatList>() ||
-                                destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Notification>()
+                val chatUiState by chatListViewModel.uiState.collectAsState()
+
+                // 💡 3. 내 저금통(unreadCount)이 0보다 큰 방이 단 하나라도 있는지 실시간 팩트 체크!
+                val hasUnreadChat = chatUiState.chatList.any { it.unreadCount > 0 }
+
+                val showBottomBar = navBackStackEntry?.destination?.let { destination ->
+                    destination.hasRoute<Routes.Map>() ||
+                            destination.hasRoute<Routes.ChatList>() ||
+                            destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Notification>()
 
                 } ?: false
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    bottomBar = { if (showBottomBar) BottomBar(navController) }
+                    bottomBar = { if (showBottomBar) BottomBar(navController, hasUnreadChat = hasUnreadChat) }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
