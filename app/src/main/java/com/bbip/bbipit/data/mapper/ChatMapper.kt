@@ -6,7 +6,7 @@ import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.entity.ChatMessage
 
 fun ChatRoomDto.toEntity(id: String): ChatRoom = ChatRoom(
-    roomId = id,
+    id = id,
     participants = participants,
     lastMsg = lastMsg,
     updatedAt = updatedAt?.toDate()?.time ?: 0L,
@@ -14,7 +14,7 @@ fun ChatRoomDto.toEntity(id: String): ChatRoom = ChatRoom(
 )
 
 fun MessageDto.toEntity(id: String): ChatMessage = ChatMessage(
-    msgId = id,
+    id = id,
     senderId = senderId,
     content = content,
     sentAt = sentAt?.toDate()?.time ?: 0L,
