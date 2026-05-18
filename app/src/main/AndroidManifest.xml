@@ -35,7 +35,7 @@
         <!-- 음성 수신 서비스 -->
         <service
             android:name=".core.base.MobileAudioReceiverService"
-            android:foregroundServiceType="connectedDevice"
+            android:foregroundServiceType="connectedDevice|microphone"
             android:exported="false"/>
 
         <!-- 데이터 및 메시지 수신 리스너 서비스 -->
@@ -55,6 +55,7 @@
         <!-- 메인 액티비티 -->
         <activity
             android:name=".presentation.main.MainActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Bbipit">

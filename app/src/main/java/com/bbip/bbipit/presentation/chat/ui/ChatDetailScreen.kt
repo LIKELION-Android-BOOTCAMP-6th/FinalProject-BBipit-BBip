@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextAlign
 import com.bbip.bbipit.core.ui.theme.Typography
@@ -86,16 +88,49 @@ fun ChatDetailScreen(
     viewModel: ChatDetailViewModel = hiltViewModel() // ViewModel 주입
 ) {
     // 인자 추출
-    val route = navController.currentBackStackEntry?.toRoute<Routes.ChatRoom>()
-    val roomId = route?.roomId ?: ""
+//    val route = navController.currentBackStackEntry?.toRoute<Routes.ChatRoom>()
+//    val roomId = route?.roomId ?: ""
+    // 테스트 후 주석 제거 필요
+
+    val roomId = "Wy102dzyw4buC0V6YJuqxjtf6qA2_lNkEvTubtfZJ7WbdZQMw5l5knAc2"
+    val receiverId = "lNkEvTubtfZJ7WbdZQMw5l5knAc2"
 
     val focusManager = LocalFocusManager.current // 포커스 매니저 가져오기
     // UI 상태 구독
     val uiState by viewModel.uiState.collectAsState()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // uiState.errorMessage가 null이 아닐 때만
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            // 분석된 에러 문구로 토스트 피드백
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+
+            // 한 번 띄웠으면 중복으로 안 뜨게 뷰모델 상태 비우기
+            viewModel.clearErrorMessage()
+        }
+    }
+
     // roomId가 바뀔 때마다(혹은 화면 진입 시) 데이터 로드
     LaunchedEffect(roomId) {
         viewModel.loadChatRoomData(roomId)
+        viewModel.markAsRead(roomId)
+    }
+
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    // 메시지 개수가 바뀌거나 키보드가 올라와서 레이아웃이 바뀔 때 맨 아래로 스크롤
+    // 키보드 높이 실시간 감시
+    val imeInsets = WindowInsets.ime
+    val keyboardHeight = imeInsets.asPaddingValues().calculateBottomPadding()
+
+    // 즉시(Snap) 맨 아래로 이동하도록 변경
+    LaunchedEffect(uiState.messages.size, keyboardHeight) {
+        if (uiState.messages.isNotEmpty()) {
+            // 외부 코루틴 스케줄러가 개입하기 전에 메인 스레드 안에서 즉시 배치 처리
+            listState.scrollToItem(uiState.messages.size - 1)
+        }
     }
 
     Surface(
@@ -115,6 +150,7 @@ fun ChatDetailScreen(
 
                 // 메시지 영역
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .weight(1f)
                         .pointerInput(Unit) {
@@ -124,7 +160,24 @@ fun ChatDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item { DateHeader("TODAY") }
-                    items(uiState.messages) { message -> MessageBubble(message) }
+                    items(uiState.messages) { message ->
+                        MessageBubble(
+                            message = message,
+                            onRetrySend = { failedMessage ->
+                                // 1. 기존 실패했던 임시 메시지는 화면에서 깔끔하게 지우기
+                                viewModel.removeFailedMessage(failedMessage.id)
+                                // 2. 똑같은 텍스트로 다시 짱짱하게 전송 요청 날리기
+                                viewModel.sendMessage(
+                                    roomId = roomId,
+                                    receiverId = receiverId,
+                                    text = failedMessage.text
+                                )
+                            },
+                            onDeleteClick = { failedMessage ->
+                                viewModel.removeFailedMessage(failedMessage.id)
+                            }
+                        )
+                    }
                 }
 
                 // 입력 세션
@@ -150,7 +203,15 @@ fun ChatDetailScreen(
                             )
                         }
                     } else {
-                        ChatInputArea(onSendClick = { viewModel.sendMessage(it) })
+                        ChatInputArea(
+                            onSendClick = { text ->
+                                viewModel.sendMessage(
+                                    roomId = roomId,
+                                    receiverId = receiverId,
+                                    text = text
+                                )
+                            }
+                        )
                     }
                 }
             }
@@ -185,7 +246,7 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
 
             // 2. 중앙: 프로필 및 이름 정보 (weight를 주어 공간을 꽉 채우게 함)
             Row(
-                modifier = Modifier.weight(1f), // ✅ 중요: 이 weight가 있어야 나가기 버튼이 오른쪽 끝으로 밀림
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(contentAlignment = Alignment.BottomEnd) {
@@ -222,25 +283,21 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
                     )
                 }
             }
-
-            // 3. 오른쪽 끝: 채팅방 나가기 버튼 추가
-            IconButton(onClick = {
-                /* TODO: 채팅방 나가기 다이얼로그 또는 로직 연결 */
-            }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                    contentDescription = "나가기",
-                    tint = Color.Red
-                )
-            }
         }
     }
 }
 
 @Composable
-fun MessageBubble(message: MessageItem) {
-    // TODO: 롱클릭 시 클립보드 복사(이모지 유니코드 대응) 로직 추가
-    // TODO: message.isFailed가 true일 경우 말풍선 옆에 에러 아이콘 표시
+fun MessageBubble(
+    message: MessageItem,
+    onRetrySend: (MessageItem) -> Unit = {}, // 재전송 콜백
+    onDeleteClick: (MessageItem) -> Unit = {} // 실패한 메세지 삭제 콜백
+) {
+
+    // 토스트를 띄우기 위한 현재 화면의 Context 가져오기
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // 안드로이드 시스템 클립보드 매니저
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
     val alignment = if (message.isMine) Alignment.End else Alignment.Start
     val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
@@ -258,6 +315,39 @@ fun MessageBubble(message: MessageItem) {
         ) {
             // [내 메시지일 때] 시간과 읽음 표시가 말풍선 왼쪽에 위치
             if (message.isMine) {
+                if (message.isFailed) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        // 1. 재전송 버튼
+                        IconButton(
+                            onClick = { onRetrySend(message) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
+                                contentDescription = "다시 전송",
+                                tint = Color.Red
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        // 2. 삭제 버튼
+                        IconButton(
+                            onClick = { onDeleteClick(message) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Close,
+                                contentDescription = "실패 메시지 삭제",
+                                tint = Color.Gray
+                            )
+                        }
+                    }
+                }
+
                 MessageStatusSection(message)
                 Spacer(modifier = Modifier.width(4.dp))
             }
@@ -293,23 +383,37 @@ fun MessageBubble(message: MessageItem) {
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
                     modifier = Modifier
-                        .width(100.dp)
-                        .background(Color.White, RoundedCornerShape(8.dp))
+                        .width(84.dp)
+                        .background(Color.White, RoundedCornerShape(12.dp))
                 ) {
                     DropdownMenuItem(
                         text = {
                             Text(
                                 "복사하기",
-                                style = Typography.bodySmall,
+                                style = Typography.labelMedium,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp,
                                 color = fontDefault,
                                 modifier = Modifier.fillMaxWidth(),
                                 textAlign = TextAlign.Center
                             )
                         },
                         onClick = {
-                            showMenu = false
+                            // 1. 클립보드에 텍스트 복사 실행
+                            clipboardManager.setText(
+                                androidx.compose.ui.text.AnnotatedString(message.text)
+                            )
+
+                            showMenu = false // 메뉴 닫기
+
+                            // 하단 토스트 메시지 띄우기
+                            android.widget.Toast.makeText(
+                                context,
+                                "메시지가 복사되었습니다.",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                         },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 6.dp)
                     )
                 }
             }
