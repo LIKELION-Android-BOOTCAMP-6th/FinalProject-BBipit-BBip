@@ -8,11 +8,9 @@ import com.bbip.bbipit.domain.entity.User
  * 프로필 관리 및 친구 관계 설정을 수행합니다.
  */
 interface UserRepository {
-
-    fun isLogin() = false
-
+    suspend fun getFcmToken(): String?
     // 프로필 업데이트
-    suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): Result<String>
+    suspend fun updateProfile(nickname: String? = null, status: String? = null, profileImageUrl: String? = null, fcmToken: String? = null): Result<String>
 
     // 친구 요청 전송
     suspend fun sendFriendRequest(targetUid: String): Result<String>

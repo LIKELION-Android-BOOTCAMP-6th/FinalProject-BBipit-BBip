@@ -7,10 +7,11 @@ data class ChatRoomDto(
     @get:PropertyName("participants") @set:PropertyName("participants")
     var participants: List<String> = emptyList(),
 
-    @get:PropertyName("last_msg") @set:PropertyName("last_msg")
+    // 파이어베이스 필드명과 일치시키기 위해
+    @get:PropertyName("last_message") @set:PropertyName("last_message")
     var lastMsg: String = "",
 
-    @get:PropertyName("updated_at") @set:PropertyName("updated_at")
+    @get:PropertyName("last_message_at") @set:PropertyName("last_message_at")
     var updatedAt: Timestamp? = null,
 
     @get:PropertyName("unread_counts") @set:PropertyName("unread_counts")

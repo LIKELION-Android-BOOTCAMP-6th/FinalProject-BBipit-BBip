@@ -24,7 +24,7 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firebaseAuth: FirebaseAuth
 ) : AuthRemoteDataSource {
-
+    override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
     // 카카오 로그인
     override suspend fun loginWithKakao(): String { TODO("Not yet implemented") }
     // 구글 로그인

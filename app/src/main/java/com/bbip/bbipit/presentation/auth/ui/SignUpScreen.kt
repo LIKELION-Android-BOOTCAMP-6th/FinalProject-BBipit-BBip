@@ -180,7 +180,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             Button({viewModel.signUp()},
                 enabled = isAllEntered,
                 colors = ButtonDefaults.buttonColors(primary, disabledContainerColor = Color.Gray),
-                modifier = Modifier.fillMaxWidth().height(60.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(60.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {

@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -33,10 +32,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.text.style.TextAlign
+import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
-import com.bbip.bbipit.core.ui.theme.subBackground
 
 /**
  * UI State 정의
@@ -46,7 +46,8 @@ data class ChatItem(
     val senderName: String,
     val lastMessage: String,
     val time: String,
-    val isUnread: Boolean,
+    val isRead: Boolean,
+    val unreadCount: Int,
     val isOnline: Boolean,
     val hasImage: Boolean = false,
     val profileImageUrl: String? = null
@@ -73,6 +74,10 @@ fun ChatListScreen(
         viewModel.navigationEvent.collect { route ->
             navController.navigate(route)
         }
+    }
+    LaunchedEffect(Unit) {
+        // 상세방에서 백스택으로 돌아올 때마다 목록을 새로 땡겨와서 읽음 상태 갱신
+        viewModel.loadChatList()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(color = background)) {
@@ -193,7 +198,6 @@ fun ChatItemRow(
     chatItem: ChatItem,
     onClick: () -> Unit
 ) {
-    // Clickable이 적용된 row
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -222,7 +226,7 @@ fun ChatItemRow(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-            // 텍스트 섹션
+        // 텍스트 섹션
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = chatItem.senderName,
@@ -236,13 +240,13 @@ fun ChatItemRow(
                 // DB의 last_message 연결
                 text = if (chatItem.hasImage) "📷 사진을 보냈습니다" else chatItem.lastMessage,
                 style = Typography.bodySmall,
-                color = if (chatItem.isUnread) Color.Black else Color.Gray,
-                fontWeight = if (chatItem.isUnread) FontWeight.Bold else FontWeight.Normal,
+                color = if (chatItem.isRead) Color.Black else Color.Gray,
+                fontWeight = if (chatItem.isRead) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Spacer (modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(
             horizontalAlignment = Alignment.End,
@@ -257,17 +261,42 @@ fun ChatItemRow(
 
             Spacer(modifier = Modifier.height(8.dp)) // 시간과 뱃지 사이 간격
 
-            // 우측 하단: 안읽음 뱃지 (자리 차지를 위해 보이지 않더라도 Box 공간 유지 추천)
-            if (chatItem.isUnread) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(primary, CircleShape)
-                )
+            // 우측 하단: 안읽음 뱃지
+            if (chatItem.unreadCount > 0) {
+                ChatBadge(count = chatItem.unreadCount)
             } else {
-                // 뱃지가 없을 때 레이아웃이 튀지 않게 공간만 확보 (선택 사항)
-                Spacer(modifier = Modifier.size(10.dp))
+                // 뱃지가 없을 때 가드 공간 확보
+                Spacer(modifier = Modifier.size(20.dp))
             }
         }
+    }
+}
+
+@Composable
+fun ChatBadge(
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    if (count <= 0) return // 안 읽은 메시지가 없으면 아무것도 안 그림
+    // 카톡처럼 99개 넘어가면 99+로 보정
+    val badgeText = if (count > 99) "99+" else count.toString()
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp) // 숫자가 한 자리여도 완벽한 원형 유지
+            .background(
+                color = Color.Red,
+                shape = CircleShape
+            )
+            .padding(horizontal = 5.dp, vertical = 2.dp) // 숫자가 늘어나면 옆으로 늘어날 수 있도록
+    ) {
+        Text(
+            text = badgeText,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
     }
 }

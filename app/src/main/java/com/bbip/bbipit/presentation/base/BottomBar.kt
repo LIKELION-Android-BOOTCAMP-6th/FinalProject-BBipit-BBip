@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -21,6 +23,8 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -35,12 +39,14 @@ import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.bottomBarBack
 import com.bbip.bbipit.core.ui.theme.primary
 
 @Composable
-fun BottomBar(navController: NavController){
+fun BottomBar(navController: NavController,
+              hasUnreadChat: Boolean){
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -74,6 +80,20 @@ fun BottomBar(navController: NavController){
             }
 
             val isChatSelected = currentDestination?.hasRoute<Routes.ChatList>() == true
+
+            // BadgedBox로 Icon을 감싸서 알림 점을 소환
+            BadgedBox(
+                badge = {
+                    if (hasUnreadChat) {
+                        Badge(
+                            containerColor = Color.Red,
+                            modifier = Modifier
+                                .offset(x = 2.dp, y = 2.dp)
+                                .size(6.dp)
+                        )
+                    }
+                }
+            ) {
             IconButton(
                 onClick = {
                     if (!isChatSelected){
@@ -84,10 +104,11 @@ fun BottomBar(navController: NavController){
                     }
                 },
             ) {
-                Icon(imageVector = if(isChatSelected) Icons.Filled.Sms else Icons.Outlined.Sms,
-                    contentDescription = "채팅",
-                    tint = if (isChatSelected) primary else Color.Gray
-                )
+                    Icon(imageVector = if(isChatSelected) Icons.Filled.Sms else Icons.Outlined.Sms,
+                        contentDescription = "채팅",
+                        tint = if (isChatSelected) primary else Color.Gray
+                    )
+                }
             }
 
             val isMapSelected = currentDestination?.hasRoute<Routes.Map>() == true

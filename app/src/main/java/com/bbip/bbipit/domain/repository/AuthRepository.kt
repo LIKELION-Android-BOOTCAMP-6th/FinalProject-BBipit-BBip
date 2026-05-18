@@ -30,4 +30,6 @@ interface AuthRepository {
 
     //약관 내용 불러오기
     suspend fun getTerms(type: TermsType): Result<String>
+
+    fun isAutoLogin() : Boolean
 }

@@ -6,6 +6,7 @@ import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -37,7 +38,8 @@ sealed class SignUpEvent{
 
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository
 ): ViewModel(){
 
     private val _uiState = MutableStateFlow(SignUpUiState())
@@ -64,9 +66,24 @@ class SignUpViewModel @Inject constructor(
         viewModelScope.launch {
             onUpdateLoading(true)
             clearErrorMessage()
+            if (!isValidEmail(_uiState.value.email)){
+                onUpdateEmailError("이메일 형식이 일치하지 않습니다.")
+                onUpdateLoading(false)
+                clearAll()
+                return@launch
+            }
+
+            if (!isValidPassword(_uiState.value.password)){
+                onUpdatePwError("비밀번호 규칙이 올바르지 않습니다.")
+                onUpdateLoading(false)
+                clearAll()
+                return@launch
+            }
+
             authRepository.signUpWithEmail(_uiState.value.email, _uiState.value.password)
                 .onSuccess {
                     onUpdateLoading(false)
+                    userRepository.updateProfile(nickname = _uiState.value.name)
                     onUpdateNotiShown(true)
                 }
                 .onFailure { exception ->
@@ -97,7 +114,8 @@ class SignUpViewModel @Inject constructor(
     fun onUpdatePassword(password: String) = _uiState.update { it.copy(password = password) }
     fun onUpdateCheckPw(password: String) = _uiState.update { it.copy(checkPw = password) }
     fun onUpdateNotiShown(value: Boolean) = _uiState.update { it.copy(isNotiShown = value) }
-
+    private fun onUpdatePwError(value: String) = _uiState.update { it.copy(pwError = value) }
+    private fun onUpdateEmailError(value: String) = _uiState.update { it.copy(emailError = value) }
     private fun clearAll() = _uiState.update {
         it.copy(name = "", email = "", password = "", checkPw = "")
     }
@@ -106,6 +124,14 @@ class SignUpViewModel @Inject constructor(
         viewModelScope.launch {
             _event.send(SignUpEvent.NavigateToSignIn)
         }
+    }
+    private fun isValidPassword(password: String): Boolean {
+        val regex = Regex("^(?=.*[a-z])(?=.*[0-9])(?=.*[!@#\$%^&*()_+\\-=]).{8,}$")
+        return regex.matches(password)
+    }
+    private fun isValidEmail(email: String): Boolean {
+        val regex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+        return regex.matches(email)
     }
 
 }

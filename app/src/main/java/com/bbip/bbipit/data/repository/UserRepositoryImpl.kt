@@ -19,10 +19,13 @@ class UserRepositoryImpl @Inject constructor(
     private val userRemoteDataSource: UserRemoteDataSource
 ) : UserRepository {
 
+    //기존 fcm 토큰 획득
+    override suspend fun getFcmToken(): String? = userRemoteDataSource.getToken()
+
     // 프로필 정보 업데이트
-    override suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): Result<String> {
+    override suspend fun updateProfile(nickname: String?, status: String?, profileImageUrl: String?, fcmToken: String?): Result<String> {
         return try {
-            val message = userRemoteDataSource.updateProfile(nickname, status, profileImageUrl)
+            val message = userRemoteDataSource.updateProfile(nickname, status, profileImageUrl, fcmToken)
             Result.Success(message)
         } catch (e: Exception) {
             Log.e("UserRepository", "프로필 업데이트 실패: ${e.message}")

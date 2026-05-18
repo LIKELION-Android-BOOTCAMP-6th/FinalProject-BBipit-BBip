@@ -22,6 +22,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val authRemoteDataSource: AuthRemoteDataSource
 ): AuthRepository {
 
+    override fun isAutoLogin(): Boolean = authRemoteDataSource.isAutoLogin()
     // 카카오 로그인 수행
     override suspend fun kakaoLogin(): Result<Unit> {
         return try {
@@ -56,10 +57,12 @@ class AuthRepositoryImpl @Inject constructor(
             Log.d("Auth", "회원가입 성공: ${user?.email} (UID: ${user?.uid})")
             Result.Success(authResult)
         } catch (e: FirebaseAuthException) {
+            Log.d("AuthDebug", "진짜 에러코드 추출 결과: [${e.errorCode}]")
+
             val error = when(e.errorCode){
                 "ERROR_EMAIL_ALREADY_IN_USE" -> AppError.Email("이미 가입된 이메일 주소입니다.")
                 "ERROR_INVALID_EMAIL" -> AppError.Email("올바른 이메일 형식이 아닙니다.")
-                "ERROR_WEAK_PASSWORD" -> AppError.Password()
+                "ERROR_WEAK_PASSWORD", "PASSWORD_DOES_NOT_MEET_REQUIREMENTS" -> AppError.Password()
                 else -> AppError.Auth(e.errorCode)
             }
             Log.e("Auth", "회원가입 실패: ${e.errorCode}")
@@ -78,7 +81,17 @@ class AuthRepositoryImpl @Inject constructor(
             val authResult = authRemoteDataSource.signInWithEmail(email, password)
             Log.d("Auth", "로그인 성공: ${authResult.user?.uid}")
             Result.Success(authResult)
-        } catch (e: Exception) {
+        } catch (e: FirebaseAuthException){
+            val error = when(e.errorCode){
+                "ERROR_INVALID_EMAIL" -> AppError.Email()
+                "ERROR_WRONG_PASSWORD", "ERROR_USER_NOT_FOUND", "ERROR_INVALID_CREDENTIAL"
+                    -> AppError.Password("이메일 또는 비밀번호가 올바르지 않습니다.")
+                else -> AppError.Auth()
+
+            }
+            Log.e("Auth", "로그인 실패 ${e.errorCode}")
+            Result.Failure(error)
+        }catch (e: Exception) {
             Log.e("Auth", "로그인 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "로그인 중 오류 발생"))
         }

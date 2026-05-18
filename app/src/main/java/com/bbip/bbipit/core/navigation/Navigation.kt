@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.bbip.bbipit.domain.repository.UserRepository
+import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.presentation.auth.ui.SignInScreen
 import com.bbip.bbipit.presentation.auth.ui.SignUpScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatDetailScreen
@@ -16,10 +16,10 @@ import com.bbip.bbipit.presentation.notification.NotificationScreen
 @Composable
 fun BBipItNavigation(
     navController: NavHostController,
-    userRepository: UserRepository
+    authRepository: AuthRepository
 ){
 
-    val isLogin = userRepository.isLogin()
+    val isLogin = authRepository.isAutoLogin()
     val start = if (isLogin) Routes.Map else Routes.SignIn
 
     NavHost(
