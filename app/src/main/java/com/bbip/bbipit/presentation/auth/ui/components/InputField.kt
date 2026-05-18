@@ -38,7 +38,7 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
 
     var passwordVisible by remember { mutableStateOf(false) }
 
-    val isError = errorText !=null
+    val isError = !errorText.isNullOrBlank()
 
     Column(modifier = Modifier.fillMaxWidth()) {
         TextField(

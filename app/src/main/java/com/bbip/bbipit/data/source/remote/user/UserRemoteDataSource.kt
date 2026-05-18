@@ -3,7 +3,8 @@ package com.bbip.bbipit.data.source.remote.user
 import com.bbip.bbipit.domain.entity.User
 
 interface UserRemoteDataSource {
-    suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): String
+    suspend fun getToken(): String?
+    suspend fun updateProfile(nickname: String?, status: String?, profileImageUrl: String?, fcmToken: String?): String
     suspend fun sendFriendRequest(targetUid: String): String
     suspend fun deleteFriend(targetUid: String): String
     suspend fun getMyAcceptedFriends(): List<User>

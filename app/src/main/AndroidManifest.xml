@@ -51,6 +51,14 @@
                     android:pathPrefix="/check_phone_status" />
             </intent-filter>
         </service>
+        <!-- fcm 토큰 자동 갱신 서비스-->
+        <service
+            android:name=".data.source.remote.notification.MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <!-- 메인 액티비티 -->
         <activity

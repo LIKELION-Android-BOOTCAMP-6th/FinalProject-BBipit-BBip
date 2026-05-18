@@ -1,8 +1,10 @@
 package com.bbip.bbipit.data.source.remote.user
 
+import android.util.Log
 import com.bbip.bbipit.domain.entity.User
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,12 +16,24 @@ import javax.inject.Singleton
 @Singleton
 class UserRemoteDataSourceImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val firebaseFunctions: FirebaseFunctions
+    private val firebaseFunctions: FirebaseFunctions,
+    private val firebaseMessaging: FirebaseMessaging
 ) : UserRemoteDataSource {
+    override suspend fun getToken(): String? {
+        return try {
+            val token = firebaseMessaging.token.await()
+            Log.d("token", token)
+            token
+        } catch (e: Exception) {
+            Log.e("token 발급", e.printStackTrace().toString())
+            null
+        }
+    }
 
     // 프로필 업데이트
-    override suspend fun updateProfile(nickname: String, status: String, profileImageUrl: String): String {
-        val data = hashMapOf("nickname" to nickname, "statusMessage" to status, "photoURL" to profileImageUrl)
+    override suspend fun updateProfile(nickname: String?, status: String?, profileImageUrl: String?, fcmToken: String?): String {
+        val rawData = hashMapOf("nickname" to nickname, "statusMessage" to status, "photoURL" to profileImageUrl, "fcmToken" to fcmToken)
+        val data = rawData.filterValues { it != null }
         val result = firebaseFunctions.getHttpsCallable("updateProfile").call(data).await()
         val res = result.data as? Map<*, *>
         return res?.get("message")?.toString() ?: "프로필 업데이트 완료"
