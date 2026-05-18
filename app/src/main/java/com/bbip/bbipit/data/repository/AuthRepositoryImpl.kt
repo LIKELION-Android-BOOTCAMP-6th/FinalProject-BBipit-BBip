@@ -47,9 +47,9 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     // 이메일 기반 회원가입 수행
-    override suspend fun signUpWithEmail(email: String, password: String): Result<AuthResult> {
+    override suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult> {
         return try {
-            val authResult = authRemoteDataSource.signUpWithEmail(email, password)
+            val authResult = authRemoteDataSource.signUpWithEmail(email, password, nickname)
             val user = authResult.user
             user?.let {
                 it.sendEmailVerification().await()

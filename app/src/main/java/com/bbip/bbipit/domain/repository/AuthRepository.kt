@@ -17,7 +17,7 @@ interface AuthRepository {
     suspend fun signInWithGoogleIdToken(idToken: String): Result<Unit>
 
     // 이메일 회원가입
-    suspend fun signUpWithEmail(email: String, password: String): Result<AuthResult>
+    suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult>
 
     // 이메일 로그인
     suspend fun signInWithEmail(email: String, password: String): Result<AuthResult>

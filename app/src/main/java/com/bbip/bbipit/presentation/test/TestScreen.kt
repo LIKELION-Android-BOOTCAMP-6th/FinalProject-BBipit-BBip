@@ -145,10 +145,10 @@ fun TestScreen(
                 Text("이메일 로그인")
             }
             Button(onClick = {
-                scope.launch {
-                    val res = viewModel.testSignUp(email, password)
-                    testResultConsole = "testSignUp() 리턴:\n-> $res (${if(res) "성공" else "실패"})"
-                }
+//                scope.launch {
+//                    val res = viewModel.testSignUp(email, password)
+//                    testResultConsole = "testSignUp() 리턴:\n-> $res (${if(res) "성공" else "실패"})"
+//                }
             }, modifier = Modifier.weight(1f)) {
                 Text("이메일 회원가입")
             }
