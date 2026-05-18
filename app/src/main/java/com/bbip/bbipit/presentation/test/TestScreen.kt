@@ -319,7 +319,7 @@ fun TestScreen(
             Button(onClick = {
                 scope.launch {
                     val rooms = viewModel.testGetChatRooms()
-                    testResultConsole = "testGetChatRooms() 리턴:\n-> " + (rooms?.joinToString("\n") { "🏠 RoomID: ${it.roomId}, LastMsg: ${it.lastMsg}" } ?: "조회 실패")
+                    testResultConsole = "testGetChatRooms() 리턴:\n-> " + (rooms?.joinToString("\n") { "🏠 RoomID: ${it.id}, LastMsg: ${it.lastMsg}" } ?: "조회 실패")
                 }
             }, modifier = Modifier.weight(1f)) {
                 Text("채팅방 목록")

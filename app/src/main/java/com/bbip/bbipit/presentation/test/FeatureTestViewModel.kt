@@ -181,7 +181,7 @@ class FeatureTestViewModel @Inject constructor(
             .onSuccess { rooms ->
                 Log.d(TAG, "✅ 채팅방 목록 조회 성공: ${rooms.size}개")
                 rooms.forEach { r ->
-                    Log.d(TAG, " - 🏠 RoomID: ${r.roomId}, 마지막 메시지: ${r.lastMsg}")
+                    Log.d(TAG, " - 🏠 RoomID: ${r.id}, 마지막 메시지: ${r.lastMsg}")
                 }
                 roomList = rooms
             }

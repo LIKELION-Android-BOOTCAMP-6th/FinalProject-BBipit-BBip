@@ -98,7 +98,7 @@ fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNex
                             textSize = Typography.bodySmall.fontSize.value
                             setTextColor(fontDefault.toArgb())
                             setLineSpacing(Typography.bodyMedium.lineHeight.value, 1.0f)
-                            typeface = ResourcesCompat.getFont(context, R.font.tmoney_round_wind_regular)
+                            typeface = ResourcesCompat.getFont(context, R.font.suit_variable)
                             text = Html.fromHtml(terms, Html.FROM_HTML_MODE_LEGACY)
                             movementMethod = ScrollingMovementMethod()
                         }

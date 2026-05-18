@@ -112,7 +112,7 @@ class ChatRemoteDataSourceImpl @Inject constructor(
             val roomsMapList = res["rooms"] as? List<Map<String, Any>> ?: emptyList()
             return roomsMapList.map { map ->
                 ChatRoom(
-                    roomId = map["roomId"] as? String ?: "",
+                    id = map["roomId"] as? String ?: "",
                     lastMsg = map["lastMessage"] as? String ?: "",
                     participants = map["participants"] as? List<String> ?: emptyList(),
                     updatedAt = (map["lastMessageAt"] as? Number)?.toLong() ?: 0L
@@ -148,7 +148,7 @@ class ChatRemoteDataSourceImpl @Inject constructor(
                     0L
                 }
                 ChatMessage(
-                    msgId = map["id"] as? String ?: "",
+                    id = map["id"] as? String ?: "",
                     senderId = map["sender_id"] as? String ?: "",
                     content = map["content"] as? String ?: "",
                     sentAt = sentAtMillis,
