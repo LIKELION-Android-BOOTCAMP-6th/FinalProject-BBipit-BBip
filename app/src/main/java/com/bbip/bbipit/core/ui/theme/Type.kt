@@ -10,7 +10,13 @@ import androidx.compose.ui.unit.sp
 import com.bbip.bbipit.R
 
 val suit = FontFamily(
-    Font(R.font.suit_variable)
+    Font(R.font.suit_thin, FontWeight.Thin),
+    Font(R.font.suit_light, FontWeight.Light),
+    Font(R.font.suit_regular, FontWeight.Normal),
+    Font(R.font.suit_medium, FontWeight.Medium),
+    Font(R.font.suit_semibold, FontWeight.SemiBold),
+    Font(R.font.suit_bold, FontWeight.Bold),
+    Font(R.font.suit_extrabold, FontWeight.ExtraBold),
 )
 
 val Typography = Typography(
