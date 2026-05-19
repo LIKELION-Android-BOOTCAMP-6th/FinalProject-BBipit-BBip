@@ -1,27 +1,18 @@
 package com.bbip.bbipit.presentation.notification
 
-import android.app.Dialog
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
-import android.view.Gravity
-import android.view.WindowManager
 import android.widget.Toast
-import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavController
-import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.google.firebase.firestore.FirebaseFirestore
-import com.bbip.bbipit.domain.usecase.GetNotificationListUseCase
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -74,18 +65,20 @@ class NotificationViewModel @Inject constructor(
                 notificationRepository.observeNotification(currentUserId)
                     .collectLatest { liveNotifications ->
                         if (_notification.value.isNotEmpty() && liveNotifications.size > _notification.value.size) {
-                            val newestNoti = liveNotifications.firstOrNull()
-                            if (newestNoti != null && !newestNoti.isRead) {
-                                triggerInAppBanner(newestNoti)
+
+                            val newlyAddedNotifications = liveNotifications.filter { newNotification ->
+                                _notification.value.none { oldNotification -> oldNotification.id == newNotification.id }
+                            }
+                            val brandNewNotification = newlyAddedNotifications.maxByOrNull { it.createdAt }
+                            if (brandNewNotification != null && !brandNewNotification.isRead) {
+                                triggerInAppBanner(brandNewNotification)
                             }
                         }
+                        // 현재 상태 업데이트
                         _notification.value = liveNotifications
                     }
             } catch (e: Exception) {
                 Log.e("NotificationVM", "알림 스트림 수신 에러: ${e.message}")
-                if (!isNetworkAvailable()) {
-                    showNetworkErrorToast()
-                }
             }
         }
     }

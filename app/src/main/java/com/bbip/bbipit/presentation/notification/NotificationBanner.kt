@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PersonAdd
@@ -117,7 +118,7 @@ fun NotificationBanner(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(primary)
+                        .background(sub1)
                         .border(
                             width = 1.5.dp,
                             color = Color.White,
@@ -147,7 +148,7 @@ fun NotificationBanner(
                         },
                         contentDescription = null,
                         tint = primary,
-                        modifier = Modifier.size(12.dp)
+                        modifier = Modifier.size(10.dp)
                     )
                 }
             }
