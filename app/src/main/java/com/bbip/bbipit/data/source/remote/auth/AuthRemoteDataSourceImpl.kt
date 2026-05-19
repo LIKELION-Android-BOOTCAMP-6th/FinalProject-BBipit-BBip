@@ -6,7 +6,6 @@ import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.OAuthProvider
-import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.oAuthCredential
 import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.common.model.ClientError
