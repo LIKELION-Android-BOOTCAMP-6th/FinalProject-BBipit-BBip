@@ -36,6 +36,7 @@
         <service
             android:name=".core.base.MobileAudioReceiverService"
             android:foregroundServiceType="connectedDevice|microphone"
+            tools:replace="android:foregroundServiceType"
             android:exported="false"/>
 
         <!-- 데이터 및 메시지 수신 리스너 서비스 -->

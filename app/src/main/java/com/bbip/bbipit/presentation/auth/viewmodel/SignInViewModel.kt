@@ -45,8 +45,7 @@ class SignInViewModel @Inject constructor(
             authRepository.signInWithEmail(uiState.value.email, uiState.value.password)
                 .onSuccess {
                     updateState { copy(isLoading = false) }
-                    val token = userRepository.getFcmToken()
-                    userRepository.updateProfile(fcmToken = token)
+                    getFcmToken()
                     _eventChannel.send(SignInEvent.NavigateToHome)
                 }
                 .onFailure { exception ->
@@ -65,6 +64,38 @@ class SignInViewModel @Inject constructor(
     fun moveToSignUp(){
         viewModelScope.launch {
             _eventChannel.send(SignInEvent.NavigateToSignUp)
+        }
+    }
+    suspend fun getFcmToken(){
+        val token = userRepository.getFcmToken()
+        userRepository.updateProfile(fcmToken = token)
+    }
+
+
+    fun signInKakao(){
+        updateState { copy(isLoading = true) }
+        viewModelScope.launch {
+            authRepository.kakaoLogin()
+                .onSuccess {
+                    getFcmToken()
+                    updateState { copy(isLoading = false) }
+                    _eventChannel.send(SignInEvent.NavigateToHome)
+
+                }
+                .onFailure { exception ->
+                    updateState { copy(isLoading = false) }
+                    updateState { copy(error = exception.message)  }
+
+                }
+
+        }
+
+    }
+
+    fun signInWithGoogle(){
+        updateState { copy(isLoading = true) }
+        viewModelScope.launch {
+
         }
     }
 }

@@ -42,6 +42,7 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.bottomBarBack
+import com.bbip.bbipit.core.ui.theme.navBackground
 import com.bbip.bbipit.core.ui.theme.primary
 
 @Composable
@@ -55,7 +56,7 @@ fun BottomBar(navController: NavController,
         .navigationBarsPadding()
         .padding(20.dp),
         shape = RoundedCornerShape(50.dp),
-        color = background,
+        color = navBackground,
         shadowElevation = 17.dp
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(68.dp),

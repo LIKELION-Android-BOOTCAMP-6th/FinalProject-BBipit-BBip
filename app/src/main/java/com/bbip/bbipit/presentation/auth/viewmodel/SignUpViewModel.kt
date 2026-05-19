@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.auth.viewmodel
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.result.onFailure
@@ -129,9 +130,8 @@ class SignUpViewModel @Inject constructor(
         val regex = Regex("^(?=.*[a-z])(?=.*[0-9])(?=.*[!@#\$%^&*()_+\\-=]).{8,}$")
         return regex.matches(password)
     }
-    private fun isValidEmail(email: String): Boolean {
-        val regex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
-        return regex.matches(email)
-    }
+    private fun isValidEmail(email: String): Boolean
+    = email.isNotBlank() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
+
 
 }
