@@ -41,7 +41,7 @@ class MobileAudioReceiverService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        startForegroundServiceNotification()
+//        startForegroundServiceNotification()
     }
 
     /**
