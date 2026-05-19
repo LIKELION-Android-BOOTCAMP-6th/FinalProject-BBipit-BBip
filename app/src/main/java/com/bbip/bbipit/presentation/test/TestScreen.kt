@@ -517,7 +517,7 @@ fun TestScreen(
                 scope.launch {
                     testResultConsole = "알림 구독 시작됨..."
                     viewModel.testObserveNotification { notification ->
-                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.notificationId}\n유형: ${notification.type}\n내용: ${notification.content}"
+                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.id}\n유형: ${notification.type}\n내용: ${notification.content}"
                     }
                 }
             },
@@ -528,5 +528,6 @@ fun TestScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
+
     }
 }

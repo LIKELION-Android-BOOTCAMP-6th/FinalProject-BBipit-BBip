@@ -2,7 +2,6 @@ package com.bbip.bbipit.domain.repository
 
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.Notification
-import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -17,10 +16,7 @@ interface NotificationRepository {
     suspend fun markNotificationsAsRead(type: String, notificationId: String?): Result<Boolean>
 
     // 새 알림 실시간 구독
-    fun observeNotification(userId: String, onNew: (Notification) -> Unit): ListenerRegistration
-
-    fun observeNotificationList(userId: String): Flow<List<Notification>>
-
+    fun observeNotification(userId: String): Flow<List<Notification>>
     // 알림 삭제
     suspend fun deleteNotifications(userId: String, notiId: String?): Result<Unit>
 }

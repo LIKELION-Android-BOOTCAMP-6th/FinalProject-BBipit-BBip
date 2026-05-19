@@ -278,21 +278,16 @@ class FeatureTestViewModel @Inject constructor(
 
     // 알림 수신 테스트
     suspend fun testObserveNotification(onNotificationReceived: (Notification) -> Unit): Boolean {
+        val TAG = "NotificationTest"
         return try {
             val myUid = authRepository.getCurrentUserUid() ?: return false
             Log.d(TAG, "🔍 알림 수신 구독 시작 (UID: $myUid)")
 
-            callbackFlow {
-                val registration = notificationRepository.observeNewNotification(myUid) { notification ->
-                    trySend(notification)
+            notificationRepository.observeNotification(myUid).collectLatest { notifications ->
+                notifications.firstOrNull()?.let { latestNotification ->
+                    Log.d(TAG, "✅ 실시간 새 알림 수신됨: ID=${latestNotification.id}")
+                    onNotificationReceived(latestNotification)
                 }
-                awaitClose {
-                    Log.d(TAG, "🔒 알림 구독 해제")
-                    registration.remove()
-                }
-            }.collectLatest { notification ->
-                Log.d(TAG, "✅ 실시간 새 알림 수신됨: ID=${notification.notificationId}, Type=${notification.type}")
-                onNotificationReceived(notification)
             }
             true
         } catch (e: Exception) {
