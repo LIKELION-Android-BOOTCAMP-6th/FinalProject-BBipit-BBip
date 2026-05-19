@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,19 +48,14 @@ fun NotificationScreen(
     val isReadAllClicked by viewModel.readAllClicked.collectAsState()
     val readIds by viewModel.readIds.collectAsState()
 
-    // 인앱 배너 전용 상태 관찰
-    val showBanner by viewModel.showInAppBanner.collectAsState()
-    val latestNotification by viewModel.latestInAppNotification.collectAsState()
-
     val filteredList by remember(notification, selectedFilter) {
         derivedStateOf {
-            if (selectedFilter == "전체") notification
+            val baseList = if (selectedFilter == "전체") notification
             else notification.filter { mapFilterToType(selectedFilter, it.type) }
+            baseList.sortedByDescending { it.createdAt }
         }
     }
 
-    // 💡 최외곽을 Box로 묶어야 인앱 배너가 리스트 위에 독립된 레이어로 정상적으로 둥둥 뜹니다.
-    Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = background,
             modifier = Modifier.fillMaxSize()
@@ -66,7 +63,6 @@ fun NotificationScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = innerPadding.calculateBottomPadding())
             ) {
                 NotificationHeader(onReadAll = { viewModel.onReadAllClick() })
 
@@ -79,13 +75,18 @@ fun NotificationScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                 }
 
+                val listState = rememberLazyListState()
+
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(
                         start = 20.dp,
                         end = 20.dp,
-                        bottom = 100.dp
+                        bottom = innerPadding.calculateBottomPadding()
                     )
                 ) {
                     items(items = filteredList, key = { it.id }) { item ->
@@ -166,31 +167,7 @@ fun NotificationScreen(
                 }
             }
         }
-
-        if (showBanner && latestNotification != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 10.dp, end = 10.dp, top = 24.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                NotificationBanner(
-                    item = latestNotification!!,
-                    onDismiss = {viewModel.dismissBanner()},
-                    onClick = {
-                        viewModel.markAsRead(latestNotification!!.id)
-
-                        if (latestNotification!!.type == "DM" && !latestNotification!!.roomId.isNullOrEmpty()) {
-                            try {
-                                navController.navigate(Routes.ChatRoom(roomId = latestNotification!!.roomId))
-                            } catch (e: Exception) {
-                                Log.e("NotificationScreen", "네비게이션 크래시 방지: ${e.message}")
-                            }
-                        }
-                    }
-                )
-            }
-        }}}
+}
 
 @Composable
 fun NotificationCard(
@@ -421,35 +398,3 @@ fun mapFilterToType(filter: String, type: String): Boolean = when (filter) {
 }
 
 data class FilterItem(val name: String, val icon: ImageVector)
-
-@Preview(showBackground = true)
-@Composable
-fun NotificationScreenWithBannerPreview() {
-    // 💡 1. 화면 전체를 덮는 박스를 만듭니다.
-    Box(modifier = Modifier.fillMaxSize()) {
-
-        // 💡 2. 여기에 이미 만들어둔 배너(NotificationBanner)만 공중에 띄웁니다.
-        // Screen 전체를 다 그릴 필요 없이, 배너 배치만 따로 떼어서 확인하는 꼼수입니다!
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 10.dp, end = 10.dp, top = 30.dp),
-            contentAlignment = Alignment.TopCenter
-        ) {
-            NotificationBanner(
-                item = Notification(
-                    id = "preview_id",
-                    senderName = "sender",
-                    type = "WALKIE",
-                    content = "무전",
-                    createdAt = System.currentTimeMillis(),
-                    isRead = false,
-                    roomId = "",
-                    expiresAt = System.currentTimeMillis() + 100000
-                ),
-                onDismiss = {},
-                onClick = {}
-            )
-        }
-    }
-}

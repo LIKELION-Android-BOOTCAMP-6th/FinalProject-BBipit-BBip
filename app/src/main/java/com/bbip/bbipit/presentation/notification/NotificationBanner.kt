@@ -1,8 +1,10 @@
 package com.bbip.bbipit.presentation.notification
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,25 +16,37 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.Notification
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun NotificationBanner(
     item: Notification,
     onDismiss: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val offsetY = remember { Animatable(0f) }
+    val alpha = remember { Animatable(1f) }
+
     // 3.5초 후 자동으로 배너가 사라지게 설정
     LaunchedEffect(key1 = item.id) {
         delay(3500)
@@ -43,12 +57,43 @@ fun NotificationBanner(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .then(modifier)
+            .offset { IntOffset(0, offsetY.value.roundToInt()) }
+            .alpha(alpha.value)
             .padding(horizontal = 16.dp, vertical = 15.dp)
             .border(
                 width = 0.5.dp,
                 color = background,
                 shape = RoundedCornerShape(50.dp)
             )
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = {
+                        if (offsetY.value < -100f) {
+                            coroutineScope.launch {
+                                launch { offsetY.animateTo(-300f) }
+                                launch { alpha.animateTo(0f) }
+                                onDismiss()
+                            }
+                        } else {
+                            coroutineScope.launch {
+                                launch { offsetY.animateTo(0f) }
+                                launch { alpha.animateTo(1f) }
+                            }
+                        }
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        if (offsetY.value + dragAmount.y <= 0f) {
+                            coroutineScope.launch {
+                                offsetY.snapTo(offsetY.value + dragAmount.y)
+                                val newAlpha = (1f + (offsetY.value / 300f)).coerceIn(0f, 1f)
+                                alpha.snapTo(newAlpha)
+                            }
+                        }
+                    }
+                )
+            }
             .clickable {
                 onClick()
                 onDismiss()
@@ -73,14 +118,24 @@ fun NotificationBanner(
                         .size(36.dp)
                         .clip(CircleShape)
                         .background(primary)
+                        .border(
+                            width = 1.5.dp,
+                            color = Color.White,
+                            shape = CircleShape
+                        )
                 )
 
                 // 타입별 작은 배지 아이콘
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
+                        .size(16.dp)
                         .clip(CircleShape)
-                        .background(background),
+                        .background(background)
+                        .border(
+                            width = 0.5.dp,
+                            color = bottomBarBack,
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -92,7 +147,7 @@ fun NotificationBanner(
                         },
                         contentDescription = null,
                         tint = primary,
-                        modifier = Modifier.size(9.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
@@ -149,11 +204,10 @@ fun NotificationBanner(
 @Preview(showBackground = true)
 @Composable
 fun NotificationBannerPreview() {
-    // 💡 테마 껍데기를 과감히 빼고, 순수 흰색 판때기 위에 배너만 올려서 렌더링을 유도합니다.
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8FAFC)) // BBIP 라이트 배경색 직접 주입
+            .background(Color(0xFFF8FAFC))
             .padding(16.dp)
     ) {
         NotificationBanner(

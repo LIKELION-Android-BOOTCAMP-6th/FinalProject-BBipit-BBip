@@ -21,17 +21,17 @@ import com.bbip.bbipit.core.navigation.BBipItNavigation
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.BbipitTheme
 import com.bbip.bbipit.domain.repository.AuthRepository
-import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.presentation.base.VoicePlayerViewModel
 import com.bbip.bbipit.presentation.base.VoiceReceptionOverlay
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.collectAsState
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
+import com.bbip.bbipit.presentation.notification.NotificationBanner
+import com.bbip.bbipit.presentation.notification.NotificationBannerHost
+import com.bbip.bbipit.presentation.notification.NotificationViewModel
 
 // 파이어베이스 App Check 관련 임포트 추가
-import com.google.firebase.FirebaseApp
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 
@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
             val chatListViewModel: ChatListViewModel = hiltViewModel()
+            val notificationViewModel: NotificationViewModel = hiltViewModel()
 
             BbipitTheme {
                 val navController = rememberNavController()
@@ -89,10 +90,16 @@ class MainActivity : ComponentActivity() {
                             viewModel = voicePlayerViewModel,
                             modifier = Modifier.align(Alignment.BottomCenter)
                         )
+
+                        // 전역 알림 수신
+                        NotificationBannerHost(
+                            viewModel = notificationViewModel,
+                            navController = navController,
+                            modifier = Modifier.align(Alignment.TopCenter)
+                        )
                     }
                 }
             }
         }
     }
-
 }

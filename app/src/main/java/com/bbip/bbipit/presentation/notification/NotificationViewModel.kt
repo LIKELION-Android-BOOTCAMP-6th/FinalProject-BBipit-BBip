@@ -1,12 +1,18 @@
 package com.bbip.bbipit.presentation.notification
 
+import android.app.Dialog
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
+import android.view.Gravity
+import android.view.WindowManager
 import android.widget.Toast
+import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
+import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
@@ -88,8 +94,6 @@ class NotificationViewModel @Inject constructor(
         viewModelScope.launch {
             _latestInAppNotification.value = noti
             _showInAppBanner.value = true
-            delay(3000L)
-            _showInAppBanner.value = false
         }
     }
 
