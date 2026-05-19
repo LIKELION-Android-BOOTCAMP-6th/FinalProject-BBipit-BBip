@@ -91,4 +91,11 @@ class SignInViewModel @Inject constructor(
         }
 
     }
+
+    fun signInWithGoogle(){
+        updateState { copy(isLoading = true) }
+        viewModelScope.launch {
+
+        }
+    }
 }

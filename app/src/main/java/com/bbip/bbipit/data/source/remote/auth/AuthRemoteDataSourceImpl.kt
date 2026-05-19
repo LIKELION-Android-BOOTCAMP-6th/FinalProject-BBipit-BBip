@@ -69,7 +69,9 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         }
     }
     // 구글 로그인
-    override suspend fun loginWithGoogle(idToken: String) { TODO("Not yet implemented") }
+    override suspend fun loginWithGoogle(idToken: String) {
+        TODO("Not yet implemented")
+    }
 
     // 커스텀 토큰 로그인
     override suspend fun signInWithCustomToken(accessToken: String) {
