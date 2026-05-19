@@ -13,6 +13,7 @@ import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +42,12 @@ class NotificationViewModel @Inject constructor(
     private val _readIds = MutableStateFlow<Set<String>>(emptySet())
     val readIds: StateFlow<Set<String>> = _readIds.asStateFlow()
 
+    private val _showInAppBanner = MutableStateFlow(false)
+    val showInAppBanner: StateFlow<Boolean> = _showInAppBanner.asStateFlow()
+
+    private val _latestInAppNotification = MutableStateFlow<Notification?>(null)
+    val latestInAppNotification: StateFlow<Notification?> = _latestInAppNotification.asStateFlow()
+
     init {
         if (currentUserId.isNotEmpty()) {
             if (isNetworkAvailable()) {
@@ -58,6 +65,12 @@ class NotificationViewModel @Inject constructor(
             try {
                 notificationRepository.observeNotification(currentUserId)
                     .collectLatest { liveNotifications ->
+                        if (_notification.value.isNotEmpty() && liveNotifications.size > _notification.value.size) {
+                            val newestNoti = liveNotifications.firstOrNull()
+                            if (newestNoti != null && !newestNoti.isRead) {
+                                triggerInAppBanner(newestNoti)
+                            }
+                        }
                         _notification.value = liveNotifications
                     }
             } catch (e: Exception) {
@@ -67,6 +80,19 @@ class NotificationViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun triggerInAppBanner(noti: Notification) {
+        viewModelScope.launch {
+            _latestInAppNotification.value = noti
+            _showInAppBanner.value = true
+            delay(3000L)
+            _showInAppBanner.value = false
+        }
+    }
+
+    fun dismissBanner() {
+        _showInAppBanner.value = false
     }
 
     // 현재 기기의 네트워크 연결 상태를 체크하는 함수

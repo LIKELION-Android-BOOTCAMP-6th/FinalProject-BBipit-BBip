@@ -145,10 +145,10 @@ fun TestScreen(
                 Text("이메일 로그인")
             }
             Button(onClick = {
-                scope.launch {
-                    val res = viewModel.testSignUp(email, password)
-                    testResultConsole = "testSignUp() 리턴:\n-> $res (${if(res) "성공" else "실패"})"
-                }
+//                scope.launch {
+//                    val res = viewModel.testSignUp(email, password)
+//                    testResultConsole = "testSignUp() 리턴:\n-> $res (${if(res) "성공" else "실패"})"
+//                }
             }, modifier = Modifier.weight(1f)) {
                 Text("이메일 회원가입")
             }
@@ -514,12 +514,12 @@ fun TestScreen(
 
         Button(
             onClick = {
-                scope.launch {
-                    testResultConsole = "알림 구독 시작됨..."
-                    viewModel.testObserveNotification { notification ->
-                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.id}\n유형: ${notification.type}\n내용: ${notification.content}"
-                    }
-                }
+//                scope.launch {
+//                    testResultConsole = "알림 구독 시작됨..."
+//                    viewModel.testObserveNotification { notification ->
+//                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.notificationId}\n유형: ${notification.type}\n내용: ${notification.content}"
+//                    }
+//                }
             },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
@@ -528,6 +528,5 @@ fun TestScreen(
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-
     }
 }

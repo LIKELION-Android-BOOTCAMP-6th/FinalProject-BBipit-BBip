@@ -48,19 +48,19 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     // 회원가입 테스트
-    suspend fun testSignUp(email: String, pass: String): Boolean {
-        Log.d(TAG, "🔍 회원가입 테스트 시작: $email")
-        var isSignUpSuccess = false
-        authRepository.signUpWithEmail(email, pass)
-            .onSuccess {
-                Log.d(TAG, "✅ 회원가입 성공")
-                isSignUpSuccess = true
-            }
-            .onFailure {
-                Log.e(TAG, "❌ 회원가입 실패: ${it.message}")
-            }
-        return isSignUpSuccess
-    }
+//    suspend fun testSignUp(email: String, pass: String, nick): Boolean {
+//        Log.d(TAG, "🔍 회원가입 테스트 시작: $email")
+//        var isSignUpSuccess = false
+//        authRepository.signUpWithEmail(email, pass)
+//            .onSuccess {
+//                Log.d(TAG, "✅ 회원가입 성공")
+//                isSignUpSuccess = true
+//            }
+//            .onFailure {
+//                Log.e(TAG, "❌ 회원가입 실패: ${it.message}")
+//            }
+//        return isSignUpSuccess
+//    }
 
     // 인증 확인 테스트
     fun testAuth(): String? {
@@ -277,24 +277,29 @@ class FeatureTestViewModel @Inject constructor(
     }
 
     // 알림 수신 테스트
-    suspend fun testObserveNotification(onNotificationReceived: (Notification) -> Unit): Boolean {
-        val TAG = "NotificationTest"
-        return try {
-            val myUid = authRepository.getCurrentUserUid() ?: return false
-            Log.d(TAG, "🔍 알림 수신 구독 시작 (UID: $myUid)")
-
-            notificationRepository.observeNotification(myUid).collectLatest { notifications ->
-                notifications.firstOrNull()?.let { latestNotification ->
-                    Log.d(TAG, "✅ 실시간 새 알림 수신됨: ID=${latestNotification.id}")
-                    onNotificationReceived(latestNotification)
-                }
-            }
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ 알림 수신 테스트 중 오류 발생: ${e.message}")
-            false
-        }
-    }
+//    suspend fun testObserveNotification(onNotificationReceived: (Notification) -> Unit): Boolean {
+//        return try {
+//            val myUid = authRepository.getCurrentUserUid() ?: return false
+//            Log.d(TAG, "🔍 알림 수신 구독 시작 (UID: $myUid)")
+//
+//            callbackFlow {
+//                val registration = notificationRepository.observeNewNotification(myUid) { notification ->
+//                    trySend(notification)
+//                }
+//                awaitClose {
+//                    Log.d(TAG, "🔒 알림 구독 해제")
+//                    registration.remove()
+//                }
+//            }.collectLatest { notification ->
+//                Log.d(TAG, "✅ 실시간 새 알림 수신됨: ID=${notification.notificationId}, Type=${notification.type}")
+//                onNotificationReceived(notification)
+//            }
+//            true
+//        } catch (e: Exception) {
+//            Log.e(TAG, "❌ 알림 수신 테스트 중 오류 발생: ${e.message}")
+//            false
+//        }
+//    }
 
     // 알림 읽음 처리 테스트
     suspend fun testMarkNotificationRead(type: String, id: String? = null): Boolean {
