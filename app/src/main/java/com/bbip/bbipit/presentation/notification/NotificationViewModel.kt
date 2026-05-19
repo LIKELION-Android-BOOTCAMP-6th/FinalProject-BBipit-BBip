@@ -11,6 +11,8 @@ import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.google.firebase.firestore.FirebaseFirestore
+import com.bbip.bbipit.domain.usecase.GetNotificationListUseCase
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay

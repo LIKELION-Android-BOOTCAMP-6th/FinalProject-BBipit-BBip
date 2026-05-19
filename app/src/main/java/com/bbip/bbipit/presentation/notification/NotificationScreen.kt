@@ -416,7 +416,7 @@ fun formatTimestamp(createdAt: Long): String {
 fun mapFilterToType(filter: String, type: String): Boolean = when (filter) {
     "무전" -> type == "WALKIE"
     "DM" -> type == "DM"
-    "친구 요청" -> type == "REQ"
+    "친구 요청" -> type == "FRIEND_ACCEPTED"
     else -> true
 }
 

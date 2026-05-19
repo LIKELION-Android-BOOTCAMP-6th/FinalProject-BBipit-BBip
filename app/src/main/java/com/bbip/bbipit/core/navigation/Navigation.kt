@@ -10,6 +10,7 @@ import com.bbip.bbipit.presentation.auth.ui.SignUpScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatDetailScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatListScreen
 import com.bbip.bbipit.presentation.map.ui.MapScreen
+import com.bbip.bbipit.presentation.mypage.EditProfileScreen
 import com.bbip.bbipit.presentation.mypage.MyPageScreen
 import com.bbip.bbipit.presentation.notification.NotificationScreen
 
@@ -33,6 +34,6 @@ fun BBipItNavigation(
         composable<Routes.ChatList> { ChatListScreen(navController) }
         composable<Routes.Notification> { NotificationScreen(navController) }
         composable<Routes.ChatRoom> { ChatDetailScreen(navController) }
-
+        composable<Routes.EditProfile> { EditProfileScreen(navController) }
     }
 }
