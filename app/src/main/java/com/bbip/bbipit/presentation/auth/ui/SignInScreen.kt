@@ -139,7 +139,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 )
                 Image(painter = painterResource(R.drawable.ic_signin_kakao),
                     contentDescription = "카카오 소셜 로그인",
-                    modifier = Modifier.size(50.dp)
+                    modifier = Modifier.size(50.dp).clickable{viewModel.signInKakao()}
                 )
             }
 

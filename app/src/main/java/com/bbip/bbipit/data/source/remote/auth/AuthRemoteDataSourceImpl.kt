@@ -4,17 +4,26 @@ import android.content.Context
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.auth.oAuthCredential
+import com.kakao.sdk.auth.model.OAuthToken
+import com.kakao.sdk.common.model.ClientError
+import com.kakao.sdk.common.model.ClientErrorCause
+import com.kakao.sdk.user.UserApiClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * 인증 관련 원격 데이터 소스 구현체입니다.
@@ -27,13 +36,52 @@ class AuthRemoteDataSourceImpl @Inject constructor(
 ) : AuthRemoteDataSource {
     override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
     // 카카오 로그인
-    override suspend fun loginWithKakao(): String { TODO("Not yet implemented") }
+    override suspend fun loginWithKakao(): String = suspendCancellableCoroutine { continuation ->
+        val callback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
+            if(error != null){
+                continuation.resumeWithException(error)
+            } else if (token != null){
+                val idToken = token.idToken
+                if (idToken != null){
+                    continuation.resume(idToken)
+                }else{
+                    continuation.resumeWithException(IllegalStateException("카카오 로그인 OpenID Connect 설정 확인 필요"))
+                }
+            }
+        }
+        val userClient = UserApiClient.instance
+        if (userClient.isKakaoTalkLoginAvailable(context)){
+            userClient.loginWithKakaoTalk(context) { token, error ->
+                if(error != null){
+                    if (error is ClientError && error.reason == ClientErrorCause.Cancelled){
+                        continuation.resumeWithException(error)
+                        return@loginWithKakaoTalk
+                    }
+                    userClient.loginWithKakaoAccount(context, callback = callback)
+                } else if ( token != null){
+                    val idToken = token.idToken
+                    if (idToken != null) continuation.resume(idToken)
+                    else userClient.loginWithKakaoAccount(context, callback = callback)
+                }
+            }
+        } else{
+            userClient.loginWithKakaoAccount(context, callback = callback)
+        }
+    }
     // 구글 로그인
     override suspend fun loginWithGoogle(idToken: String) { TODO("Not yet implemented") }
 
     // 커스텀 토큰 로그인
     override suspend fun signInWithCustomToken(accessToken: String) {
-        firebaseAuth.signInWithCustomToken(accessToken).await()
+        try {
+            val providerId = "oidc.kakao"
+            val credential = oAuthCredential(providerId){
+                setIdToken(accessToken)
+            }
+            firebaseAuth.signInWithCredential(credential).await()
+        } catch (e: Exception){
+            throw e
+        }
     }
 
     // 이메일 회원가입
