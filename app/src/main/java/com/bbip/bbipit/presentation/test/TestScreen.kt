@@ -514,12 +514,12 @@ fun TestScreen(
 
         Button(
             onClick = {
-                scope.launch {
-                    testResultConsole = "알림 구독 시작됨..."
-                    viewModel.testObserveNotification { notification ->
-                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.notificationId}\n유형: ${notification.type}\n내용: ${notification.content}"
-                    }
-                }
+//                scope.launch {
+//                    testResultConsole = "알림 구독 시작됨..."
+//                    viewModel.testObserveNotification { notification ->
+//                        testResultConsole = "🔔 실시간 알림 수신!\nID: ${notification.notificationId}\n유형: ${notification.type}\n내용: ${notification.content}"
+//                    }
+//                }
             },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
