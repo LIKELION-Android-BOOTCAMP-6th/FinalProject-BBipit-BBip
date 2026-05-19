@@ -15,6 +15,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- 외부 앱 연동 설정 -->
     <queries>
@@ -35,6 +36,7 @@
         <!-- 음성 수신 서비스 -->
         <service
             android:name=".core.base.MobileAudioReceiverService"
+            android:foregroundServiceType="connectedDevice|microphone|dataSync"
             android:foregroundServiceType="connectedDevice|microphone"
             tools:replace="android:foregroundServiceType"
             android:exported="false"/>

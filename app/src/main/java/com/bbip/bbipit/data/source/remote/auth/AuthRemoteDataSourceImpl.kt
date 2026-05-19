@@ -4,6 +4,7 @@ import android.content.Context
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.oAuthCredential

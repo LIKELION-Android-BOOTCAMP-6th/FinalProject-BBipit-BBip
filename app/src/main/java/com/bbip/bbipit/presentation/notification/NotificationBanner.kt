@@ -1,6 +1,7 @@
 package com.bbip.bbipit.presentation.notification
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bbip.bbipit.core.ui.theme.*
@@ -31,29 +33,36 @@ fun NotificationBanner(
     onDismiss: () -> Unit,
     onClick: () -> Unit
 ) {
-    // 1. 3.5초 후 자동으로 배너가 사라지게 설정
+    // 3.5초 후 자동으로 배너가 사라지게 설정
     LaunchedEffect(key1 = item.id) {
         delay(3500)
         onDismiss()
     }
 
-    // 2. 배너 디자인
+    // 배너 디자인
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 15.dp)
+            .border(
+                width = 0.5.dp,
+                color = background,
+                shape = RoundedCornerShape(50.dp)
+            )
             .clickable {
                 onClick()
                 onDismiss()
             },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = background
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 아이콘 및 프로필 영역
@@ -61,17 +70,17 @@ fun NotificationBanner(
                 // 프로필 원형 배경
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(sub1)
+                        .background(primary)
                 )
 
                 // 타입별 작은 배지 아이콘
                 Box(
                     modifier = Modifier
-                        .size(16.dp)
+                        .size(14.dp)
                         .clip(CircleShape)
-                        .background(primary),
+                        .background(background),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -82,32 +91,38 @@ fun NotificationBanner(
                             else -> Icons.Default.Mic
                         },
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(10.dp)
+                        tint = primary,
+                        modifier = Modifier.size(9.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(15.dp))
 
             // 텍스트 영역
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)) {
                 Text(
                     text = item.senderName,
                     style = Typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = fontDefault,
+                    fontSize = 16.sp,
                     maxLines = 1
                 )
+
+                Spacer(modifier = Modifier.height(3.dp))
+
                 Text(
                     text = when (item.type) {
                         "WALKIE" -> "무전을 보냈습니다"
                         "DM" -> item.content
-                        "REQ" -> "님이 친구 요청을 보냈습니다"
+                        "REQ" -> "친구 요청을 보냈습니다"
                         else -> item.content
                     },
                     style = Typography.bodySmall,
-                    color = fontDefault.copy(alpha = 0.6f),
+                    color = fontDefault,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontSize = 13.sp
@@ -122,10 +137,38 @@ fun NotificationBanner(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "닫기",
-                    tint = Color.LightGray,
-                    modifier = Modifier.size(18.dp)
+                    tint = background,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
+    }
+}
+
+
+@Preview(showBackground = true)
+@Composable
+fun NotificationBannerPreview() {
+    // 💡 테마 껍데기를 과감히 빼고, 순수 흰색 판때기 위에 배너만 올려서 렌더링을 유도합니다.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF8FAFC)) // BBIP 라이트 배경색 직접 주입
+            .padding(16.dp)
+    ) {
+        NotificationBanner(
+            item = Notification(
+                id = "preview_id",
+                senderName = "sender",
+                type = "WALKIE",
+                content = "무전",
+                createdAt = System.currentTimeMillis(),
+                expiresAt = System.currentTimeMillis() + 100000,
+                isRead = false,
+                roomId = ""
+            ),
+            onDismiss = {},
+            onClick = {}
+        )
     }
 }
