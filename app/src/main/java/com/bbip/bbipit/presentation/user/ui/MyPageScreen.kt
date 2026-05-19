@@ -1,143 +1,289 @@
 package com.bbip.bbipit.presentation.mypage
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.Purple40
+import com.bbip.bbipit.core.ui.theme.background
+import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
-import com.bbip.bbipit.presentation.base.BackgroundBox
-import androidx.navigation.NavController
-import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.presentation.base.UserStatusType
+import com.bbip.bbipit.presentation.base.ShowToast
+import com.google.firebase.auth.FirebaseAuth
+
+val PrimaryPurple = primary
+val BackgroundGray = background
+val CardBackground = Color.White
+val FontDefault = fontDefault
+val FontHint = Purple40
+val KakaoYellow = Color(0xFFFEE500)
+
+data class MyPageUiState(
+    val nickname: String = "불러오는 중...",
+    val statusMessage: String = "",
+    val profileImageUrl: String = "",
+    val uniqueId: String = "",
+    val isLoading: Boolean = true, // 로딩 중
+    val errorMessage: String? = null // 에러
+)
 
 @Composable
 fun MyPageScreen(
     navController: NavController,
-    viewModel: MyPageViewModel = hiltViewModel()
+    viewModel: MyPageViewmodel = hiltViewModel(),
+    onCopyIdClick: (String) -> Unit = {},
+    onShareKakaoClick: (String) -> Unit = {}
 ) {
+    // 뷰모델의 UI 상태 구독
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    BackgroundBox(modifier = Modifier.fillMaxSize()) {
+    // 컴포저블 토스트를 제어할 임시 문자열 상태 변수
+    var toastMessage by remember { mutableStateOf<String?>(null) }
+
+    // 뷰모델에서 토스트 이벤트가 날아오는지 대기 및 수집
+    LaunchedEffect(Unit) {
+        viewModel.toastEvent.collect { message ->
+            toastMessage = message
+        }
+    }
+
+    // 화면이 그려지자마자 내 데이터를 서버에서 가져옴
+    LaunchedEffect(Unit) {
+        val myUid = FirebaseAuth.getInstance().currentUser?.uid
+        if (myUid != null) {
+            viewModel.fetchUserProfile(myUid)
+        }
+    }
+
+    // 상태 변수에 값이 채워지는 순간, ShowToast 공통 컴포저블 호출
+    toastMessage?.let { message ->
+        ShowToast(message = message)
+        toastMessage = null // 띄운 직후 다시 null로 비워주어야 다음 클릭 때 또 반응합니다.
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = BackgroundGray
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-        ) {
-            // 상단 헤더
-            MyPageHeader()
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                // 2. 프로필 정보 카드 섹션
-                item {
-                    ProfileCard(viewModel = viewModel)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MyPageHeader() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-    ) {
-        Text(
-            text = "My Page",
-            modifier = Modifier.align(Alignment.Center),
-            style = Typography.titleLarge
-            ,color = primary
-        )
-        IconButton(
-            onClick = { /* 설정 이동 */ },
-            modifier = Modifier.align(Alignment.CenterEnd)
-        ) {
-            Icon(Icons.Default.Settings, contentDescription = "Settings", tint = primary)
-        }
-    }
-}
-
-@Composable
-fun ProfileCard(viewModel: MyPageViewModel) {
-    val profile = viewModel.userProfile
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(40.dp),
-        color = Color.White.copy(alpha = 0.4f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = 32.dp),
+                .padding(innerPadding)
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(contentAlignment = Alignment.BottomEnd) {
-                Surface(
-                    modifier = Modifier.size(120.dp),
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(4.dp, Color.White)
-                ) {
-                    /* 이미지 로더 */
-                }
-                // 편집 버튼
-                Surface(
-                    modifier = Modifier.size(34.dp),
-                    shape = CircleShape,
-                    color = primary,
-                    shadowElevation = 4.dp
+            // 상단 타이틀 및 설정 헤더 영역
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp, bottom = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "내 정보",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FontDefault
+                )
+                IconButton(
+                    onClick = {
+                        // navController.navigate("settings")
+                    }
                 ) {
                     Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        modifier = Modifier.padding(8.dp),
-                        tint = Color.White
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "설정",
+                        tint = FontHint,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = profile.name,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 32.sp)
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "UID: ${profile.uid}", style = MaterialTheme.typography.bodySmall)
-                IconButton(onClick = { /* 복사 로직 */ }, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(14.dp))
+            // 프로필 이미지 영역
+            Box(
+                modifier = Modifier
+                    .size(130.dp)
+                    .background(PrimaryPurple, shape = CircleShape)
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // profileImageUrl이 비어있지 않으면 사진을, 비어있으면 아이콘을 보여줌
+                if (uiState.profileImageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = uiState.profileImageUrl,
+                        contentDescription = "프로필 이미지",
+                        modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.LightGray, shape = CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "기본 프로필",
+                            tint = Color.White,
+                            modifier = Modifier.size(78.dp) // 130.dp의 60%
+                        )
+                    }
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 이름 및 상태 메시지 텍스트 영역
+            Text(
+                text = uiState.nickname,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = FontDefault
+            )
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 기기 정보 칩
+            // 상태 메시지 캡슐
             Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White.copy(alpha = 0.6f)
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Text(
+                    text = uiState.statusMessage,
+                    fontSize = 14.sp,
+                    color = PrimaryPurple,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 프로필 편집 버튼
+            Button(
+                onClick = {
+                    navController.navigate(
+                        Routes.EditProfile(
+                            currentNickname = uiState.nickname,
+                            currentStatusMessage = uiState.statusMessage,
+                            profileImageUrl = uiState.profileImageUrl
+                        )
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryPurple.copy(alpha = 0.15f)
+                ),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = "프로필 편집",
+                    color = PrimaryPurple,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // ID 입체 카드 컴포넌트
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(32.dp),
+                color = CardBackground,
+                shadowElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp, horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(Icons.Default.Smartphone, contentDescription = null, modifier = Modifier.size(16.dp), tint = primary)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = profile.deviceModel, style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        text = "UNIQUE ID",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = FontHint,
+                        letterSpacing = 1.5.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 고유 ID 텍스트
+                        Text(
+                            text = uiState.uniqueId,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FontDefault,
+                            modifier = Modifier.padding(end = 12.dp)
+                        )
+
+                        // 복사 버튼
+                        IconButton(
+                            onClick = { onCopyIdClick(uiState.uniqueId) },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(BackgroundGray, shape = RoundedCornerShape(8.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "ID 복사하기",
+                                tint = FontHint,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // 카카오톡 공유 버튼
+                        IconButton(
+                            onClick = { onShareKakaoClick(uiState.uniqueId) },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(KakaoYellow, shape = RoundedCornerShape(8.dp))
+                        ) {
+                            // 💡 실제 카카오 이모지 아이콘 리소스가 있다면 대체 가능합니다!
+                            Text(
+                                text = "💬",
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
         }

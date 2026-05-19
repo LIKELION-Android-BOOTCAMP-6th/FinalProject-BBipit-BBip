@@ -70,11 +70,11 @@ fun MapScreen(
         // 서비스 제어 필수 블루투스 권한 확인 및 서비스 실행
         if (bluetoothConnectGranted) {
             val intent = Intent(context, MobileAudioReceiverService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//                context.startForegroundService(intent)
+//            } else {
+//                context.startService(intent)
+//            }
         } else {
             Toast.makeText(context, "워치 무전기 수신을 위해 블루투스 연결 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
