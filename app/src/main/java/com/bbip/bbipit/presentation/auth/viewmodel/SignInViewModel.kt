@@ -73,17 +73,21 @@ class SignInViewModel @Inject constructor(
 
 
     fun signInKakao(){
+        updateState { copy(isLoading = true) }
         viewModelScope.launch {
             authRepository.kakaoLogin()
                 .onSuccess {
                     getFcmToken()
+                    updateState { copy(isLoading = false) }
                     _eventChannel.send(SignInEvent.NavigateToHome)
 
                 }
                 .onFailure { exception ->
+                    updateState { copy(isLoading = false) }
                     updateState { copy(error = exception.message)  }
 
                 }
+
         }
 
     }
