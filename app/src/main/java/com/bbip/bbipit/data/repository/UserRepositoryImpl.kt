@@ -44,6 +44,17 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
+    // 추가 요청 목록 조회
+    override suspend fun getPendingFriendRequests(): Result<List<User>> {
+        return try {
+            // userRemoteDataSource를 통해 Firestore에서 status == "requested"인 리스트를 가져오는 함수 호출
+            val friends = userRemoteDataSource.getPendingFriendRequests()
+            Result.Success(friends)
+        } catch (e: Exception) {
+            Result.Failure(AppError.Unknown("요청 목록을 불러오는 데 실패했습니다."))
+        }
+    }
+
     // 친구 삭제
     override suspend fun deleteFriend(targetUid: String): Result<String> {
         return try {

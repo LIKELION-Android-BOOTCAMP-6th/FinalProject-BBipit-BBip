@@ -9,6 +9,8 @@ import com.bbip.bbipit.presentation.auth.ui.SignInScreen
 import com.bbip.bbipit.presentation.auth.ui.SignUpScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatDetailScreen
 import com.bbip.bbipit.presentation.chat.ui.ChatListScreen
+import com.bbip.bbipit.presentation.friendship.ui.FriendListScreen
+import com.bbip.bbipit.presentation.friendship.ui.FriendRequestScreen
 import com.bbip.bbipit.presentation.map.ui.MapScreen
 import com.bbip.bbipit.presentation.mypage.EditProfileScreen
 import com.bbip.bbipit.presentation.mypage.MyPageScreen
@@ -35,5 +37,7 @@ fun BBipItNavigation(
         composable<Routes.Notification> { NotificationScreen(navController) }
         composable<Routes.ChatRoom> { ChatDetailScreen(navController) }
         composable<Routes.EditProfile> { EditProfileScreen(navController) }
+        composable<Routes.FriendList> { FriendListScreen(navController) }
+        composable<Routes.FriendRequestList> { FriendRequestScreen(navController) }
     }
 }

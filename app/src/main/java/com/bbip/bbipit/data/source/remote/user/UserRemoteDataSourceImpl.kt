@@ -5,6 +5,7 @@ import com.bbip.bbipit.domain.entity.User
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class UserRemoteDataSourceImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val auth: FirebaseAuth,
+    private val db: FirebaseFirestore,
     private val firebaseFunctions: FirebaseFunctions,
     private val firebaseMessaging: FirebaseMessaging
 ) : UserRemoteDataSource {
@@ -68,6 +71,24 @@ class UserRemoteDataSourceImpl @Inject constructor(
                 status = map["status"] as? String ?: "",
                 isOnline = map["is_online"] as? Boolean ?: false
             )
+        }
+    }
+
+    // 신청 목록 조회
+    override suspend fun getPendingFriendRequests(): List<User> {
+        val uid = auth.currentUser?.uid ?: throw Exception("로그인이 필요합니다.")
+
+        // Firestore 쿼리: 내가 받은 요청('requested') 상태인 것만 가져오기
+        val snapshot = db.collection("Users")
+            .document(uid)
+            .collection("Friendships")
+            .whereEqualTo("friendship_status", "requested")
+            .get()
+            .await()
+
+        return snapshot.documents.map { doc ->
+            // Firestore 데이터를 User 객체로 변환
+            doc.toObject(User::class.java) ?: throw Exception("데이터 변환 실패")
         }
     }
 

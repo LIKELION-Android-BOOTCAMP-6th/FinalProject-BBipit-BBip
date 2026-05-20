@@ -17,6 +17,10 @@ sealed interface Routes {
         val currentStatus: String = "",
         val profileImageUrl: String
     )
+
+    @Serializable data object FriendList : Routes
+    @Serializable data object FriendRequestList : Routes
+
     @Serializable data object Notification : Routes
     @Serializable data object Setting : Routes
 
