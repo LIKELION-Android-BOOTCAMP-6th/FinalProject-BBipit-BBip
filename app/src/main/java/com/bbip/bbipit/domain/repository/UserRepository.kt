@@ -21,6 +21,9 @@ interface UserRepository {
     // 친구 목록 조회
     suspend fun getMyAcceptedFriends(): Result<List<User>>
 
+    // 요청 목록 가져오기
+    suspend fun getPendingFriendRequests(): Result<List<User>>
+
     // 하트비트 상태 업데이트
     suspend fun updateHeartbeat(currentRoomId: String?): Result<Unit>
 
@@ -41,4 +44,5 @@ interface UserRepository {
 
     // 친구 프로필 및 상태 조회
     suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>>
+
 }

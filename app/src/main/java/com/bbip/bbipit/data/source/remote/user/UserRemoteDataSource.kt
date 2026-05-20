@@ -8,6 +8,7 @@ interface UserRemoteDataSource {
     suspend fun sendFriendRequest(targetUid: String): String
     suspend fun deleteFriend(targetUid: String): String
     suspend fun getMyAcceptedFriends(): List<User>
+    suspend fun getPendingFriendRequests(): List<User>
     suspend fun updateHeartbeat(currentRoomId: String?)
     suspend fun updateOnlineStatus(isOnline: Boolean): Boolean
     suspend fun acceptFriendRequest(targetUid: String): Boolean
