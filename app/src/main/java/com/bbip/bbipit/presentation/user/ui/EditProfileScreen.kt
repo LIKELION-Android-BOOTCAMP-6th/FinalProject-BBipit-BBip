@@ -32,6 +32,10 @@ import androidx.navigation.NavController
 import androidx.navigation.toRoute
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.PurpleGrey80
+import com.bbip.bbipit.core.ui.theme.background
+import com.bbip.bbipit.core.ui.theme.fontDefault
+import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.base.UserStatusType
@@ -39,7 +43,7 @@ import com.bbip.bbipit.presentation.base.UserStatusType
 
 data class EditProfileUiState(
     val nickname: String = "",
-    val statusMessage: String = "",
+    val status: String = "",
     val profileImageUrl: String = "",
     val isBottomSheetVisible: Boolean = false,
     val isNicknameError: Boolean = false // 예외처리 위함 공백일 경우
@@ -79,8 +83,8 @@ fun EditProfileScreen(
         if (args != null) {
             viewModel.initWithUserData(
                 currentNickname = args.currentNickname,
-                currentStatusMessage = args.currentStatusMessage,
-                photoUrl = args.profileImageUrl
+                currentStatus = args.currentStatus,
+                profileImageUrl = args.profileImageUrl
             )
         }
     }
@@ -105,7 +109,7 @@ fun EditProfileScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = BackgroundGray,
+        containerColor = background,
         topBar = {
             TopAppBar(
                 title = {
@@ -113,7 +117,7 @@ fun EditProfileScreen(
                         text = "프로필 편집",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = FontDefault
+                        color = fontDefault
                     )
                 },
                 navigationIcon = {
@@ -121,11 +125,11 @@ fun EditProfileScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "뒤로가기",
-                            tint = FontDefault
+                            tint = fontDefault
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundGray)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = background)
             )
         }
     ) { innerPadding ->
@@ -177,24 +181,6 @@ fun EditProfileScreen(
                         }
                     }
 
-                    // 2. 카메라 변경 버튼 플로팅 (기존 코드 그대로)
-                    IconButton(
-                        onClick = {
-                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color.White, shape = CircleShape)
-                            .padding(2.dp),
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = PrimaryPurple)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "프로필 사진 변경",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
                     // 카메라 변경 버튼 플로팅
                     IconButton(
                         onClick = {
@@ -205,7 +191,7 @@ fun EditProfileScreen(
                             .size(36.dp)
                             .background(Color.White, shape = CircleShape)
                             .padding(2.dp),
-                        colors = IconButtonDefaults.iconButtonColors(contentColor = PrimaryPurple)
+                        colors = IconButtonDefaults.iconButtonColors(contentColor = primary)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CameraAlt,
@@ -222,7 +208,7 @@ fun EditProfileScreen(
                     Text(
                         text = "닉네임",
                         fontSize = 13.sp,
-                        color = if (uiState.isNicknameError) Color.Red else FontHint,
+                        color = if (uiState.isNicknameError) Color.Red else PurpleGrey80,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
@@ -260,7 +246,7 @@ fun EditProfileScreen(
                     Text(
                         text = "상태 메시지",
                         fontSize = 13.sp,
-                        color = FontHint,
+                        color = fontDefault,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
@@ -275,9 +261,9 @@ fun EditProfileScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = uiState.statusMessage,
+                            text = uiState.status,
                             fontSize = 16.sp,
-                            color = FontDefault
+                            color = fontDefault
                         )
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
@@ -300,7 +286,7 @@ fun EditProfileScreen(
                     .padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryPurple,
+                    containerColor = primary,
                     disabledContainerColor = Color.LightGray),
                 shape = RoundedCornerShape(28.dp)
             ) {
@@ -332,7 +318,7 @@ fun EditProfileScreen(
                     text = "상태 메시지 선택",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = FontDefault,
+                    color = fontDefault,
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
 
@@ -343,11 +329,11 @@ fun EditProfileScreen(
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
                             .clickable {
-                                viewModel.updateStatusMessage(option)
+                                viewModel.updateStatus(option)
                                 viewModel.setBottomSheetVisibility(false) // 시트 닫기
                             },
                         shape = RoundedCornerShape(16.dp),
-                        color = BackgroundGray.copy(alpha = 0.5f)
+                        color = background.copy(alpha = 0.5f)
                     ) {
                         Box(
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -356,7 +342,7 @@ fun EditProfileScreen(
                             Text(
                                 text = option,
                                 fontSize = 15.sp,
-                                color = FontDefault,
+                                color = fontDefault,
                                 fontWeight = FontWeight.Medium
                             )
                         }
