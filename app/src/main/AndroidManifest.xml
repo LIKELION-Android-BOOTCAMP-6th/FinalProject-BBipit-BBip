@@ -35,22 +35,20 @@
 
         <!-- 음성 수신 서비스 -->
         <service
-            android:name=".core.base.MobileAudioReceiverService"
-            android:foregroundServiceType="connectedDevice|microphone"
-            tools:replace="android:foregroundServiceType"
+            android:name=".core.base.BackgroundListenerService"
+            android:foregroundServiceType="connectedDevice|microphone|location|dataSync"
             android:exported="false"/>
 
         <!-- 데이터 및 메시지 수신 리스너 서비스 -->
         <service
             android:name=".core.base.MobileMessageListenerService"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="ExportedService">
             <intent-filter>
-                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data
-                    android:scheme="wear"
-                    android:host="*"
-                    android:pathPrefix="/check_phone_status" />
+
+                <data android:host="*" android:scheme="wear" android:pathPrefix="/check_phone_status" />
+                <data android:host="*" android:scheme="wear" android:pathPrefix="/request_friends_location" />
             </intent-filter>
         </service>
         <!-- fcm 토큰 자동 갱신 서비스-->

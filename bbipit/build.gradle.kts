@@ -1,8 +1,13 @@
+import java.util.Properties
+
+val properties = Properties().apply {
+    load(rootProject.file("local.properties").inputStream())
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services")
 }
 
 android {
@@ -33,11 +38,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     useLibrary("wear-sdk")
     buildFeatures {
@@ -46,13 +51,14 @@ android {
 }
 
 dependencies {
+    implementation(libs.compose.material)
     implementation(libs.play.services.wearable)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material)
-    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.foundation)
     implementation(libs.androidx.wear.tooling.preview)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.splashscreen)
@@ -65,6 +71,12 @@ dependencies {
     // Wear OS Compose 라이브러리
     implementation("androidx.wear.compose:compose-material:1.4.0")
     implementation("androidx.wear.compose:compose-navigation:1.4.0")
+    implementation("androidx.wear.compose:compose-foundation:1.4.2")
+    implementation("androidx.compose.material:material-icons-core:1.7.0")
+    implementation("androidx.wear.compose:compose-material-core:1.4.0")
+
+    // 💡 Wear OS 전용 Material3 라이브러리
+    implementation("androidx.wear.compose:compose-material3:1.0.0-alpha25")
 
     // Google Maps Play Services 및 Compose 확장 라이브러리
     implementation("com.google.android.gms:play-services-maps:18.2.0")
@@ -73,8 +85,9 @@ dependencies {
     // ViewModel 및 Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
-    implementation("com.google.firebase:firebase-firestore:25.1.1")
+    // 💡 [추가] JSON 역직렬화를 위한 Gson 라이브러리
+    implementation("com.google.code.gson:gson:2.10.1")
 
-    implementation("com.google.firebase:firebase-auth-ktx:23.0.0")
-
+    // 💡 프로필 이미지 로딩을 위한 Coil 라이브러리
+    implementation("io.coil-kt:coil-compose:2.6.0")
 }

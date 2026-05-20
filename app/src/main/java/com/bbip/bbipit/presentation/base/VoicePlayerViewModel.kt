@@ -13,8 +13,10 @@ import com.bbip.bbipit.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
@@ -23,7 +25,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * 수신된 음성 메시지의 UI 상태를 관리하는 데이터 클래스입니다.
+ * 수신 음성 메시지 UI 상태 관리 데이터 클래스
  */
 data class IncomingVoiceUiState(
     val isVisible: Boolean = false,
@@ -33,7 +35,7 @@ data class IncomingVoiceUiState(
 )
 
 /**
- * 전역 음성 메시지 수신 및 자동 재생을 관리하는 ViewModel입니다.
+ * 전역 음성 메시지 수신 및 자동 재생 관리용 뷰모델(ViewModel) 클래스
  */
 @HiltViewModel
 class VoicePlayerViewModel @Inject constructor(
@@ -48,68 +50,58 @@ class VoicePlayerViewModel @Inject constructor(
     val uiState: StateFlow<IncomingVoiceUiState> = _uiState.asStateFlow()
 
     init {
-        startObservingIncomingVoice()
+        // startObservingIncomingVoice()
+        listenToServiceVoiceEvent()
     }
 
-    // 음성 메시지 수신 관찰 및 재생 처리
-    private fun startObservingIncomingVoice() {
+    private fun listenToServiceVoiceEvent() {
         viewModelScope.launch {
-            authRepository.getAuthStateFlow().collectLatest { uid ->
-                if (uid != null) {
-                    val subscriptionStartTime = System.currentTimeMillis()
-                    voiceRepository.observeIncomingVoice(uid).collect { voiceMessage ->
-                        val url = voiceMessage.voiceUrl
-                        val createdAt = voiceMessage.createdAt
-                        val isNewMessage = createdAt > (subscriptionStartTime - 5000) && !voiceMessage.isRead
-                        if (!url.isNullOrEmpty() && isNewMessage) {
+            // 서비스 분기 전달 폰 재생용 음성 스트림 구독 처리
+            voiceRepository.voiceMessageEvent.collect { voiceMessage ->
+                val url = voiceMessage.voiceUrl ?: return@collect
 
-                            val senderResult = userRepository.getUserProfile(voiceMessage.senderId)
-                            val sender = when (senderResult) {
-                                is Result.Success -> senderResult.data
-                                is Result.Failure -> null
-                            }
-
-                            _uiState.update {
-                                it.copy(
-                                    isVisible = true,
-                                    sender = sender,
-                                    currentVoiceMessage = voiceMessage
-                                )
-                            }
-
-                            audioPlayer.playFromUrl(url) {
-                                viewModelScope.launch {
-                                    delay(1000)
-                                    dismissMessage()
-                                }
-                            }
-                            startPositionTracking()
-                            viewModelScope.launch {
-                                voiceRepository.markVoiceMessageAsRead(voiceMessage.id)
-                            }
-                        }
-                    }
-                } else {
-                    audioPlayer.stopAudio()
-                    dismissMessage()
+                // 발신자 프로필 조회
+                val senderResult = userRepository.getUserProfile(voiceMessage.senderId)
+                val sender = when (senderResult) {
+                    is Result.Success -> senderResult.data
+                    is Result.Failure -> null
                 }
+
+                // VoicePlayerScreen 카드 노출 및 재생 바 작동 목적의 UI 상태 업데이트
+                _uiState.update {
+                    it.copy(
+                        isVisible = true,
+                        sender = sender,
+                        currentVoiceMessage = voiceMessage
+                    )
+                }
+
+                // 오디오 출력 실행 및 재생 완료 시점 종료 처리 포함
+                audioPlayer.playFromUrl(url) {
+                    viewModelScope.launch {
+                        // 읽음 처리는 서비스에서 이미 했으므로 여기서는 제거하거나 유지해도 무방하지만 중복 가능성 검토
+                        voiceRepository.markVoiceMessageAsRead(voiceMessage.id)
+                        delay(1000)
+                        dismissMessage() // 재생 완료 시 닫기
+                    }
+                }
+
+                // 트래킹 시작
+                startPositionTracking()
             }
         }
     }
 
-    // 수신 메시지 UI 초기화
+    // 수신 메시지 UI 초기화 함수
     fun dismissMessage() {
         _uiState.update { it.copy(isVisible = false, sender = null, currentVoiceMessage = null, currentPosition = 0) }
     }
 
-    // 오디오 재생 위치 추적
+    // 오디오 재생 위치 추적 함수
     private fun startPositionTracking() {
         viewModelScope.launch {
-            var retryCount = 0
-            while (isActive && !audioPlayer.isPlaying() && retryCount < 50) {
-                delay(200)
-                retryCount++
-            }
+            // 재생 시작 대기 목적의 딜레이
+            delay(500)
             while (isActive && audioPlayer.isPlaying()) {
                 val posSeconds = (audioPlayer.getCurrentPosition() / 1000)
                 _uiState.update { it.copy(currentPosition = posSeconds) }
@@ -118,7 +110,7 @@ class VoicePlayerViewModel @Inject constructor(
         }
     }
 
-    // 자원 정리
+    // 하드웨어 및 플레이어 자원 정리 콜백 함수
     override fun onCleared() {
         super.onCleared()
         audioPlayer.stopAudio()

@@ -3,84 +3,75 @@ package com.bbip.bbipit.util
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 
 /**
- * 서버나 로컬 파일로부터 음성 데이터를 가져와 재생하는 기능 담당
+ * 원격 스토리지 URL 로부터 오디오 데이터를 스트리밍하여 백그라운드 재생을 수행하는 미디어 플레이어
  */
-class WatchAudioPlayer(private val context: Context) {
-    /** 음성 재생 수행 안드로이드 프레임워크 객체 */
+class WatchAudioPlayer private constructor(private val context: Context) {
+
+    companion object {
+        @Volatile
+        private var INSTANCE: WatchAudioPlayer? = null
+
+        /**
+         * 메모리 누수 방지 및 자원 단일화를 위한 스레드 안전 싱글톤 인스턴스 반환 팩토리
+         */
+        fun getInstance(context: Context): WatchAudioPlayer {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: WatchAudioPlayer(context.applicationContext).also { INSTANCE = it }
+            }
+        }
+    }
+
+    // 오디오 재생을 제어하는 안드로이드 미디어 플레이어 객체
     private var mediaPlayer: MediaPlayer? = null
 
+    // 메인 UI 스레드 병목 현상 방지 및 재생 안정성 확보를 위한 전용 핸들러 스레드
+    private val handlerThread = HandlerThread("MediaPlayerThread").apply { start() }
+    private val playerHandler = Handler(handlerThread.looper)
+
     /**
-     * 외부 네트워크 주소를 통한 음성 파일 스트리밍 재생
-     * 네트워크 상태 고려 비동기 준비 방식 사용 및 준비 완료 시 자동 재생 시작
+     * 네트워크 오디오 소스 주소를 기반으로 비동기 미디어 준비 및 재생 처리 실행
      */
-    fun playFromUrl(url: String, onCompletion: () -> Unit = {}) {
-        try {
-            Log.d("AudioPlayer", "Attempting to play audio from: $url")
-            /** 기존 재생 자원 정리 */
-            stopAudio()
-
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .build()
-                )
-                /** 음성 파일 웹 경로 설정 */
-                setDataSource(url)
-
-                /** 오디오 데이터 버퍼링 및 준비 완료 시 동작 정의 */
-                setOnPreparedListener {
-                    Log.d("AudioPlayer", "Audio prepared, starting playback")
-                    /** 준비 완료 후 소리 재생 시작 */
-                    it.start()
+    fun playFromUrl(url: String, onCompletion: () -> Unit) {
+        // UI 프레임 드랍 차단을 위해 모든 미디어 파이프라인 작업을 전용 백그라운드 스레드에 할당
+        playerHandler.post {
+            try {
+                // 중복 재생 방지를 위한 기존 미디어 플레이어 자원 해제 고립화
+                mediaPlayer?.release()
+                mediaPlayer = MediaPlayer().apply {
+                    // 미디어 속성(오디오 유형 및 하드웨어 사용 목적) 정의
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                    setDataSource(url)
+                    // 스트리밍 버퍼링 완료 시점의 자동 재생 개시 리스너 등록
+                    setOnPreparedListener { it.start() }
+                    // 재생 종료 시점의 콜백 함수 호출 및 하드웨어 자원 반환 리스너 등록
+                    setOnCompletionListener {
+                        onCompletion()
+                        it.release()
+                    }
+                    // 네트워크 지연 고려 및 메인 스레드 블로킹 방지를 위한 비동기 준비 실행
+                    prepareAsync()
                 }
-
-                /** 재생 완료 시 동작 정의 */
-                setOnCompletionListener {
-                    Log.d("AudioPlayer", "Playback completed")
-                    /** 재생 종료 후 자원 해제 */
-                    onCompletion()
-                    it.release()
-                    if (mediaPlayer == it) mediaPlayer = null
-                }
-
-                setOnErrorListener { mp, what, extra ->
-                    Log.e("AudioPlayer", "MediaPlayer Error: what=$what, extra=$extra")
-                    mp.release()
-                    if (mediaPlayer == mp) mediaPlayer = null
-                    true
-                }
-
-                /** 메인 스레드 차단 방지를 위한 비동기 준비 */
-                prepareAsync()
+            } catch (e: Exception) {
+                Log.e("AudioPlayer", "Error", e)
             }
-        } catch (e: Exception) {
-            /** 오류 발생 시 예외 정보 기록 */
-            Log.e("AudioPlayer", "Error playing audio", e)
         }
     }
 
     /**
-     * 현재 재생 중인 오디오 진행 위치 반환
+     * 서비스 종료 또는 애플리케이션 폐기 시 구동 중인 백그라운드 스레드 및 미디어 자원 안전 해제
      */
-    fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
-
-    /**
-     * 현재 오디오 재생 여부 반환
-     */
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
-
-    /**
-     * 오디오 재생 중단 및 자원 반납
-     * 앱 화면 종료 시 호출하여 하드웨어 자원 효율적 관리 및 상태 초기화
-     */
-    fun stopAudio() {
-        mediaPlayer?.stop()
+    fun release() {
+        handlerThread.quitSafely()
         mediaPlayer?.release()
-        mediaPlayer = null
     }
 }
