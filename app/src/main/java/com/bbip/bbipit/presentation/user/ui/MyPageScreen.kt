@@ -29,24 +29,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.navigation.Routes
-import com.bbip.bbipit.core.ui.theme.Purple40
+import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
-import com.bbip.bbipit.presentation.base.UserStatusType
+import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.google.firebase.auth.FirebaseAuth
 
-val PrimaryPurple = primary
-val BackgroundGray = background
-val CardBackground = Color.White
-val FontDefault = fontDefault
-val FontHint = Purple40
 val KakaoYellow = Color(0xFFFEE500)
 
 data class MyPageUiState(
     val nickname: String = "불러오는 중...",
-    val statusMessage: String = "",
+    val status: String = "",
     val profileImageUrl: String = "",
     val uniqueId: String = "",
     val isLoading: Boolean = true, // 로딩 중
@@ -89,7 +84,7 @@ fun MyPageScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = BackgroundGray
+        containerColor = background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -108,9 +103,8 @@ fun MyPageScreen(
             ) {
                 Text(
                     text = "내 정보",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = FontDefault
+                    style = Typography.bodyLarge,
+                    color = fontDefault
                 )
                 IconButton(
                     onClick = {
@@ -120,7 +114,7 @@ fun MyPageScreen(
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "설정",
-                        tint = FontHint,
+                        tint = primary,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -130,7 +124,7 @@ fun MyPageScreen(
             Box(
                 modifier = Modifier
                     .size(130.dp)
-                    .background(PrimaryPurple, shape = CircleShape)
+                    .background(primary, shape = CircleShape)
                     .padding(4.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -164,9 +158,8 @@ fun MyPageScreen(
             // 이름 및 상태 메시지 텍스트 영역
             Text(
                 text = uiState.nickname,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = FontDefault
+                style = Typography.bodyMedium,
+                color = fontDefault
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -178,9 +171,9 @@ fun MyPageScreen(
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 Text(
-                    text = uiState.statusMessage,
-                    fontSize = 14.sp,
-                    color = PrimaryPurple,
+                    text = uiState.status,
+                    style = Typography.bodySmall,
+                    color = primary,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
                     fontWeight = FontWeight.Medium
                 )
@@ -194,20 +187,20 @@ fun MyPageScreen(
                     navController.navigate(
                         Routes.EditProfile(
                             currentNickname = uiState.nickname,
-                            currentStatusMessage = uiState.statusMessage,
+                            currentStatus = uiState.status,
                             profileImageUrl = uiState.profileImageUrl
                         )
                     )
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryPurple.copy(alpha = 0.15f)
+                    containerColor = primary.copy(alpha = 0.15f)
                 ),
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp)
             ) {
                 Text(
                     text = "프로필 편집",
-                    color = PrimaryPurple,
+                    color = primary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -219,7 +212,7 @@ fun MyPageScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(32.dp),
-                color = CardBackground,
+                color = subBackground,
                 shadowElevation = 2.dp
             ) {
                 Column(
@@ -232,7 +225,7 @@ fun MyPageScreen(
                         text = "UNIQUE ID",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
-                        color = FontHint,
+                        color = fontDefault,
                         letterSpacing = 1.5.sp
                     )
 
@@ -248,7 +241,7 @@ fun MyPageScreen(
                             text = uiState.uniqueId,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color = FontDefault,
+                            color = fontDefault,
                             modifier = Modifier.padding(end = 12.dp)
                         )
 
@@ -257,12 +250,12 @@ fun MyPageScreen(
                             onClick = { onCopyIdClick(uiState.uniqueId) },
                             modifier = Modifier
                                 .size(36.dp)
-                                .background(BackgroundGray, shape = RoundedCornerShape(8.dp))
+                                .background(background, shape = RoundedCornerShape(8.dp))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = "ID 복사하기",
-                                tint = FontHint,
+                                tint = fontDefault,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
