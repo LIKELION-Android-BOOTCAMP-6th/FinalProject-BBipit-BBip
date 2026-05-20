@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import coil.compose.AsyncImage
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,18 +37,10 @@ import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.presentation.base.ShowToast
-
-
-data class User(
-    val friend_uid: String,
-    val nickname: String,
-    val profile_image_url: String,
-    val status: String,
-    val is_online: Boolean
-)
 
 @Composable
 fun FriendListScreen(
@@ -179,6 +172,7 @@ fun FriendRequestCard(onClick: () -> Unit) {
 
 @Composable
 fun FriendListItem(user: User) {
+    android.util.Log.d("FriendListDebug", "닉네임: ${user.nickname}, 상태메세지: '${user.status}'")
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -187,17 +181,49 @@ fun FriendListItem(user: User) {
         Row(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 프로필 이미지 (임시)
-            Box(modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.LightGray))
+            // 프로필 이미지
+            Box(modifier = Modifier.size(50.dp)) {
+                AsyncImage(
+                    model = user.profileImageUrl,
+                    contentDescription = "프로필 이미지",
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+
+                // 온라인 상태일 때만 녹색 점 표시
+                if (user.isOnline) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .align(Alignment.BottomEnd) // 우측 하단 정렬
+                            .clip(CircleShape)
+                            .background(Color.White) // 점 주변에 약간의 테두리 효과
+                            .padding(2.dp) // 내부 녹색 점과의 간격
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(Color(0xFF4CAF50)) // 실제 녹색 점
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.width(16.dp))
 
             Column {
                 Text(user.nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(user.status, fontSize = 13.sp, color = Color.Gray)
+                Text(
+                    text = user.status.ifBlank { "상태 메시지가 없습니다." },
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
             }
         }
     }
