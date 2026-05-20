@@ -53,7 +53,7 @@ class MyPageViewmodel @Inject constructor(
      */
     fun updateProfile(newNickname: String, newStatus: String) {
         _uiState.update {
-            it.copy(nickname = newNickname, statusMessage = newStatus)
+            it.copy(nickname = newNickname, status = newStatus)
         }
     }
 
@@ -80,14 +80,14 @@ class MyPageViewmodel @Inject constructor(
 
                 if (snapshot != null && snapshot.exists()) {
                     val nickname = snapshot.getString("nickname") ?: "익명"
-                    val statusMessage = snapshot.getString("status_message") ?: ""
-                    val photoUrl = snapshot.getString("photo_url") ?: ""
+                    val status = snapshot.getString("status") ?: ""
+                    val profileImageUrl = snapshot.getString("profile_image_url") ?: ""
 
                     _uiState.update {
                         it.copy(
                             nickname = nickname,
-                            statusMessage = statusMessage,
-                            profileImageUrl = photoUrl,
+                            status = status,
+                            profileImageUrl = profileImageUrl,
                             isLoading = false // 로딩 완료
                         )
                     }

@@ -14,7 +14,7 @@ sealed interface Routes {
     @Serializable
     data class EditProfile(
         val currentNickname: String = "",
-        val currentStatusMessage: String = "",
+        val currentStatus: String = "",
         val profileImageUrl: String
     )
     @Serializable data object Notification : Routes

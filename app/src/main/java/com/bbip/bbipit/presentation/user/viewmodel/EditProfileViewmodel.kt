@@ -36,12 +36,12 @@ class EditProfileViewModel @Inject constructor(
     val saveSuccessEvent: SharedFlow<Boolean> = _saveSuccessEvent.asSharedFlow()
 
     // 마이페이지에서 들고 있던 기존 내 계정 정보를 전달받아 초기화
-    fun initWithUserData(currentNickname: String, currentStatusMessage: String, photoUrl: String) {
+    fun initWithUserData(currentNickname: String, currentStatus: String, profileImageUrl: String) {
         _uiState.update {
             it.copy(
                 nickname = currentNickname,
-                statusMessage = currentStatusMessage,
-                profileImageUrl = photoUrl
+                status = currentStatus,
+                profileImageUrl = profileImageUrl
             )
         }
     }
@@ -52,8 +52,8 @@ class EditProfileViewModel @Inject constructor(
     }
 
     // 상태 메시지 선택 업데이트
-    fun updateStatusMessage(newStatus: String) {
-        _uiState.update { it.copy(statusMessage = newStatus) }
+    fun updateStatus(newStatus: String) {
+        _uiState.update { it.copy(status = newStatus) }
     }
 
     // 바텀시트 표시 여부 제어
@@ -67,7 +67,7 @@ class EditProfileViewModel @Inject constructor(
     fun saveProfileChanges(imageUri: Uri?) {
         viewModelScope.launch {
             // 이미지 변경되었으면 firestore storage 업로드
-            val photoUrl = if (imageUri != null) {
+            val profileImageUrl = if (imageUri != null) {
                 try {
                     println("DEBUG: 업로드 시작...")
                     val url = uploadImageToStorage(imageUri)
@@ -84,12 +84,11 @@ class EditProfileViewModel @Inject constructor(
 
             val data = hashMapOf(
                 "nickname" to _uiState.value.nickname,
-                "statusMessage" to _uiState.value.statusMessage
-                // 필요 시 추후 photoURL 등도 이곳에 추가 가능합니다.
+                "status" to _uiState.value.status
             )
 
-            if (photoUrl != null) {
-                data["photoURL"] = photoUrl
+            if (profileImageUrl != null) {
+                data["profile_image_url"] = profileImageUrl
                 println("DEBUG: 서버 전송 데이터: $data") // 4. 서버로 가는 데이터 확인
             }
 

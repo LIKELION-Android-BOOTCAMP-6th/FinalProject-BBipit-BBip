@@ -7,7 +7,7 @@ data class UserDto(
     @get:PropertyName("nickname") @set:PropertyName("nickname")
     var nickname: String = "",
 
-    @get:PropertyName("photo_url") @set:PropertyName("photo_urll")
+    @get:PropertyName("profile_image_url") @set:PropertyName("profile_image_url")
     var profileImageUrl: String = "",
 
     @get:PropertyName("status") @set:PropertyName("status")
