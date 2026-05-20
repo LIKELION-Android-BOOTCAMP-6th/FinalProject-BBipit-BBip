@@ -97,9 +97,9 @@ fun MapScreen(
 
     LaunchedEffect(Unit) {
         // 로그인 및 타겟 설정
-        val isLoginSuccess = testViewModel.testLogin("vvvxx03@gmail.com", "a1234567890!!")
+        val isLoginSuccess = testViewModel.testLogin("test_a@example.com", "123456")
         if (isLoginSuccess) {
-            val targetUser = testViewModel.testGetUserProfile("WlSUDyHTIVP5yRB87tosCq9WXyJ2")
+            val targetUser = testViewModel.testGetUserProfile("Wy102dzyw4buC0V6YJuqxjtf6qA2")
             targetUser?.let { user ->
                 voiceViewModel.setTargetUser(user)
             }

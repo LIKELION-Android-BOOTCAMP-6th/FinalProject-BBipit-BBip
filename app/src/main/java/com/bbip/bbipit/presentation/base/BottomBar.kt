@@ -63,11 +63,11 @@ fun BottomBar(navController: NavController,
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically) {
 
-            val isFriendSelected = currentDestination?.hasRoute<Routes.MyPage>() == true
+            val isFriendSelected = currentDestination?.hasRoute<Routes.FriendList>() == true
             IconButton(
                 onClick = {
                     if (!isFriendSelected){
-                        navController.navigate(Routes.MyPage){
+                        navController.navigate(Routes.FriendList){
                             popUpTo(Routes.Map){ inclusive = false}
                             launchSingleTop = true
                         }
@@ -75,7 +75,7 @@ fun BottomBar(navController: NavController,
                 },
             ) {
                 Icon(imageVector = if(isFriendSelected) Icons.Default.Group else Icons.Outlined.Group,
-                    contentDescription = "친구창",
+                    contentDescription = "친구 목록",
                     tint = if (isFriendSelected) primary else Color.Gray
                 )
             }
