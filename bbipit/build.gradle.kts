@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -71,4 +72,9 @@ dependencies {
 
     // ViewModel 및 Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+
+    implementation("com.google.firebase:firebase-firestore:25.1.1")
+
+    implementation("com.google.firebase:firebase-auth-ktx:23.0.0")
+
 }

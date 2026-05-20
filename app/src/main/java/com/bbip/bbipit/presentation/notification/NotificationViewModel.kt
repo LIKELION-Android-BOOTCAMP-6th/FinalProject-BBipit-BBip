@@ -11,11 +11,8 @@ import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.google.firebase.firestore.FirebaseFirestore
-import com.bbip.bbipit.domain.usecase.GetNotificationListUseCase
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +47,9 @@ class NotificationViewModel @Inject constructor(
     private val _latestInAppNotification = MutableStateFlow<Notification?>(null)
     val latestInAppNotification: StateFlow<Notification?> = _latestInAppNotification.asStateFlow()
 
+    private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
+
+
     init {
         if (currentUserId.isNotEmpty()) {
             if (isNetworkAvailable()) {
@@ -68,18 +68,29 @@ class NotificationViewModel @Inject constructor(
                 notificationRepository.observeNotification(currentUserId)
                     .collectLatest { liveNotifications ->
                         if (_notification.value.isNotEmpty() && liveNotifications.size > _notification.value.size) {
-                            val newestNoti = liveNotifications.firstOrNull()
-                            if (newestNoti != null && !newestNoti.isRead) {
-                                triggerInAppBanner(newestNoti)
+
+                            val newlyAddedNotifications = liveNotifications.filter { newNotification ->
+                                _notification.value.none { oldNotification -> oldNotification.id == newNotification.id }
+                            }
+
+                            Log.d("NotificationVM", "새 알림 감지: ${newlyAddedNotifications.size}개")
+                            newlyAddedNotifications.forEach {
+                                Log.d("NotificationVM", "type=${it.type}, isRead=${it.isRead}, createdAt=${it.createdAt}")
+                            }
+
+                            val brandNewNotification = newlyAddedNotifications.maxByOrNull { it.createdAt }
+                            if (brandNewNotification != null && !brandNewNotification.isRead) {
+                                Log.d("NotificationVM", "배너 트리거: ${brandNewNotification.type}")
+                                triggerInAppBanner(brandNewNotification)
+                            } else {
+                                Log.d("NotificationVM", "배너 트리거 안 됨: brandNew=${brandNewNotification?.type}, isRead=${brandNewNotification?.isRead}")
                             }
                         }
-                        _notification.value = liveNotifications
+                        // 현재 상태 업데이트
+                        _notification.value = liveNotifications.filter { it.id !in _deletedIds.value }
                     }
             } catch (e: Exception) {
                 Log.e("NotificationVM", "알림 스트림 수신 에러: ${e.message}")
-                if (!isNetworkAvailable()) {
-                    showNetworkErrorToast()
-                }
             }
         }
     }
@@ -88,8 +99,6 @@ class NotificationViewModel @Inject constructor(
         viewModelScope.launch {
             _latestInAppNotification.value = noti
             _showInAppBanner.value = true
-            delay(3000L)
-            _showInAppBanner.value = false
         }
     }
 
@@ -121,7 +130,9 @@ class NotificationViewModel @Inject constructor(
 
     // 리스트에서 완전히 삭제 (스와이프 시) + Cloud Functions 연동
     fun markAsReadAndDelete(id: String) {
-        // Cloud Functions 비동기 삭제
+        _deletedIds.value += id
+        _notification.value = _notification.value.filter { it.id != id }
+
         viewModelScope.launch {
             notificationRepository.deleteNotifications(currentUserId, id)
         }
