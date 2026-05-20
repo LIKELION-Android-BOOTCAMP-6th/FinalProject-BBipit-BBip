@@ -11,10 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.TimeText
 import androidx.wear.tooling.preview.devices.WearDevices
 import com.bbip.bbipit.map.WatchMapScreen
+import com.bbip.bbipit.notification.WatchNotificationOverlay
 import com.bbip.bbipit.theme.BbipitTheme
 
 /**
@@ -47,14 +49,19 @@ fun WearApp() {
             // 상단 시간 표시
             TimeText()
 
+
             // 지도 및 무전 버튼 화면 호출
             WatchMapScreen(
                 modifier = Modifier.fillMaxSize()
             )
+            WatchNotificationOverlay(
+                viewModel = viewModel(),
+                onBannerClick = { item ->
+                }
+            )
         }
     }
 }
-
 /**
  * 레이아웃 미리보기 설정
  */
