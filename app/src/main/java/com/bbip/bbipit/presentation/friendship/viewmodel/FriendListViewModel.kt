@@ -40,10 +40,10 @@ class FriendListViewModel @Inject constructor(
             val result = userRepository.getMyAcceptedFriends()
 
             if (result is Result.Success) {
-                _friendList.value = result.data
+                //_friendList.value = result.data
             } else {
                 // 실패 시 로그 출력 또는 에러 상태 업데이트
-                _friendList.value = emptyList()
+                //_friendList.value = emptyList()
             }
 
             _isLoading.value = false
