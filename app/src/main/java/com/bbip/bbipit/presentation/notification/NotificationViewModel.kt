@@ -47,6 +47,9 @@ class NotificationViewModel @Inject constructor(
     private val _latestInAppNotification = MutableStateFlow<Notification?>(null)
     val latestInAppNotification: StateFlow<Notification?> = _latestInAppNotification.asStateFlow()
 
+    private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
+
+
     init {
         if (currentUserId.isNotEmpty()) {
             if (isNetworkAvailable()) {
@@ -69,13 +72,22 @@ class NotificationViewModel @Inject constructor(
                             val newlyAddedNotifications = liveNotifications.filter { newNotification ->
                                 _notification.value.none { oldNotification -> oldNotification.id == newNotification.id }
                             }
+
+                            Log.d("NotificationVM", "새 알림 감지: ${newlyAddedNotifications.size}개")
+                            newlyAddedNotifications.forEach {
+                                Log.d("NotificationVM", "type=${it.type}, isRead=${it.isRead}, createdAt=${it.createdAt}")
+                            }
+
                             val brandNewNotification = newlyAddedNotifications.maxByOrNull { it.createdAt }
                             if (brandNewNotification != null && !brandNewNotification.isRead) {
+                                Log.d("NotificationVM", "배너 트리거: ${brandNewNotification.type}")
                                 triggerInAppBanner(brandNewNotification)
+                            } else {
+                                Log.d("NotificationVM", "배너 트리거 안 됨: brandNew=${brandNewNotification?.type}, isRead=${brandNewNotification?.isRead}")
                             }
                         }
                         // 현재 상태 업데이트
-                        _notification.value = liveNotifications
+                        _notification.value = liveNotifications.filter { it.id !in _deletedIds.value }
                     }
             } catch (e: Exception) {
                 Log.e("NotificationVM", "알림 스트림 수신 에러: ${e.message}")
@@ -118,7 +130,9 @@ class NotificationViewModel @Inject constructor(
 
     // 리스트에서 완전히 삭제 (스와이프 시) + Cloud Functions 연동
     fun markAsReadAndDelete(id: String) {
-        // Cloud Functions 비동기 삭제
+        _deletedIds.value += id
+        _notification.value = _notification.value.filter { it.id != id }
+
         viewModelScope.launch {
             notificationRepository.deleteNotifications(currentUserId, id)
         }

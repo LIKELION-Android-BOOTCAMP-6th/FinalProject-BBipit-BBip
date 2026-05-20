@@ -17,24 +17,24 @@ fun NotificationBannerHost(
     modifier: Modifier = Modifier
 ) {
     val showBanner by viewModel.showInAppBanner.collectAsState()
-    val bannerNoti by viewModel.latestInAppNotification.collectAsState()
+    val bannerNotification by viewModel.latestInAppNotification.collectAsState()
     val context = LocalContext.current
 
-    if (showBanner && bannerNoti != null && bannerNoti!!.type != "WALKIE") {
+    if (showBanner && bannerNotification != null && bannerNotification!!.type != "WALKIE") {
         NotificationBanner(
-            item = bannerNoti!!,
+            item = bannerNotification!!,
             modifier = modifier,
             onDismiss = { viewModel.dismissBanner() },
             onClick = {
-                viewModel.markAsRead(bannerNoti!!.id)
+                viewModel.markAsRead(bannerNotification!!.id)
 
                 // 알림 타입별 기능 분기 처리
-                when (bannerNoti!!.type) {
+                when (bannerNotification!!.type) {
                     // 1. DM: 해당 채팅방으로 이동
                     "DM" -> {
-                        if (!bannerNoti!!.roomId.isNullOrEmpty()) {
+                        if (!bannerNotification!!.roomId.isNullOrEmpty()) {
                             try {
-                                navController.navigate(Routes.ChatRoom(roomId = bannerNoti!!.roomId)) {
+                                navController.navigate(Routes.ChatRoom(roomId = bannerNotification!!.roomId)) {
                                     launchSingleTop = true // 화면 중복 쌓임 방지
                                 }
                             } catch (e: Exception) {

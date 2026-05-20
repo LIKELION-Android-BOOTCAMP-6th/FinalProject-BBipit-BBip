@@ -34,6 +34,8 @@ import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.Notification
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 
 // 전체 레이아웃 / 필터링된 리스트 관리 등
 @Composable
@@ -393,7 +395,7 @@ fun formatTimestamp(createdAt: Long): String {
 fun mapFilterToType(filter: String, type: String): Boolean = when (filter) {
     "무전" -> type == "WALKIE"
     "DM" -> type == "DM"
-    "친구 요청" -> type == "FRIEND_ACCEPTED"
+    "친구 요청" -> type == "REQ"
     else -> true
 }
 
