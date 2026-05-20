@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AuthRepository {
     // 카카오 로그인
-    suspend fun kakaoLogin(): Result<Unit>
+    suspend fun signInWithKakao(): Result<Unit>
 
     // 구글 로그인
-    suspend fun signInWithGoogleIdToken(idToken: String): Result<Unit>
+    suspend fun signInWithGoogle(): Result<Unit>
 
     // 이메일 회원가입
     suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult>

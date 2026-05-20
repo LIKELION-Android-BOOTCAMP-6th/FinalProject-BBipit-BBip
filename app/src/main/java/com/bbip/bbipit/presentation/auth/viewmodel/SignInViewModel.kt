@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.auth.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.base.BaseViewModel
@@ -8,6 +9,7 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
+import com.bbip.bbipit.domain.type.LoginType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -71,31 +73,24 @@ class SignInViewModel @Inject constructor(
         userRepository.updateProfile(fcmToken = token)
     }
 
-
-    fun signInKakao(){
+    fun signInWithSocial(type : LoginType){
         updateState { copy(isLoading = true) }
         viewModelScope.launch {
-            authRepository.kakaoLogin()
-                .onSuccess {
-                    getFcmToken()
-                    updateState { copy(isLoading = false) }
-                    _eventChannel.send(SignInEvent.NavigateToHome)
-
-                }
+            val result = when(type){
+                LoginType.KAKAO -> authRepository.signInWithKakao()
+                LoginType.GOOGLE -> authRepository.signInWithGoogle()
+                else -> return@launch
+            }
+            result.onSuccess {
+                getFcmToken()
+                updateState { copy(isLoading = false) }
+                _eventChannel.send(SignInEvent.NavigateToHome)
+            }
                 .onFailure { exception ->
-                    updateState { copy(isLoading = false) }
-                    updateState { copy(error = exception.message)  }
+                    updateState { copy(isLoading = false, error = exception.message) }
 
                 }
-
         }
 
-    }
-
-    fun signInWithGoogle(){
-        updateState { copy(isLoading = true) }
-        viewModelScope.launch {
-
-        }
     }
 }
