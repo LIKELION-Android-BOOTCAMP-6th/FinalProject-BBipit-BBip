@@ -5,6 +5,7 @@ import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.AuthResult
@@ -26,10 +27,10 @@ class AuthRepositoryImpl @Inject constructor(
 
     override fun isAutoLogin(): Boolean = authRemoteDataSource.isAutoLogin()
     // 카카오 로그인 수행
-    override suspend fun kakaoLogin(): Result<Unit> {
+    override suspend fun signInWithKakao(): Result<Unit> {
         return try {
             val accessToken = authRemoteDataSource.loginWithKakao()
-            authRemoteDataSource.signInWithCustomToken(accessToken)
+            authRemoteDataSource.signInWithCustomToken(accessToken, LoginType.KAKAO)
             Result.Success(Unit)
         } catch (e: Exception) {
             Log.e("Auth", "카카오 로그인 실패: ${e.message}")
@@ -48,11 +49,13 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     // 구글 ID 토큰을 이용한 로그인 수행
-    override suspend fun signInWithGoogleIdToken(idToken: String): Result<Unit> {
+    override suspend fun signInWithGoogle(): Result<Unit> {
         return try {
-            authRemoteDataSource.loginWithGoogle(idToken)
+            val accessToken = authRemoteDataSource.loginWithGoogle() ?: throw Exception(AppError.Auth("구글 계정 불러오기를 실패했습니다. 다시 시도해주세요."))
+            authRemoteDataSource.signInWithCustomToken(accessToken, LoginType.GOOGLE)
             Result.Success(Unit)
         } catch (e: Exception) {
+            e.printStackTrace()
             Log.e("Auth", "구글 로그인 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "구글 로그인 중 오류 발생"))
         }

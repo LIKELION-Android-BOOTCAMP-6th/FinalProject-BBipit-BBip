@@ -1,9 +1,17 @@
 package com.bbip.bbipit.data.source.remote.auth
 
 import android.content.Context
+import android.util.Log
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.bbip.bbipit.R
+import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.oAuthCredential
@@ -32,7 +40,8 @@ import kotlin.coroutines.resumeWithException
 @Singleton
 class AuthRemoteDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val credentialManager: CredentialManager
 ) : AuthRemoteDataSource {
     override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
     // 카카오 로그인
@@ -69,20 +78,43 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         }
     }
     // 구글 로그인
-    override suspend fun loginWithGoogle(idToken: String) {
-        TODO("Not yet implemented")
+    override suspend fun loginWithGoogle(): String? {
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setServerClientId(context.getString(R.string.default_web_client_id))
+            .setFilterByAuthorizedAccounts(false)
+            .setAutoSelectEnabled(false) // 구글 로그인 시도 시 핸드폰에 연결된 모든 계정 다이얼로그로 표출
+            .build()
+
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        return try{
+            val result = credentialManager.getCredential(context, request)
+            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+            googleIdTokenCredential.idToken
+        } catch (e: Exception){
+            throw e
+            null
+        }
     }
 
     // 커스텀 토큰 로그인
-    override suspend fun signInWithCustomToken(accessToken: String) {
-        try {
-            val providerId = "oidc.kakao"
-            val credential = oAuthCredential(providerId){
-                setIdToken(accessToken)
+    override suspend fun signInWithCustomToken(accessToken: String, type: LoginType) {
+        when(type){
+            LoginType.KAKAO -> {
+                val providerId = "oidc.kakao"
+                val credential = oAuthCredential(providerId) { setIdToken(accessToken) }
+                firebaseAuth.signInWithCredential(credential).await()
             }
-            firebaseAuth.signInWithCredential(credential).await()
-        } catch (e: Exception){
-            throw e
+
+            LoginType.GOOGLE -> {
+                Log.d("데이터리모트", "구글 로그인 in 커스텀 토큰")
+                val credential = GoogleAuthProvider.getCredential(accessToken, null)
+                firebaseAuth.signInWithCredential(credential).await()
+            }
+
+            else -> {}
         }
     }
 
