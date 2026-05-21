@@ -27,50 +27,7 @@ import dagger.Lazy
 class UserRepositoryImpl @Inject constructor(
     private val userRemoteDataSource: UserRemoteDataSource,
     private val liveStatusRepositoryProvider: Lazy<LiveStatusRepository>,
-    private val firestore: FirebaseFirestore,
 ) : UserRepository {
-
-    // 수락 완료 상태의 내 친구 목록 배열 상시 저장 및 공유용 전역 캐시 플로우
-    private val _myFriends = MutableStateFlow<List<Friend>>(emptyList())
-    override val myFriends: StateFlow<List<Friend>> = _myFriends.asStateFlow()
-
-    // 파이어베이스 데이터 변경 이벤트 수신용 실시간 스냅샷 리스너 등록 객체
-    private var friendsListener: ListenerRegistration? = null
-
-    /**
-     * 지정 사용자의 수락 완료 친구 목록 서브 컬렉션 실시간 감시 및 로컬 메모리 상태 자동 동기화 함수
-     * 중복 방지 목적의 기존 리스너 선제 파기 및 파이어베이스 스냅샷 리스너 재결합 처리
-     */
-    override fun startObservingFriends(myUid: String) {
-        friendsListener?.remove()
-
-        friendsListener = firestore.collection("Users").document(myUid)
-            .collection("Friendships")
-            .whereEqualTo("friendship_status", "accepted")
-            .addSnapshotListener { snapshot, e ->
-                if (e != null || snapshot == null) return@addSnapshotListener
-
-                val friendsList = snapshot.documents.mapNotNull { doc ->
-                    val dto = doc.toObject(FriendshipDto::class.java)
-
-                    // 문서 데이터 내부 식별자 유실 시 Firestore 문서 ID를 고유 UID 값으로 강제 보정 처리
-                    val finalDto = if (dto?.uid.isNullOrEmpty()) {
-                        dto?.copy(uid = doc.id)
-                    } else {
-                        dto
-                    }
-
-                    finalDto?.toDomain()
-                }
-                _myFriends.value = friendsList
-            }
-    }
-
-    // 앱 종료 및 서비스 소멸 시점 메모리 누수 제어 목적의 실시간 파이어베이스 리스너 철거 함수
-    fun stopObservingFriends() {
-        friendsListener?.remove()
-        friendsListener = null
-    }
 
     // 서버 영역 적재 기존 유효 푸시 서비스 토큰 코드 인출 함수
     override suspend fun getFcmToken(): String? = userRemoteDataSource.getToken()
@@ -78,63 +35,19 @@ class UserRepositoryImpl @Inject constructor(
     /**
      * 변경 프로필 내용 및 수신 토큰 상태의 데이터 소스 컴포넌트 경유 원격 갱신 함수
      */
-    override suspend fun updateProfile(nickname: String?, status: String?, profileImageUrl: String?, fcmToken: String?): Result<String> {
+    override suspend fun updateProfile(
+        nickname: String?,
+        status: String?,
+        profileImageUrl: String?,
+        fcmToken: String?
+    ): Result<String> {
         return try {
-            val message = userRemoteDataSource.updateProfile(nickname, status, profileImageUrl, fcmToken)
+            val message =
+                userRemoteDataSource.updateProfile(nickname, status, profileImageUrl, fcmToken)
             Result.Success(message)
         } catch (e: Exception) {
             Log.e("UserRepository", "프로필 업데이트 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "알 수 없는 오류"))
-        }
-    }
-
-    /**
-     * 타인 고유 식별자 타겟 신규 친구 요청 관계의 파이어베이스 업로드 개시 함수
-     */
-    override suspend fun sendFriendRequest(targetUid: String): Result<String> {
-        return try {
-            val message = userRemoteDataSource.sendFriendRequest(targetUid)
-            Result.Success(message)
-        } catch (e: Exception) {
-            Log.e("UserRepository", "친구 요청 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "친구 요청 중 오류 발생"))
-        }
-    }
-
-    // 추가 요청 목록 조회
-    override suspend fun getPendingFriendRequests(): Result<List<User>> {
-        return try {
-            // userRemoteDataSource를 통해 Firestore에서 status == "requested"인 리스트를 가져오는 함수 호출
-            val friends = userRemoteDataSource.getPendingFriendRequests()
-            Result.Success(friends)
-        } catch (e: Exception) {
-            Result.Failure(AppError.Unknown("요청 목록을 불러오는 데 실패했습니다."))
-        }
-    }
-
-    /**
-     * 기존 관계망 포함 특정 사용자 탐색 및 친구 목록 내 완전 제거 차단 함수
-     */
-    override suspend fun deleteFriend(targetUid: String): Result<String> {
-        return try {
-            val message = userRemoteDataSource.deleteFriend(targetUid)
-            Result.Success(message)
-        } catch (e: Exception) {
-            Log.e("UserRepository", "친구 삭제 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "친구 삭제 중 오류 발생"))
-        }
-    }
-
-    /**
-     * 수락 상태 친구 전원의 원본 프로필 데이터 세트 원격 저장소 기준 단발성 일괄 조회 호출 함수
-     */
-    override suspend fun getMyAcceptedFriends(): Result<List<Friend>> {
-        return try {
-            val friends = userRemoteDataSource.getMyAcceptedFriends()
-            Result.Success(friends)
-        } catch (e: Exception) {
-            Log.e("UserRepository", "친구 목록 조회 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "친구 목록을 가져오지 못했습니다."))
         }
     }
 
@@ -161,32 +74,6 @@ class UserRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("UserRepository", "온라인 상태 업데이트 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "상태 업데이트 실패"))
-        }
-    }
-
-    /**
-     * 인입 특정 사용자의 친구 요청 내역 대상 수락 의사 확정 수립 함수
-     */
-    override suspend fun acceptFriendRequest(targetUid: String): Result<Boolean> {
-        return try {
-            val isSuccess = userRemoteDataSource.acceptFriendRequest(targetUid)
-            Result.Success(isSuccess)
-        } catch (e: Exception) {
-            Log.e("UserRepository", "친구 수락 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "친구 수락 실패"))
-        }
-    }
-
-    /**
-     * 수신 대기 상태 타인 친구 요청 명세 거절 및 관계 데이터베이스 내 즉시 삭제 함수
-     */
-    override suspend fun declineFriendRequest(targetUid: String): Result<Boolean> {
-        return try {
-            val isSuccess = userRemoteDataSource.declineFriendRequest(targetUid)
-            Result.Success(isSuccess)
-        } catch (e: Exception) {
-            Log.e("UserRepository", "친구 거절 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "친구 거절 실패"))
         }
     }
 
@@ -227,22 +114,6 @@ class UserRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("UserRepository", "내 프로필 조회 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "내 프로필 조회 실패"))
-        }
-    }
-
-    /**
-     * 친구 프로필 상세 데이터 조회 및 쌍방 설정 친구 상태 세부 등급 문자열 코드 쌍 병합 복원 함수
-     */
-    override suspend fun getFriendProfileWithStatus(targetUid: String): Result<Pair<User, String>> {
-        return try {
-            val response = userRemoteDataSource.getFriendProfileWithStatus(targetUid)
-            val profileMap = response["profile"] as? Map<String, Any> ?: throw Exception("친구 정보를 찾을 수 없습니다.")
-            val user = profileMap.toDomain()
-            val friendshipStatus = response["friendship_status"] as? String ?: "none"
-            Result.Success(Pair(user, friendshipStatus))
-        } catch (e: Exception) {
-            Log.e("UserRepository", "친구 프로필 조회 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "친구 상태 조회 실패"))
         }
     }
 }

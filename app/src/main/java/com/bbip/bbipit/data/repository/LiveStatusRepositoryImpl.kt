@@ -9,6 +9,7 @@ import com.bbip.bbipit.data.source.remote.live.LiveStatusRemoteDataSource
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.error.AppError
+import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.firestore.FirebaseFirestore
@@ -26,7 +27,7 @@ import javax.inject.Singleton
 class LiveStatusRepositoryImpl @Inject constructor(
     private val  userRemoteDataSource: UserRemoteDataSourceImpl,
     private val liveStatusRemoteDataSource: LiveStatusRemoteDataSource,
-    private val userRepository: UserRepository,
+    private val friendRepository: FriendRepository,
     private val firestore: FirebaseFirestore
 ) : LiveStatusRepository {
 
@@ -47,9 +48,9 @@ class LiveStatusRepositoryImpl @Inject constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeFriendsLiveStatus(myUid: String) {
-        Log.d("테스트", "${userRepository.myFriends.value}}")
+        Log.d("테스트", "${friendRepository.myFriends.value}}")
 
-        userRepository.myFriends
+        friendRepository.myFriends
             .flatMapLatest { friends ->
                 val friendUids = friends.map { it.uid }
 
