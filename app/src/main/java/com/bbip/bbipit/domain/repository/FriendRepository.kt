@@ -15,7 +15,7 @@ interface FriendRepository {
 
     suspend fun getPendingFriendRequests(): Result<List<User>>
 
-    suspend fun sendFriendRequest(targetUid: String): Result<String>
+    suspend fun sendFriendRequest(targetCode: String): Result<String>
 
     suspend fun deleteFriend(targetUid: String): Result<String>
 

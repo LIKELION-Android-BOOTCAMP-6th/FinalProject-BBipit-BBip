@@ -8,5 +8,6 @@ data class Friend (
     val nickname: String = "",
     val profile_image_url: String = "",
     val status: String = "",
-    val isOnline: Boolean = false
+    val isOnline: Boolean = false,
+    val friendshipStatus: String = ""
 )

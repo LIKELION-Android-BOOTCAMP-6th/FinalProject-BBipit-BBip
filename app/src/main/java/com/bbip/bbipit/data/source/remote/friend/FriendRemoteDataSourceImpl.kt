@@ -77,8 +77,8 @@ class FriendRemoteDataSourceImpl @Inject constructor(
     /**
      * 대인 관계망 확장 목적 상대방 고유 UID 매개변수 포함 HTTPS 백엔드 서버 대상 친구 추가 요청 이벤트 발신 함수
      */
-    override suspend fun sendFriendRequest(targetUid: String): String {
-        val data = hashMapOf("targetUid" to targetUid)
+    override suspend fun sendFriendRequest(targetCode: String): String {
+        val data = hashMapOf("targetCode" to targetCode)
         val result = firebaseFunctions.getHttpsCallable("requestFriend").call(data).await()
         val res = result.data as Map<*, *>
         return res["message"]?.toString() ?: "요청 완료"
