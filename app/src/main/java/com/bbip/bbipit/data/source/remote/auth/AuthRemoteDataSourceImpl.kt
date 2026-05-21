@@ -16,6 +16,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.oAuthCredential
+import com.google.firebase.functions.FirebaseFunctions
 import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
@@ -42,6 +43,7 @@ import kotlin.coroutines.resumeWithException
 class AuthRemoteDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firebaseAuth: FirebaseAuth,
+    private val firebaseFunctions: FirebaseFunctions,
     private val credentialManager: CredentialManager
 ) : AuthRemoteDataSource {
     override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
@@ -128,7 +130,6 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     // 이메일 회원가입
     override suspend fun signUpWithEmail(email: String, password: String, nickname: String): AuthResult {
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
-
         val user = authResult.user
 
         val profileUpdate = UserProfileChangeRequest.Builder()
@@ -136,6 +137,9 @@ class AuthRemoteDataSourceImpl @Inject constructor(
             .build()
 
         user?.updateProfile(profileUpdate)?.await()
+
+        // 업데이트된 닉네임 정보를 서버가 확실하게 인지할 수 있도록 토큰을 리프레시
+        firebaseAuth.currentUser?.reload()?.await()
 
         return authResult
     }
@@ -170,5 +174,13 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             URL(rawUrl).readText()
         }
+    }
+
+    override suspend fun reloadCurrentUser() {
+        firebaseAuth.currentUser?.reload()?.await()
+    }
+
+    override fun isEmailVerified(): Boolean {
+        return firebaseAuth.currentUser?.isEmailVerified ?: false
     }
 }

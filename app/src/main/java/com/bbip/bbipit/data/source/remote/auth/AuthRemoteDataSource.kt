@@ -19,4 +19,10 @@ interface AuthRemoteDataSource {
 
     suspend fun getTerms(type: TermsType): String
     fun isAutoLogin() : Boolean
+
+    // 유저의 최신 인증 상태(이메일 인증 여부 등)를 반영하기 위해 리프레시
+    suspend fun reloadCurrentUser()
+
+    // 유저가 이메일 인증되었는지 여부 반환
+    fun isEmailVerified(): Boolean
 }
