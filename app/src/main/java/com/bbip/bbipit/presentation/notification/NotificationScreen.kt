@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.notification
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,11 +17,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,165 +32,170 @@ import androidx.navigation.NavController
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.Notification
-import com.bbip.bbipit.presentation.base.BackgroundBox
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 
 // 전체 레이아웃 / 필터링된 리스트 관리 등
 @Composable
 fun NotificationScreen(
     navController: NavController,
-    viewModel: NotificationViewModel = hiltViewModel()
+    viewModel: NotificationViewModel = hiltViewModel(),
 ) {
+    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while(true) {
+            kotlinx.coroutines.delay(60000) // 1분 대기
+            currentTime = System.currentTimeMillis() // 현재 시간 갱신
+        }
+    }
     val notification by viewModel.notification.collectAsState()
-    val readAllClicked by viewModel.readAllClicked.collectAsState()
     var selectedFilter by remember { mutableStateOf("전체") }
 
-    // 필터링된 리스트 계산 로직
+    val expiredVoiceIds by viewModel.expiredVoiceIds.collectAsState()
+    val isReadAllClicked by viewModel.readAllClicked.collectAsState()
+    val readIds by viewModel.readIds.collectAsState()
+
     val filteredList by remember(notification, selectedFilter) {
         derivedStateOf {
-            if (selectedFilter == "전체") notification
+            val baseList = if (selectedFilter == "전체") notification
             else notification.filter { mapFilterToType(selectedFilter, it.type) }
+            baseList.sortedByDescending { it.createdAt }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        BackgroundBox(modifier = Modifier.fillMaxSize()) {
-            Scaffold(
-                containerColor = Color.Transparent,
-                modifier = Modifier.fillMaxSize()
-            ) { innerPadding ->
-                Column(
+        Scaffold(
+            containerColor = background,
+            modifier = Modifier.fillMaxSize()
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                NotificationHeader(
+                    onReadAll = { viewModel.onReadAllClick() },
+                    onAddTestClick = { type -> viewModel.createTestNotification(type) }
+                )
+                Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    NotificationFilterBar(
+                        selected = selectedFilter,
+                        onSelect = { selectedFilter = it }
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+
+                val listState = rememberLazyListState()
+
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = innerPadding.calculateBottomPadding())
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        bottom = innerPadding.calculateBottomPadding()
+                    )
                 ) {
-                    // 상단 고정 헤더
-                    NotificationHeader(onReadAll = { viewModel.onReadAllClick() })
-
-                    // 상단 고정 필터바
-                    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        NotificationFilterBar(
-                            selected = selectedFilter,
-                            onSelect = { selectedFilter = it }
+                    items(items = filteredList, key = { it.id }) { item ->
+                        @Suppress("DEPRECATION")
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = {
+                                if (it == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.markAsReadAndDelete(item.id)
+                                    true
+                                } else false
+                            }
                         )
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
 
-                    // 아래위로 스크롤되는 알림 목록 영역
-                    LazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        contentPadding = PaddingValues(
-                            start = 20.dp,
-                            end = 20.dp,
-                            bottom = 100.dp
-                        )
-                    ) {
-                        items(items = filteredList, key = { it.id }) { item ->
-                            // 스와이프 삭제 로직
-                            val dismissState = rememberSwipeToDismissBoxState(
-                                confirmValueChange = {
-                                    if (it == SwipeToDismissBoxValue.EndToStart) {
-                                        viewModel.markAsReadAndDelete(item.id)
-                                        true
-                                    } else false
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                val progress = dismissState.progress
+                                val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+
+                                if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
+
+                                val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
+                                val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
+
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Color.Red.copy(alpha = bgAlpha),
+                                            RoundedCornerShape(20.dp)
+                                        )
+                                        .padding(start = 20.dp, end = 20.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = iconAlpha)
+                                    )
+                                }
+                            },
+                            enableDismissFromStartToEnd = false
+                        ) {
+                            NotificationCard(
+                                item = item,
+                                currentTime = currentTime,
+                                readAllClicked = isReadAllClicked,
+                                isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
+                                isLocalRead = readIds.contains(item.id),
+                                onClick = {
+                                    if (item.type == "DM") {
+                                        viewModel.markAsRead(item.id)
+                                        navController.navigate(Routes.ChatRoom(roomId = item.roomId))
+                                    }
+                                    else if (item.type == "WALKIE") {
+                                        val alreadyExpired = item.isRead || item.isExpired || expiredVoiceIds.contains(item.id)
+                                        if (!alreadyExpired) {
+                                            viewModel.markAsRead(item.id)
+                                            viewModel.setVoiceExpired(item.id)
+                                            Toast.makeText(
+                                                navController.context,
+                                                "무전을 확인합니다.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                    else if (item.type == "REQ") {
+                                        viewModel.markAsRead(item.id)
+                                        Toast.makeText(
+                                            navController.context,
+                                            "친구요청을 확인합니다.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             )
-
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {
-                                    val progress = dismissState.progress
-                                    val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
-
-                                    if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
-
-                                    val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
-                                    val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
-
-                                    Box(
-                                        Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Color.Red.copy(alpha = bgAlpha),
-                                                RoundedCornerShape(20.dp)
-                                            )
-                                            .padding(start = 20.dp, end = 20.dp),
-                                        contentAlignment = Alignment.CenterEnd
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(alpha = iconAlpha)
-                                        )
-                                    }
-                                },
-                                enableDismissFromStartToEnd = false
-                            ) {
-                                NotificationCard(
-                                    item = item,
-                                    readAllClicked = readAllClicked,
-                                    onClick = {
-                                        if (item.type == "DM") {
-                                            viewModel.markAsRead(item.id)
-                                            navController.navigate(Routes.ChatRoom(roomId = item.roomId))
-                                        }
-                                        else if (item.type == "WALKIE") {
-                                            if (!item.isRead && !item.isExpired) {
-                                                viewModel.markAsRead(item.id)
-                                                Toast.makeText(
-                                                    navController.context,
-                                                    "무전을 확인합니다.",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
-                                    },
-                                    onAcceptFriend = {
-                                        viewModel.onAcceptFriendClick(item.id)
-                                        viewModel.markAsRead(item.id)
-                                        Toast.makeText(
-                                            navController.context,
-                                            "친구 요청이 수락되었습니다.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    },
-                                    onRejectFriend = {
-                                        viewModel.onRejectFriendClick(item.id)
-                                        viewModel.markAsRead(item.id)
-                                        Toast.makeText(
-                                            navController.context,
-                                            "친구 요청이 거절되었습니다.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                )
-                            }
                         }
                     }
                 }
             }
         }
-    }
 }
 
 @Composable
 fun NotificationCard(
     item: Notification,
+    currentTime: Long,
     onClick: () -> Unit,
-    onAcceptFriend: () -> Unit,
-    onRejectFriend: () -> Unit,
-    readAllClicked: Boolean = false
+    readAllClicked: Boolean = false,
+    isVoiceExpiredInUi: Boolean = false,
+    isLocalRead: Boolean = false
 ) {
-    val isWalkieExpired = item.type == "WALKIE" && (item.isRead || item.isExpired)
-    val isClickable = !(item.type == "FRIEND_ACCEPTED" && !item.isRead)
+    val isWalkieExpired = item.type == "WALKIE" && (item.isRead || item.isExpired || isVoiceExpiredInUi)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isClickable) Modifier.clickable(onClick = onClick) else Modifier),
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isWalkieExpired) background.copy(0.5f) else background.copy(0.9f)
@@ -200,7 +210,8 @@ fun NotificationCard(
                 modifier = Modifier.size(14.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                val showDot = !item.isRead && !isWalkieExpired && !readAllClicked
+                // 전체 확인 버튼 클릭 여부(readAllClicked) 감지 시 점 제거 사양 적용
+                val showDot = !item.isRead && !isWalkieExpired && !readAllClicked && !isLocalRead
                 if (showDot) {
                     Box(
                         modifier = Modifier
@@ -236,7 +247,7 @@ fun NotificationCard(
                     text = when (item.type) {
                         "WALKIE" -> "무전을 보냈습니다"
                         "DM" -> item.content.take(20)
-                        "FRIEND_ACCEPTED" -> "님이 친구 요청을 보냈습니다"
+                        "REQ" -> "친구 요청을 보냈습니다"
                         else -> item.content
                     },
                     style = Typography.bodySmall.copy(
@@ -262,56 +273,21 @@ fun NotificationCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = formatTimestamp(item.createdAt),
+                    text = formatTimestamp(item.createdAt, currentTime),
                     style = Typography.bodySmall,
                     fontSize = 11.sp,
                     color = bottomBarBack
-                )
+                )}
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                when {
-                    item.type == "FRIEND_ACCEPTED" && !item.isRead -> {
-                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Button(
-                                onClick = onRejectFriend,
-                                modifier = Modifier
-                                    .height(32.dp)
-                                    .widthIn(min = 54.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = fontDefault.copy(0.2f)),
-                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp)
-                            ) {
-                                Text("거절", color = background, fontSize = 12.sp)
-                            }
-                            Button(
-                                onClick = onAcceptFriend,
-                                modifier = Modifier
-                                    .height(32.dp)
-                                    .widthIn(min = 54.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = primary),
-                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp)
-                            ) {
-                                Text("수락", color = background, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                    item.type == "FRIEND_ACCEPTED" && item.isRead -> {
-                        val badgeText = if (item.content.contains("거절")) "거절됨" else "수락됨"
-                        StatusBadge(
-                            text = badgeText,
-                            color = if (badgeText == "거절됨") bottomBarBack.copy(0.5f) else primary.copy(0.8f)
-                        )
-                    }
-                    isWalkieExpired -> {
-                        StatusBadge(text = "만료됨", color = bottomBarBack.copy(0.3f))
-                    }
+                if (isWalkieExpired) {
+                    StatusBadge(text = "만료됨", color = bottomBarBack.copy(0.5f))
                 }
             }
         }
     }
-}
+
 
 @Composable
 fun StatusBadge(text: String, color: Color) {
@@ -330,7 +306,7 @@ fun StatusBadge(text: String, color: Color) {
 }
 
 @Composable
-fun NotificationHeader(onReadAll: () -> Unit) {
+fun NotificationHeader(onReadAll: () -> Unit, onAddTestClick: (String) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent,
@@ -352,8 +328,21 @@ fun NotificationHeader(onReadAll: () -> Unit) {
                 color = primary
             )
         }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = "[+ DM 추가]", color = Color.Blue, fontSize = 10.sp, modifier = Modifier.clickable { onAddTestClick("DM") })
+            Text(text = "[+ 무전 추가]", color = Color.Magenta, modifier = Modifier.clickable { onAddTestClick("WALKIE") })
+            Text(text = "[+ 친구 추가]", color = Color.DarkGray, modifier = Modifier.clickable { onAddTestClick("REQ") })
+        }
     }
 }
+
+
 
 @Composable
 fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {
@@ -416,9 +405,9 @@ fun formatExpiryTime(expiresAt: Long?, createdAt: Long): String {
     } catch (e: Exception) { "" }
 }
 
-fun formatTimestamp(createdAt: Long): String {
+fun formatTimestamp(createdAt: Long, currentTime: Long): String {
     if (createdAt == 0L) return ""
-    val diff = System.currentTimeMillis() - createdAt
+    val diff = currentTime - createdAt
     return when {
         diff < 60000 -> "방금 전"
         diff < 3600000 -> "${diff / 60000}분 전"
@@ -430,7 +419,7 @@ fun formatTimestamp(createdAt: Long): String {
 fun mapFilterToType(filter: String, type: String): Boolean = when (filter) {
     "무전" -> type == "WALKIE"
     "DM" -> type == "DM"
-    "친구 요청" -> type == "FRIEND_ACCEPTED"
+    "친구 요청" -> type == "REQ"
     else -> true
 }
 

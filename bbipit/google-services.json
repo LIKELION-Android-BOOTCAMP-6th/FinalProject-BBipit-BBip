@@ -1,0 +1,71 @@
+{
+  "project_info": {
+    "project_number": "722912184345",
+    "project_id": "bbipit",
+    "storage_bucket": "bbipit.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:722912184345:android:0bd9ac05a60c1e08da0288",
+        "android_client_info": {
+          "package_name": "com.bbip.bbipit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "722912184345-1h7b3kn7c6ttroc4m0p6f7sr7apth2th.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bbip.bbipit",
+            "certificate_hash": "fe2bae5793fcd5015d159d220b02b03522eb843c"
+          }
+        },
+        {
+          "client_id": "722912184345-biqencdi2ko2vpuplireo1pd84mudcqe.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bbip.bbipit",
+            "certificate_hash": "afd6c37a200e75c46f215310b3e7bd530a359c88"
+          }
+        },
+        {
+          "client_id": "722912184345-h48rphgh8v8tbass4a485a74s4d7s1jp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bbip.bbipit",
+            "certificate_hash": "210361dcdb8ea950f40330a84fb0e6f997d1088f"
+          }
+        },
+        {
+          "client_id": "722912184345-qahhfv9suov75eofffh0rvpa5vo5vlcs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bbip.bbipit",
+            "certificate_hash": "112374af26e57f76ed664def5ce45633ebb64e44"
+          }
+        },
+        {
+          "client_id": "722912184345-u2oeli4m45b5so5rhu41lvpgainl0kk9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxI4oyyx_Pbynt8NnuNch_T2yxRZR4HK4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "722912184345-u2oeli4m45b5so5rhu41lvpgainl0kk9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

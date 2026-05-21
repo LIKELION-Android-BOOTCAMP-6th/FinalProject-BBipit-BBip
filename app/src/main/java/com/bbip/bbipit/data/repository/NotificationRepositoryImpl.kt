@@ -48,7 +48,7 @@ class NotificationRepositoryImpl @Inject constructor(
     ): Result<Boolean> {
         val data = hashMapOf(
             "type" to type,
-            "notificationId" to id
+            "id" to id
         )
         return try {
             val result = firebaseFunctions
@@ -64,25 +64,7 @@ class NotificationRepositoryImpl @Inject constructor(
     }
 
     // 실시간 구독
-    override fun observeNotification(userId: String, onNew: (Notification) -> Unit): ListenerRegistration {
-        val query = firestore.collection("Notifications")
-            .document(userId)
-            .collection("Notification")
-            .orderBy("created_at", Query.Direction.DESCENDING)
-
-        return query.addSnapshotListener { snapshot, error ->
-            if (error != null || snapshot == null) return@addSnapshotListener
-            snapshot.documentChanges.forEach { change ->
-                if (change.type == com.google.firebase.firestore.DocumentChange.Type.ADDED) {
-                    val dto = change.document.toObject(NotificationDto::class.java)
-                    dto?.toEntity(change.document.id)?.let { onNew(it) }
-                }
-            }
-        }
-    }
-
-    //
-    override fun observeNotificationList(userId: String): Flow<List<Notification>> {
+    override fun observeNotification(userId: String): Flow<List<Notification>> {
         return callbackFlow {
             val query = firestore.collection("Notifications")
                 .document(userId)
@@ -94,8 +76,22 @@ class NotificationRepositoryImpl @Inject constructor(
                     close(error)
                     return@addSnapshotListener
                 }
-
                 if (snapshot != null) {
+                    val items = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            val dto = doc.toObject(NotificationDto::class.java)
+                            dto?.toEntity(doc.id)
+                        } catch (e: Exception) {
+                            Log.e("NotificationRepo", "타입 불일치 알림 문서 스킵됨 (ID: ${doc.id}): ${e.message}")
+                            null
+                        }
+                    }
+                    trySend(items)
+                    Log.d("NotificationRepo", "실시간 알림 스트림 갱신: ${items.size}건")
+                }
+            }
+
+                /*if (snapshot != null) {
                     val items = snapshot.documents.mapNotNull { doc ->
                         val dto = doc.toObject(NotificationDto::class.java)
                         dto?.toEntity(doc.id)
@@ -104,7 +100,7 @@ class NotificationRepositoryImpl @Inject constructor(
                     Log.d("NotificationRepo", "실시간 알림 스트림 갱신: ${items.size}건")
                 }
             }
-
+*/
             awaitClose { listener.remove() }
         }
     }

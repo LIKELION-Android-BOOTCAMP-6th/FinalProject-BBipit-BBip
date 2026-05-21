@@ -45,6 +45,7 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInViewModel
@@ -135,11 +136,11 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 horizontalArrangement = Arrangement.SpaceEvenly) {
                 Image(painter = painterResource(R.drawable.ic_signin_google),
                     contentDescription = "구글 소셜 로그인",
-                    modifier = Modifier.size(50.dp)
+                    modifier = Modifier.size(50.dp).clickable(){viewModel.signInWithSocial(LoginType.GOOGLE)}
                 )
                 Image(painter = painterResource(R.drawable.ic_signin_kakao),
                     contentDescription = "카카오 소셜 로그인",
-                    modifier = Modifier.size(50.dp)
+                    modifier = Modifier.size(50.dp).clickable{viewModel.signInWithSocial(LoginType.KAKAO)}
                 )
             }
 
