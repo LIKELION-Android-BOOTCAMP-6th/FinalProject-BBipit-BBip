@@ -1,5 +1,6 @@
 package com.bbip.bbipit.domain.repository
 
+import android.content.Context
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
@@ -14,7 +15,7 @@ interface AuthRepository {
     suspend fun signInWithKakao(): Result<Unit>
 
     // 구글 로그인
-    suspend fun signInWithGoogle(): Result<Unit>
+    suspend fun signInWithGoogle(appContext: Context): Result<Unit>
 
     // 이메일 회원가입
     suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult>

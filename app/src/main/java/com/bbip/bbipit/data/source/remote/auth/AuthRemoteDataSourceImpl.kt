@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
 import com.bbip.bbipit.R
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.TermsType
@@ -78,7 +79,7 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         }
     }
     // 구글 로그인
-    override suspend fun loginWithGoogle(): String? {
+    override suspend fun loginWithGoogle(appContext: Context): String? {
         val googleIdOption = GetGoogleIdOption.Builder()
             .setServerClientId(context.getString(R.string.default_web_client_id))
             .setFilterByAuthorizedAccounts(false)
@@ -90,9 +91,15 @@ class AuthRemoteDataSourceImpl @Inject constructor(
             .build()
 
         return try{
-            val result = credentialManager.getCredential(context, request)
+            val result = credentialManager.getCredential(appContext, request)
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
             googleIdTokenCredential.idToken
+        } catch (e: GetCredentialException) {
+            // 🚨 노트10이나 테스터 폰에서 'failed to launch...'가 터지면 일로 들어옵니다!
+            Log.e("GoogleLogin", "자격 증명 로드 실패: ${e.message}")
+            throw e
+            null
+            // 여기서 무한 블로킹 안 걸리게 예외를 가공해서 뷰모델로 던져줍니다.
         } catch (e: Exception){
             throw e
             null
