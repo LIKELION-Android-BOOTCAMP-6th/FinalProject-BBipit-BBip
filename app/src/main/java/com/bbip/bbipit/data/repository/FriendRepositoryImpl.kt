@@ -3,9 +3,9 @@ package com.bbip.bbipit.data.repository
 import android.util.Log
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.mapper.toDomain
+import com.bbip.bbipit.data.mapper.toFriendshipDto
 import com.bbip.bbipit.data.source.model.FriendshipDto
 import com.bbip.bbipit.data.source.remote.friend.FriendRemoteDataSource
-import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSource
 import com.bbip.bbipit.domain.entity.Friend
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.error.AppError
@@ -45,23 +45,33 @@ class FriendRepositoryImpl @Inject constructor(
 
         friendsListener = firestore.collection("Users").document(myUid)
             .collection("Friendships")
-            .whereEqualTo("friendship_status", "accepted")
             .addSnapshotListener { snapshot, e ->
-                if (e != null || snapshot == null) return@addSnapshotListener
+                if (e != null) {
+                    Log.e("관제탑 서비스", "❌ [친구 목록 동기화 실패]", e)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot == null) return@addSnapshotListener
 
                 val friendsList = snapshot.documents.mapNotNull { doc ->
-                    val dto = doc.toObject(FriendshipDto::class.java)
+                    // Map 매퍼 함수를 통해 안전하게 스네이크 케이스 필드 파싱
+                    val dto = doc.data.toFriendshipDto()
 
-                    // 문서 데이터 내부 식별자 유실 시 Firestore 문서 ID를 고유 UID 값으로 강제 보정 처리
-                    val finalDto = if (dto?.uid.isNullOrEmpty()) {
-                        dto?.copy(uid = doc.id)
+                    // 만약 문서 내부 필드가 비어있다면 문서 ID({friend_uid})를 식별자로 강제 보정
+                    val finalDto = if (dto.uid.isEmpty()) {
+                        dto.copy(uid = doc.id)
                     } else {
                         dto
                     }
 
-                    finalDto?.toDomain()
+                    finalDto.toDomain()
                 }
+
+                // 데이터 발행
                 _myFriends.value = friendsList
+
+                // 콜백 내부에서 로그 출력하여 실시간 상태 추적 보장
+                Log.d("관제탑 서비스", "🔄 [친구 목록 동기화됨] 현재 위치 추적 친구: ${friendsList.size}명")
             }
     }
 
@@ -74,10 +84,10 @@ class FriendRepositoryImpl @Inject constructor(
     /**
      * 타인 고유 식별자 타겟 신규 친구 요청 관계의 파이어베이스 업로드 개시 함수
      */
-    override suspend fun sendFriendRequest(targetUid: String): com.bbip.bbipit.core.result.Result<String> {
+    override suspend fun sendFriendRequest(targetCode: String): Result<String> {
         return try {
-            val message = friendRemoteDataSource.sendFriendRequest(targetUid)
-            com.bbip.bbipit.core.result.Result.Success(message)
+            val message = friendRemoteDataSource.sendFriendRequest(targetCode)
+            Result.Success(message)
         } catch (e: Exception) {
             Log.e("UserRepository", "친구 요청 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "친구 요청 중 오류 발생"))

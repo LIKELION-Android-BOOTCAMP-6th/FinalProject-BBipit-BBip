@@ -117,13 +117,14 @@ class BackgroundListenerService : Service() {
 
         val myUid = authRepository.getCurrentUserUid()
         if (myUid != null) {
-            // 로그인 상태 확인 후 친구 위치 관찰 및 폰 자체 위치 추적 개시
+            // 친구 구독
+            friendRepository.startObservingFriends(myUid)
+            // 친구 상태 변화에 따른 위치 추적
             startFriendsLocationObservation(myUid)
+            // 내 위치 추적
             initLocationTracker()
-
             // 서비스 구동 시점 워치 측 대상 현재 화면 활성화 상태 파악용 쿼리 송신
             requestWatchStatus()
-
             // 초기 상태 조합 기반 하트비트 세션 상태 평가
             manageSessionByState()
         }
@@ -452,9 +453,7 @@ class BackgroundListenerService : Service() {
      */
     private fun startFriendsLocationObservation(myUid: String) {
         scope.launch {
-            friendRepository.startObservingFriends(myUid)
             liveStatusRepository.observeFriendsLiveStatus(myUid)
-
             // 내 상태 데이터 스트림 및 주변인 상태 데이터 스트림 실시간 결합 목적
             combine(
                 liveStatusRepository.myLiveStatusFlow,

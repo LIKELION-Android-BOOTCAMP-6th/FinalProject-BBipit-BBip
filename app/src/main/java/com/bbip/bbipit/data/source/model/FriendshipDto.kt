@@ -7,5 +7,7 @@ data class FriendshipDto(
     val uid: String = "",
     val nickname: String = "",
     val profile_image_url: String = "",
-    val status: String = ""
+    val status: String = "",
+    val is_online: Boolean = false,
+    val friendship_status: String = ""
 )

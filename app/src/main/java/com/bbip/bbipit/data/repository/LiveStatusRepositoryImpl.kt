@@ -48,16 +48,16 @@ class LiveStatusRepositoryImpl @Inject constructor(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeFriendsLiveStatus(myUid: String) {
-        Log.d("테스트", "${friendRepository.myFriends.value}}")
-
         friendRepository.myFriends
             .flatMapLatest { friends ->
-                val friendUids = friends.map { it.uid }
+                // 상태가 "accepted"인 수락된 친구들만 필터링
+                val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
+                val friendUids = acceptedFriends.map { it.uid }
 
                 if (friendUids.isEmpty()) {
                     flowOf(emptyList<LiveStatus>())
                 } else {
-                    // 유효 친구 목록 포함 인원 전원 대상 개별 실시간 파이어베이스 리스너 플로우 연계 개설
+                    // 유효 친구 목록(수락됨) 포함 인원 전원 대상 개별 실시간 파이어베이스 리스너 플로우 연계 개설
                     val friendFlows = friendUids.map { uid ->
                         observeUserLiveStatus(uid)
                             .map { result ->
@@ -72,8 +72,8 @@ class LiveStatusRepositoryImpl @Inject constructor(
                 }
             }
             .onEach { updatedList ->
-                Log.d("관제탑 서비스", "🔄 [친구 목록 동기화됨] 현재 위치 추적 친구: ${updatedList.size}命")
                 _friendsLiveStatusFlow.value = updatedList
+                Log.d("관제탑 서비스", "🔄 [친구 위치 동기화됨] 현재 위치 추적 친구: ${updatedList.size}명")
             }
             .launchIn(repositoryScope)
     }

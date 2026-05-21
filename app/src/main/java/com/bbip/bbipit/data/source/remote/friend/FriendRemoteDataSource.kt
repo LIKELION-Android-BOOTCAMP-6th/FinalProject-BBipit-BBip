@@ -12,6 +12,6 @@ interface FriendRemoteDataSource {
  suspend fun declineFriendRequest(targetUid: String): Boolean
  suspend fun getPendingFriendRequests(): List<User>
  suspend fun getMyAcceptedFriends(): List<Friend>
- suspend fun sendFriendRequest(targetUid: String): String
+ suspend fun sendFriendRequest(targetCode: String): String
  suspend fun deleteFriend(targetUid: String): String
 }

@@ -2,10 +2,7 @@ package com.bbip.bbipit.presentation.friendship.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bbip.bbipit.domain.entity.User
-import com.bbip.bbipit.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.Friend
 import com.bbip.bbipit.domain.repository.FriendRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +12,6 @@ import javax.inject.Inject
 import kotlin.collections.emptyList
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
-import kotlinx.coroutines.tasks.await
 
 @HiltViewModel
 class FriendListViewModel @Inject constructor(
@@ -61,16 +57,18 @@ class FriendListViewModel @Inject constructor(
     }
 
     // 친구 요청 발송 함수
-    fun sendFriendRequest(targetUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun sendFriendRequest(targetCode: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
                 // 파이어베이스 Callable 함수 호출
-                val data = hashMapOf("targetUid" to targetUid)
+//                val data = hashMapOf("targetUid" to targetUid)
+//
+//                val result = functions
+//                    .getHttpsCallable("requestFriend")
+//                    .call(data)
+//                    .await()
 
-                val result = functions
-                    .getHttpsCallable("requestFriend")
-                    .call(data)
-                    .await()
+                friendRepository.sendFriendRequest(targetCode)
 
                 // 성공 시 UI에 알림 및 리스트 새로고침
                 onSuccess()
