@@ -33,7 +33,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.bbip.bbipit.core.base.AppLifecycleObserver
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
-import com.bbip.bbipit.presentation.notification.NotificationBannerHost
 import com.bbip.bbipit.presentation.notification.NotificationViewModel
 
 // 파이어베이스 App Check 관련 임포트 추가

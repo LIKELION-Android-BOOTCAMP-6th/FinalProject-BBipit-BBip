@@ -12,9 +12,12 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.functions.FirebaseFunctions
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +34,82 @@ class NotificationRepositoryImpl @Inject constructor(
 
     private val firestore = FirebaseFirestore.getInstance()
 
+    private val _notifications = MutableStateFlow<List<Notification>>(emptyList())
+    override val notifications: StateFlow<List<Notification>> = _notifications.asStateFlow()
+
+    // 메모리 캐시: 삭제된 ID 보관
+    private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    // Firestore 실시간 리스너 등록 객체 (중복 구독 방지용)
+    private var listenerRegistration: ListenerRegistration? = null
+
+    // 현재 구독 중인 userId (중복 호출 방지용)
+    private var observingUserId: String? = null
+
+    /**
+     * 앱 수명 스코프로 Firestore 구독 시작 (로그인 직후 1회 호출)
+     * 구독 즉시 전체 문서를 수신하여 캐시에 보관
+     * 동일한 userId로 이미 구독 중이면 중복 구독 방지
+     */
+    override fun startObserving(userId: String) {
+        // 동일 유저 중복 구독 방지
+        if (observingUserId == userId) {
+            Log.d("NotificationRepo", "이미 구독 중인 userId: $userId, 중복 호출 무시")
+            return
+        }
+
+        // 기존 리스너 제거 후 새로 등록
+        stopObserving()
+        observingUserId = userId
+
+        val query = firestore
+            .collection("Notifications")
+            .document(userId)
+            .collection("Notification")
+            .orderBy("created_at", Query.Direction.DESCENDING)
+
+        listenerRegistration = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e("NotificationRepo", "실시간 알림 구독 실패: ${error.message}")
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null) {
+                Log.d("NotificationRepo", "Firestore 스냅샷 수신! 변경된 문서 수: ${snapshot.documentChanges.size}")
+                snapshot.documentChanges.forEach { change ->
+                    Log.d("NotificationRepo", "변경 타입: ${change.type}, 데이터: ${change.document.data}")
+                }
+
+                // 전체 문서를 엔티티로 변환
+                val items = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val dto = doc.toObject(NotificationDto::class.java)
+                        dto?.toEntity(doc.id)
+                    } catch (e: Exception) {
+                        Log.e("NotificationRepo", "데이터 변환 실패: ${doc.id}")
+                        null
+                    }
+                }
+
+                // 삭제된 ID 제외 후 캐시 갱신
+                val safeItems = items.filter { it.id !in _deletedIds.value }
+                _notifications.value = safeItems
+                Log.d("NotificationRepo", "캐시 갱신됨: ${safeItems.size}건")
+            }
+        }
+    }
+
+    /**
+     * 구독 중단 (로그아웃 시 호출)
+     */
+    override fun stopObserving() {
+        listenerRegistration?.remove()
+        listenerRegistration = null
+        observingUserId = null
+        _notifications.value = emptyList()
+        Log.d("NotificationRepo", "Firestore 알림 구독 중단 및 캐시 초기화")
+    }
+
     // 알림 목록 조회
     override suspend fun getNotificationList(userId: String): Result<List<Notification>> {
         return try {
@@ -42,6 +121,7 @@ class NotificationRepositoryImpl @Inject constructor(
         }
     }
 
+    // 알림 읽음 처리
     override suspend fun markNotificationsAsRead(
         type: String,
         id: String?
@@ -64,41 +144,29 @@ class NotificationRepositoryImpl @Inject constructor(
     }
 
     // 실시간 구독
-    override fun observeNotification(userId: String): Flow<List<Notification>> {
-        return callbackFlow {
-            val query = firestore.collection("Notifications")
-                .document(userId)
-                .collection("Notification")
-                .orderBy("created_at", Query.Direction.DESCENDING)
+    override suspend fun deleteNotifications(
+        userId: String,
+        id: String?
+    ): Result<Unit> {
+        if (id != null) {
+            // 현재 리스트에서 해당 ID만 제외한 새 리스트 생성
+            val currentList = _notifications.value
+            _notifications.value = currentList.filter { it.id != id }
 
-            val listener = query.addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val items = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            val dto = doc.toObject(NotificationDto::class.java)
-                            dto?.toEntity(doc.id)
-                        } catch (e: Exception) {
-                            Log.e("NotificationRepo", "타입 불일치 알림 문서 스킵됨 (ID: ${doc.id}): ${e.message}")
-                            null
-                        }
-                    }
-                    trySend(items)
-                    Log.d("NotificationRepo", "실시간 알림 스트림 갱신: ${items.size}건")
-                }
-            }
-            awaitClose { listener.remove() }
+            // 삭제된 ID 저장
+            _deletedIds.value += id
+            Log.d("NotificationRepo", "삭제 ID 기록 및 캐시 갱신: $id")
+        } else {
+            // 전체 삭제인 경우
+            _notifications.value = emptyList()
         }
-    }
-    // 알림 삭제
-    override suspend fun deleteNotifications(userId: String, id: String?): Result<Unit> {
+
+        // 서버(Cloud Functions)에 삭제 요청 전송
         val data = hashMapOf(
             "type" to if (id == null) "all" else "single",
             "notificationId" to id
         )
+
         return try {
             firebaseFunctions
                 .getHttpsCallable("deleteNotifications")
@@ -106,8 +174,8 @@ class NotificationRepositoryImpl @Inject constructor(
                 .await()
             Result.Success(Unit)
         } catch (e: Exception) {
-            Log.e("NotificationRepository", "알림 삭제 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "알림 삭제 실패"))
+            Log.e("NotificationRepository", "서버 삭제 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "삭제 실패"))
         }
     }
 }
