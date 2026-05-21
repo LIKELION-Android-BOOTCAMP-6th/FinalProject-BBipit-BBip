@@ -80,7 +80,6 @@ fun BottomBar(navController: NavController,
                 )
             }
 
-            val isChatSelected = currentDestination?.hasRoute<Routes.ChatList>() == true
 
             // BadgedBox로 Icon을 감싸서 알림 점을 소환
             BadgedBox(
@@ -95,21 +94,23 @@ fun BottomBar(navController: NavController,
                     }
                 }
             ) {
-            IconButton(
-                onClick = {
-                    if (!isChatSelected){
-                        navController.navigate(Routes.ChatList){
-                            popUpTo(Routes.Map){ inclusive = false}
-                            launchSingleTop = true
+                val isChatSelected = currentDestination?.hasRoute<Routes.ChatList>() == true
+
+                IconButton(
+                    onClick = {
+                        if (!isChatSelected){
+                            navController.navigate(Routes.ChatList){
+                                popUpTo(Routes.Map){ inclusive = false}
+                                launchSingleTop = true
+                            }
                         }
+                    },
+                ) {
+                        Icon(imageVector = if(isChatSelected) Icons.Filled.Sms else Icons.Outlined.Sms,
+                            contentDescription = "채팅",
+                            tint = if (isChatSelected) primary else Color.Gray
+                        )
                     }
-                },
-            ) {
-                    Icon(imageVector = if(isChatSelected) Icons.Filled.Sms else Icons.Outlined.Sms,
-                        contentDescription = "채팅",
-                        tint = if (isChatSelected) primary else Color.Gray
-                    )
-                }
             }
 
             val isMapSelected = currentDestination?.hasRoute<Routes.Map>() == true

@@ -10,6 +10,7 @@ val navBackground = Color(0xFFF1F5F9)
 val backLeft = Color(0xFFE5D1FE)
 val backRight = Color(0xFFDBF2FF)
 val bottomBarBack = Color(0xC89697A5)
+val online = Color(0xFF4CAF50)
 val sub1 = Color(0xFFEBDEF7)
 
 val Purple80 = Color(0xFFD0BCFF)
