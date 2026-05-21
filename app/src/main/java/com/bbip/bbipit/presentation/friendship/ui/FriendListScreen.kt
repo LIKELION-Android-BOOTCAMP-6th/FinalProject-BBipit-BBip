@@ -37,9 +37,12 @@ import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.online
+import com.bbip.bbipit.domain.entity.Friend
 import com.bbip.bbipit.presentation.base.ShowToast
 
 @Composable
@@ -48,6 +51,8 @@ fun FriendListScreen(
     viewModel: FriendListViewModel = hiltViewModel()
 ) {
     val friendList by viewModel.friendList.collectAsStateWithLifecycle()
+
+    val requestCount by viewModel.requestCount.collectAsStateWithLifecycle()
 
     var showDialog by remember { mutableStateOf(false) }
 
@@ -87,6 +92,7 @@ fun FriendListScreen(
 
         // 친구 요청 카드
         FriendRequestCard(
+            count = requestCount,
             onClick = { navController.navigate(Routes.FriendRequestList) }
         )
 
@@ -107,8 +113,22 @@ fun FriendListScreen(
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(friendList) { user ->
-                    FriendListItem(user)
+                items(friendList) { friend ->
+                    FriendListItem(
+                        friend = friend,
+                        onMessageClick = {
+                            viewModel.createOrGetChatRoom(
+                                targetUid = friend.uid,
+                                onSuccess = { roomId: String -> // 타입 명시
+                                    navController.navigate(Routes.ChatRoom(roomId))
+                                },
+                                onError = { errorMessage: String -> // 타입 명시
+                                    showToastMessage = errorMessage
+                                }
+                            )
+                            android.util.Log.d("FriendList", "${friend.nickname}님과의 채팅방으로 이동")
+                        }
+                    )
                 }
             }
         }
@@ -143,7 +163,7 @@ fun FriendListScreen(
 }
 
 @Composable
-fun FriendRequestCard(onClick: () -> Unit) {
+fun FriendRequestCard(count: Int, onClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = subBackground, // 연한 보라빛 배경
@@ -153,16 +173,19 @@ fun FriendRequestCard(onClick: () -> Unit) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color(0xFF7C3AED))
+            Icon(Icons.Default.PersonAdd, contentDescription = null, tint = primary)
             Spacer(modifier = Modifier.width(12.dp))
             Text("친구 요청", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.weight(1f))
-            Surface(shape = RoundedCornerShape(12.dp), color = Color.White) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (count > 0) Color.White else Color.Transparent // 0일 땐 배경 투명 처리
+            ) {
                 Text(
-                    text = "친구 요청 대기 중",
+                    text = if (count > 0) "$count 명의 새로운 요청" else "친구 요청 없음",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     fontSize = 12.sp,
-                    color = Color(0xFF7C3AED)
+                    color = if (count > 0) primary else Color.Gray // 0일 땐 회색 글씨
                 )
             }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
@@ -171,8 +194,8 @@ fun FriendRequestCard(onClick: () -> Unit) {
 }
 
 @Composable
-fun FriendListItem(user: User) {
-    android.util.Log.d("FriendListDebug", "닉네임: ${user.nickname}, 상태메세지: '${user.status}'")
+fun FriendListItem(friend: Friend, onMessageClick: () -> Unit) {
+    android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}'")
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -187,7 +210,7 @@ fun FriendListItem(user: User) {
             // 프로필 이미지
             Box(modifier = Modifier.size(50.dp)) {
                 AsyncImage(
-                    model = user.profileImageUrl,
+                    model = friend.profile_image_url,
                     contentDescription = "프로필 이미지",
                     modifier = Modifier
                         .size(50.dp)
@@ -195,34 +218,45 @@ fun FriendListItem(user: User) {
                     contentScale = ContentScale.Crop
                 )
 
-                // 온라인 상태일 때만 녹색 점 표시
-                if (user.isOnline) {
+                // 온라인/오프라인 상태 표시
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .align(Alignment.BottomEnd)
+                        .clip(CircleShape)
+                        .background(subBackground)
+                        .padding(2.dp) // 테두리 두께
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(14.dp)
-                            .align(Alignment.BottomEnd) // 우측 하단 정렬
+                            .fillMaxSize()
                             .clip(CircleShape)
-                            .background(Color.White) // 점 주변에 약간의 테두리 효과
-                            .padding(2.dp) // 내부 녹색 점과의 간격
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(Color(0xFF4CAF50)) // 실제 녹색 점
-                        )
-                    }
+                            .background(if (friend.isOnline) online else Color.Gray) // 온라인(녹색), 오프라인(회색)
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            Column {
-                Text(user.nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            // 닉네임 및 상태 메시지 (Weight를 주어 버튼 공간 확보)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(friend.nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(
-                    text = user.status.ifBlank { "상태 메시지가 없습니다." },
+                    text = friend.status.ifBlank { "상태 메시지가 없습니다." },
                     fontSize = 13.sp,
                     color = Color.Gray
+                )
+            }
+
+            // DM 버튼 추가
+            IconButton(
+                onClick = onMessageClick,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Message,
+                    contentDescription = "메시지 보내기",
+                    tint = primary
                 )
             }
         }
@@ -249,7 +283,7 @@ fun AddFriendDialog(
             ) {
                 // 아이콘 박스
                 Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(Color(0xFFEDE9FE))) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.align(Alignment.Center))
+                    Icon(Icons.Default.PersonAdd, contentDescription = null, tint = primary, modifier = Modifier.align(Alignment.Center))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -262,7 +296,7 @@ fun AddFriendDialog(
                 OutlinedTextField(
                     value = uid,
                     onValueChange = { uid = it },
-                    placeholder = { Text("UID 입력 (예: 1234-5678)", style = Typography.bodySmall) },
+                    placeholder = { Text("UID 입력 (예: 1234-5678)", style = Typography.bodySmall, fontWeight = FontWeight.Bold) },
                     shape = RoundedCornerShape(12.dp),
 //                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -270,10 +304,10 @@ fun AddFriendDialog(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Row {
-                    TextButton(onClick = onDismiss) { Text("취소", color = Color.Gray) }
+                    TextButton(onClick = onDismiss) { Text("취소", style = Typography.bodySmall, color = Color.Gray, fontWeight = FontWeight.Bold) }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Button(onClick = { onConfirm(uid) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))) {
-                        Text("요청 보내기")
+                    Button(onClick = { onConfirm(uid) }, colors = ButtonDefaults.buttonColors(containerColor = primary)) {
+                        Text("요청 보내기", style = Typography.bodySmall, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }

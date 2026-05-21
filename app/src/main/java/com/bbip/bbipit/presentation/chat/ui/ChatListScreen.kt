@@ -77,32 +77,47 @@ fun ChatListScreen(
     }
     LaunchedEffect(Unit) {
         // 상세방에서 백스택으로 돌아올 때마다 목록을 새로 땡겨와서 읽음 상태 갱신
-        viewModel.loadChatList()
+        viewModel.observeChatRooms()
     }
 
     Box(modifier = Modifier.fillMaxSize().background(color = background)) {
-        if (uiState.isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 100.dp, bottom = 100.dp)
-            ) {
-                items(uiState.chatList, key = { it.id }) { chatItem ->
-                    ChatItemRow( // 이름을 Row로 변경
-                        chatItem = chatItem,
-                        onClick = { viewModel.onChatItemClicked(chatItem.id) }
-                    )
-                    // 아이템 사이의 얇은 구분선 추가
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                        thickness = 0.5.dp,
-                        color = Color.LightGray.copy(alpha = 0.4f)
+        Box(modifier = Modifier.fillMaxSize().background(color = background)) {
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else if (uiState.chatList.isEmpty()) {
+                // [추가] 채팅 목록이 없을 때 안내 문구
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "채팅 목록이 없습니다.\n새로운 대화를 시작해보세요!",
+                        style = Typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
                     )
                 }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 100.dp, bottom = 100.dp)
+                ) {
+                    items(uiState.chatList, key = { it.id }) { chatItem ->
+                        ChatItemRow( // 이름을 Row로 변경
+                            chatItem = chatItem,
+                            onClick = { viewModel.onChatItemClicked(chatItem.id) }
+                        )
+                        // 아이템 사이의 얇은 구분선 추가
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            thickness = 0.5.dp,
+                            color = Color.LightGray.copy(alpha = 0.4f)
+                        )
+                    }
+                }
             }
+            ChatListHeader(viewModel = viewModel)
         }
-        ChatListHeader(viewModel = viewModel)
     }
 }
 

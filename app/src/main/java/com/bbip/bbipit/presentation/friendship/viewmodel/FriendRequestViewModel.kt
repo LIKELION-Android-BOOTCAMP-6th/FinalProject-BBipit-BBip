@@ -12,6 +12,7 @@ import javax.inject.Inject
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.domain.entity.Friend
 
 
 @HiltViewModel
@@ -19,24 +20,22 @@ class FriendRequestViewModel @Inject constructor(
     private val userRepository: UserRepository
 ) : ViewModel() {
 
-    private val _requestList = MutableStateFlow<List<User>>(emptyList())
+    private val _requestList = MutableStateFlow<List<Friend>>(emptyList())
     val requestList = _requestList.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
     init {
-        loadPendingRequests()
+        observePendingRequests()
     }
 
     // 요청 목록 불러오기
-    fun loadPendingRequests() {
+    private fun observePendingRequests() {
         viewModelScope.launch {
-            // ※ 참고: UserRepository에 getPendingFriendRequests가 없다면,
-            // 위에서 정의한 쿼리 로직을 UserRemoteDataSource에 먼저 구현해야 합니다.
-            val result = userRepository.getPendingFriendRequests()
-            if (result is Result.Success) {
-                _requestList.value = result.data
+
+            userRepository.myFriends.collect { friends ->
+                _requestList.value = friends.filter { it.status == "requested" }
             }
         }
     }
@@ -48,15 +47,13 @@ class FriendRequestViewModel @Inject constructor(
 
             val result = userRepository.acceptFriendRequest(targetUid)
 
-            // 성공 처리
             result.onSuccess {
-                loadPendingRequests() // 성공 시 리스트 갱신
+                android.util.Log.d("FriendRequestViewModel", "수락 성공: $targetUid")
+
+            }.onFailure { appError ->
+                android.util.Log.e("FriendRequestViewModel", "수락 실패: ${appError.message}")
             }
 
-                // 실패 처리
-                .onFailure { appError ->
-                    android.util.Log.e("FriendRequestViewModel", "수락 실패: ${appError.message}")
-                }
             _isLoading.value = false
         }
     }
@@ -69,10 +66,9 @@ class FriendRequestViewModel @Inject constructor(
             val result = userRepository.declineFriendRequest(targetUid)
 
             result.onSuccess {
-                // 거절 성공 시 리스트 갱신 (요청 목록에서 해당 유저가 사라짐)
-                loadPendingRequests()
+                android.util.Log.d("FriendRequestViewModel", "거절 성공: $targetUid")
+
             }.onFailure { appError ->
-                // 실패 시 처리
                 android.util.Log.e("FriendRequestViewModel", "거절 실패: ${appError.message}")
             }
 
