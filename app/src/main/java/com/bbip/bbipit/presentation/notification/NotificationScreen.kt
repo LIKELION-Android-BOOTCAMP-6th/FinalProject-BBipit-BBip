@@ -43,6 +43,13 @@ fun NotificationScreen(
     navController: NavController,
     viewModel: NotificationViewModel = hiltViewModel(),
 ) {
+    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while(true) {
+            kotlinx.coroutines.delay(60000) // 1분 대기
+            currentTime = System.currentTimeMillis() // 현재 시간 갱신
+        }
+    }
     val notification by viewModel.notification.collectAsState()
     var selectedFilter by remember { mutableStateOf("전체") }
 
@@ -66,8 +73,10 @@ fun NotificationScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                NotificationHeader(onReadAll = { viewModel.onReadAllClick() })
-
+                NotificationHeader(
+                    onReadAll = { viewModel.onReadAllClick() },
+                    onAddTestClick = { type -> viewModel.createTestNotification(type) }
+                )
                 Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
                     Spacer(modifier = Modifier.height(16.dp))
                     NotificationFilterBar(
@@ -134,6 +143,7 @@ fun NotificationScreen(
                         ) {
                             NotificationCard(
                                 item = item,
+                                currentTime = currentTime,
                                 readAllClicked = isReadAllClicked,
                                 isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
                                 isLocalRead = readIds.contains(item.id),
@@ -174,6 +184,7 @@ fun NotificationScreen(
 @Composable
 fun NotificationCard(
     item: Notification,
+    currentTime: Long,
     onClick: () -> Unit,
     readAllClicked: Boolean = false,
     isVoiceExpiredInUi: Boolean = false,
@@ -262,11 +273,11 @@ fun NotificationCard(
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = formatTimestamp(item.createdAt),
+                    text = formatTimestamp(item.createdAt, currentTime),
                     style = Typography.bodySmall,
                     fontSize = 11.sp,
                     color = bottomBarBack
-                )
+                )}
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -276,7 +287,7 @@ fun NotificationCard(
             }
         }
     }
-}
+
 
 @Composable
 fun StatusBadge(text: String, color: Color) {
@@ -295,7 +306,7 @@ fun StatusBadge(text: String, color: Color) {
 }
 
 @Composable
-fun NotificationHeader(onReadAll: () -> Unit) {
+fun NotificationHeader(onReadAll: () -> Unit, onAddTestClick: (String) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent,
@@ -317,8 +328,21 @@ fun NotificationHeader(onReadAll: () -> Unit) {
                 color = primary
             )
         }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = "[+ DM 추가]", color = Color.Blue, fontSize = 10.sp, modifier = Modifier.clickable { onAddTestClick("DM") })
+            Text(text = "[+ 무전 추가]", color = Color.Magenta, modifier = Modifier.clickable { onAddTestClick("WALKIE") })
+            Text(text = "[+ 친구 추가]", color = Color.DarkGray, modifier = Modifier.clickable { onAddTestClick("REQ") })
+        }
     }
 }
+
+
 
 @Composable
 fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {
@@ -381,9 +405,9 @@ fun formatExpiryTime(expiresAt: Long?, createdAt: Long): String {
     } catch (e: Exception) { "" }
 }
 
-fun formatTimestamp(createdAt: Long): String {
+fun formatTimestamp(createdAt: Long, currentTime: Long): String {
     if (createdAt == 0L) return ""
-    val diff = System.currentTimeMillis() - createdAt
+    val diff = currentTime - createdAt
     return when {
         diff < 60000 -> "방금 전"
         diff < 3600000 -> "${diff / 60000}분 전"
