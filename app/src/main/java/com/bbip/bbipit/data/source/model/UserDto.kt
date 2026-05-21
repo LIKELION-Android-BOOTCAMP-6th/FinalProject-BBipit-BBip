@@ -26,5 +26,8 @@ data class UserDto(
     var lastActive: Timestamp? = null,
 
     @get:PropertyName("friendUids") @set:PropertyName("friendUids")
-    var friendUids: List<String> = emptyList()
+    var friendUids: List<String> = emptyList(),
+
+    @get:PropertyName("login_type") @set:PropertyName("login_type")
+    var loginType: String = ""
 )
