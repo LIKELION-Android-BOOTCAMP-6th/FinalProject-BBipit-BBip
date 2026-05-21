@@ -45,14 +45,14 @@ fun WatchNotificationBanner(
     AnimatedVisibility(
         visible = true,
         enter = slideInVertically(
-            initialOffsetY = { 2000 }, // 새로운 기능: { it } 대신 2000을 박아 기기 화면 맨 밑바닥 아래에서 시작하도록 고정
-            animationSpec = tween(durationMillis = 1000)
-        ) + fadeIn(animationSpec = tween(durationMillis = 800)),
-        exit = slideOutVertically(
-            targetOffsetY = { 2000 }, // 새로운 기능: 사라질 때도 확실하게 화면 맨 밑 아래로 내려가도록 고정
+            initialOffsetY = { it },
             animationSpec = tween(durationMillis = 800)
-        ) + fadeOut(animationSpec = tween(durationMillis = 500)),
-        modifier = modifier.fillMaxSize() // 새로운 기능: 애니메이션이 화면 밑바닥부터 시작되도록 크기 확장
+        ) + fadeIn(animationSpec = tween(durationMillis = 500)),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = tween(durationMillis = 600)
+        ) + fadeOut(animationSpec = tween(durationMillis = 300)),
+        modifier = modifier.fillMaxSize()
     ) {
         Box(
             modifier = Modifier
