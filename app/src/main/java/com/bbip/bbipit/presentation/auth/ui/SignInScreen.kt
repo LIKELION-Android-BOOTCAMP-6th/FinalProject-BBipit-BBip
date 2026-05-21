@@ -1,5 +1,8 @@
 package com.bbip.bbipit.presentation.auth.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,12 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.bbip.bbipit.R
+import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
@@ -49,12 +52,12 @@ import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInViewModel
-import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.ShowToast
 
 @Composable
 fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hiltViewModel()) {
 
+    val context = LocalContext.current.findActivity()
     val focusManager = LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -136,11 +139,11 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 horizontalArrangement = Arrangement.SpaceEvenly) {
                 Image(painter = painterResource(R.drawable.ic_signin_google),
                     contentDescription = "구글 소셜 로그인",
-                    modifier = Modifier.size(50.dp).clickable(){viewModel.signInWithSocial(LoginType.GOOGLE)}
+                    modifier = Modifier.size(50.dp).clickable(){viewModel.signInWithSocial(context!!,LoginType.GOOGLE)}
                 )
                 Image(painter = painterResource(R.drawable.ic_signin_kakao),
                     contentDescription = "카카오 소셜 로그인",
-                    modifier = Modifier.size(50.dp).clickable{viewModel.signInWithSocial(LoginType.KAKAO)}
+                    modifier = Modifier.size(50.dp).clickable{viewModel.signInWithSocial(context!!, LoginType.KAKAO)}
                 )
             }
 

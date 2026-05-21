@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.auth.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -73,12 +74,12 @@ class SignInViewModel @Inject constructor(
         userRepository.updateProfile(fcmToken = token)
     }
 
-    fun signInWithSocial(type : LoginType){
+    fun signInWithSocial(context: Context, type : LoginType){
         updateState { copy(isLoading = true) }
         viewModelScope.launch {
             val result = when(type){
                 LoginType.KAKAO -> authRepository.signInWithKakao()
-                LoginType.GOOGLE -> authRepository.signInWithGoogle()
+                LoginType.GOOGLE -> authRepository.signInWithGoogle(context)
                 else -> return@launch
             }
             result.onSuccess {

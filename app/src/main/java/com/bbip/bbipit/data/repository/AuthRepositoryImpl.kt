@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
@@ -49,9 +50,9 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     // 구글 ID 토큰을 이용한 로그인 수행
-    override suspend fun signInWithGoogle(): Result<Unit> {
+    override suspend fun signInWithGoogle(appContext: Context): Result<Unit> {
         return try {
-            val accessToken = authRemoteDataSource.loginWithGoogle() ?: throw Exception(AppError.Auth("구글 계정 불러오기를 실패했습니다. 다시 시도해주세요."))
+            val accessToken = authRemoteDataSource.loginWithGoogle(appContext) ?: throw Exception(AppError.Auth("구글 계정 불러오기를 실패했습니다. 다시 시도해주세요."))
             authRemoteDataSource.signInWithCustomToken(accessToken, LoginType.GOOGLE)
             Result.Success(Unit)
         } catch (e: Exception) {

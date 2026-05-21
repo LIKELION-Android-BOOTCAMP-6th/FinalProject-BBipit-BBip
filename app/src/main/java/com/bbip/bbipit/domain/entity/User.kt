@@ -22,5 +22,7 @@ data class User(
     // 마지막 활동 시간(타임스탬프)
     val lastActive: Long = 0L,
     // 등록된 친구 목록(사용자 식별자 리스트)
-    val friendUids: List<String> = emptyList()
+    val friendUids: List<String> = emptyList(),
+    // 로그인 타입(EMAIL, GOOGLE, KAKAO)
+    val loginType: String = ""
 )
