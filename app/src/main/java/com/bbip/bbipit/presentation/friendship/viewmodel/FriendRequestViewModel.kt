@@ -13,11 +13,12 @@ import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Friend
+import com.bbip.bbipit.domain.repository.FriendRepository
 
 
 @HiltViewModel
 class FriendRequestViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val friendRepository: FriendRepository
 ) : ViewModel() {
 
     private val _requestList = MutableStateFlow<List<Friend>>(emptyList())
@@ -34,7 +35,7 @@ class FriendRequestViewModel @Inject constructor(
     private fun observePendingRequests() {
         viewModelScope.launch {
 
-            userRepository.myFriends.collect { friends ->
+            friendRepository.myFriends.collect { friends ->
                 _requestList.value = friends.filter { it.status == "requested" }
             }
         }
@@ -45,7 +46,7 @@ class FriendRequestViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
 
-            val result = userRepository.acceptFriendRequest(targetUid)
+            val result = friendRepository.acceptFriendRequest(targetUid)
 
             result.onSuccess {
                 android.util.Log.d("FriendRequestViewModel", "수락 성공: $targetUid")
@@ -63,7 +64,7 @@ class FriendRequestViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
 
-            val result = userRepository.declineFriendRequest(targetUid)
+            val result = friendRepository.declineFriendRequest(targetUid)
 
             result.onSuccess {
                 android.util.Log.d("FriendRequestViewModel", "거절 성공: $targetUid")

@@ -20,9 +20,11 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.data.repository.FriendRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
@@ -61,7 +63,7 @@ class BackgroundListenerService : Service() {
     @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var voiceRepository: VoiceRepository
     @Inject lateinit var liveStatusRepository: LiveStatusRepository
-    @Inject lateinit var userRepository: UserRepository
+    @Inject lateinit var friendRepository: FriendRepository
     @Inject lateinit var syncMyLocationUseCase: SyncMyLocationUseCase
     @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
     @Inject lateinit var lifeCycleManager: LifeCycleManager
@@ -202,8 +204,8 @@ class BackgroundListenerService : Service() {
         super.onDestroy()
         Log.d(TAG, "BackgroundListenerService onDestroy")
 
-        if (userRepository is UserRepositoryImpl) {
-            (userRepository as UserRepositoryImpl).stopObservingFriends()
+        if (friendRepository is FriendRepositoryImpl) {
+            (friendRepository as FriendRepositoryImpl).stopObservingFriends()
         }
 
         // 세션 안전 중지 및 하드웨어 자원, 메시지 클라이언트 연결 해제
@@ -261,7 +263,7 @@ class BackgroundListenerService : Service() {
     private fun sendVoiceToWatch(messageId: String, senderId: String, voiceUrl: String) {
         scope.launch {
             try {
-                val senderFriend = userRepository.myFriends.value.find { it.uid == senderId }
+                val senderFriend = friendRepository.myFriends.value.find { it.uid == senderId }
                 val senderName = senderFriend?.nickname ?: "알 수 없음"
                 val senderProfileImage = senderFriend?.profile_image_url ?: ""
 
@@ -450,7 +452,7 @@ class BackgroundListenerService : Service() {
      */
     private fun startFriendsLocationObservation(myUid: String) {
         scope.launch {
-            userRepository.startObservingFriends(myUid)
+            friendRepository.startObservingFriends(myUid)
             liveStatusRepository.observeFriendsLiveStatus(myUid)
 
             // 내 상태 데이터 스트림 및 주변인 상태 데이터 스트림 실시간 결합 목적

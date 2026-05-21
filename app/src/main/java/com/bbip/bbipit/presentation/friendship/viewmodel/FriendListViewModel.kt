@@ -7,6 +7,7 @@ import com.bbip.bbipit.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.Friend
+import com.bbip.bbipit.domain.repository.FriendRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -18,7 +19,7 @@ import kotlinx.coroutines.tasks.await
 
 @HiltViewModel
 class FriendListViewModel @Inject constructor(
-    private val userRepository: UserRepository,
+    private val friendRepository: FriendRepository,
     private val functions: FirebaseFunctions,
     private val auth: com.google.firebase.auth.FirebaseAuth
 ) : ViewModel() {
@@ -44,11 +45,11 @@ class FriendListViewModel @Inject constructor(
 
     // 로딩 상태나 에러 처리를 위한 변수 (필요 시 사용)
     private fun observeFriends(myUid: String) {
-        userRepository.startObservingFriends(myUid)
+        friendRepository.startObservingFriends(myUid)
 
         viewModelScope.launch {
             // 그대로 수집해서 바로 할당!
-            userRepository.myFriends.collect { friends ->
+            friendRepository.myFriends.collect { friends ->
                 android.util.Log.d("FriendListDebug", "데이터 업데이트! 리스트 사이즈: ${friends.size}")
                 android.util.Log.d("FriendListViewModel", "친구 목록 수신: ${friends.size}명")
                 _friendList.value = friends
