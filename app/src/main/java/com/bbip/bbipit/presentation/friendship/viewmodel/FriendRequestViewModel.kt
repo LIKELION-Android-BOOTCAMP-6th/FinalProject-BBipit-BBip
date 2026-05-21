@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 
 
 @HiltViewModel
@@ -19,6 +21,9 @@ class FriendRequestViewModel @Inject constructor(
 
     private val _requestList = MutableStateFlow<List<User>>(emptyList())
     val requestList = _requestList.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
 
     init {
         loadPendingRequests()
@@ -39,20 +44,39 @@ class FriendRequestViewModel @Inject constructor(
     // 친구 요청 수락
     fun acceptFriendRequest(targetUid: String) {
         viewModelScope.launch {
+            _isLoading.value = true
+
             val result = userRepository.acceptFriendRequest(targetUid)
-            if (result is Result.Success) {
-                loadPendingRequests() // 성공 후 리스트 갱신
+
+            // 성공 처리
+            result.onSuccess {
+                loadPendingRequests() // 성공 시 리스트 갱신
             }
+
+                // 실패 처리
+                .onFailure { appError ->
+                    android.util.Log.e("FriendRequestViewModel", "수락 실패: ${appError.message}")
+                }
+            _isLoading.value = false
         }
     }
 
     // 친구 요청 거절
     fun rejectFriendRequest(targetUid: String) {
         viewModelScope.launch {
+            _isLoading.value = true
+
             val result = userRepository.declineFriendRequest(targetUid)
-            if (result is Result.Success) {
-                loadPendingRequests() // 성공 후 리스트 갱신
+
+            result.onSuccess {
+                // 거절 성공 시 리스트 갱신 (요청 목록에서 해당 유저가 사라짐)
+                loadPendingRequests()
+            }.onFailure { appError ->
+                // 실패 시 처리
+                android.util.Log.e("FriendRequestViewModel", "거절 실패: ${appError.message}")
             }
+
+            _isLoading.value = false
         }
     }
 }

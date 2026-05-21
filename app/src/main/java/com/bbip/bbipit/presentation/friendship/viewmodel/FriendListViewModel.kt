@@ -49,12 +49,11 @@ class FriendListViewModel @Inject constructor(
             _isLoading.value = false
         }
     }
-
     // 친구 요청 발송 함수
     fun sendFriendRequest(targetUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
-                // Callable 함수 호출
+                // 파이어베이스 Callable 함수 호출
                 val data = hashMapOf("targetUid" to targetUid)
 
                 val result = functions

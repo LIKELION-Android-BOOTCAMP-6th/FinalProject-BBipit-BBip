@@ -99,8 +99,14 @@ class UserRemoteDataSourceImpl @Inject constructor(
             .await()
 
         return snapshot.documents.map { doc ->
-            // Firestore 데이터를 User 객체로 변환
-            doc.toObject(User::class.java) ?: throw Exception("데이터 변환 실패")
+            val data = doc.data ?: emptyMap<String, Any>()
+            User(
+                id = doc.id, // 문서 ID가 친구의 UID라고 가정
+                nickname = data["nickname"] as? String ?: "",
+                profileImageUrl = data["profile_image_url"] as? String ?: "",
+                status = data["status"] as? String ?: "",
+                isOnline = data["is_online"] as? Boolean ?: false
+            )
         }
     }
 
