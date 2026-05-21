@@ -44,6 +44,10 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.domain.entity.Friend
 import com.bbip.bbipit.presentation.base.ShowToast
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.runtime.DisposableEffect
 
 @Composable
 fun FriendListScreen(
@@ -53,6 +57,19 @@ fun FriendListScreen(
     val friendList by viewModel.friendList.collectAsStateWithLifecycle()
 
     val requestCount by viewModel.requestCount.collectAsStateWithLifecycle()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // [추가] 화면이 다시 활성화될 때(ON_RESUME)마다 refreshAll() 호출
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshAll()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var showDialog by remember { mutableStateOf(false) }
 

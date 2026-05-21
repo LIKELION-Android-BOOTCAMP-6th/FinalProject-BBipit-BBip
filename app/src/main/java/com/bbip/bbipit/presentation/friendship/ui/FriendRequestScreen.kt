@@ -131,14 +131,14 @@ fun FriendRequestItem(
 
             // 버튼들은 Row 안에서 나란히 배치
             TextButton(onClick = onReject) {
-                Text("거절", style = Typography.bodyLarge, color = fontDefault)
+                Text("거절", style = Typography.bodyMedium, color = fontDefault)
             }
             Button(
                 onClick = onAccept,
                 colors = ButtonDefaults.buttonColors(containerColor = primary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("수락", style = Typography.bodyLarge, color = fontDefault)
+                Text("수락", style = Typography.bodyMedium, color = Color.White)
             }
         }
     }

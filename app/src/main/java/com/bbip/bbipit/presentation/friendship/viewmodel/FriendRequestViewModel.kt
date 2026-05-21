@@ -33,15 +33,33 @@ class FriendRequestViewModel @Inject constructor(
     // 요청 목록 불러오기
     private fun observePendingRequests() {
         viewModelScope.launch {
+            // 1. myFriends(이미 친구)를 보는 게 아니라, 요청 목록을 직접 가져오기
+            val result = userRepository.getPendingFriendRequests()
 
-            userRepository.myFriends.collect { friends ->
-                _requestList.value = friends.filter { it.status == "requested" }
+            result.onSuccess { users ->
+                // 2. 받아온 User 리스트를 Friend 리스트로 변환
+                val requestedFriends = users.map { user ->
+                    Friend(
+                        uid = user.id,
+                        nickname = user.nickname,
+                        profile_image_url = user.profileImageUrl,
+                        status = user.status,
+                        friendshipStatus = "requested" // 이 리스트는 무조건 요청 상태임
+                    )
+                }
+
+                _requestList.value = requestedFriends
+                android.util.Log.d("FriendRequestViewModel", "요청 목록 로드 성공: ${requestedFriends.size}명")
+            }.onFailure { error ->
+                android.util.Log.e("FriendRequestViewModel", "요청 목록 로드 실패: ${error.message}")
             }
         }
     }
 
     // 친구 요청 수락
     fun acceptFriendRequest(targetUid: String) {
+        _requestList.value = _requestList.value.filter { it.uid != targetUid }
+
         viewModelScope.launch {
             _isLoading.value = true
 
@@ -60,6 +78,8 @@ class FriendRequestViewModel @Inject constructor(
 
     // 친구 요청 거절
     fun rejectFriendRequest(targetUid: String) {
+        _requestList.value = _requestList.value.filter { it.uid != targetUid }
+
         viewModelScope.launch {
             _isLoading.value = true
 

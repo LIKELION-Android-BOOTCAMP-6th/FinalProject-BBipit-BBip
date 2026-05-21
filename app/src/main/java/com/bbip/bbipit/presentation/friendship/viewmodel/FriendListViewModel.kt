@@ -6,6 +6,8 @@ import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Friend
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +42,7 @@ class FriendListViewModel @Inject constructor(
         } else {
             android.util.Log.e("FriendListViewModel", "로그인된 사용자가 없음!") // 추가
         }
+
     }
 
     // 로딩 상태나 에러 처리를 위한 변수 (필요 시 사용)
@@ -47,17 +50,43 @@ class FriendListViewModel @Inject constructor(
         userRepository.startObservingFriends(myUid)
 
         viewModelScope.launch {
-            // 그대로 수집해서 바로 할당!
+            // userRepository.myFriends는 이제 'accepted'된 친구들만 들어있다고 가정합니다.
             userRepository.myFriends.collect { friends ->
-                android.util.Log.d("FriendListDebug", "데이터 업데이트! 리스트 사이즈: ${friends.size}")
-                android.util.Log.d("FriendListViewModel", "친구 목록 수신: ${friends.size}명")
-                _friendList.value = friends
+                // 1. accepted 상태인 친구들만 필터링하여 리스트에 할당
+                val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
+                android.util.Log.d("FriendListDebug", "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명")
+                _friendList.value = acceptedFriends
+            }
+        }
+        // 2. 요청 개수 가져오기 (요청 목록을 별도로 가져와서 개수만 세기)
+        fetchRequestCount()
+    }
 
-                // "requested"인 친구만 필터링해서 개수 저장
-                _requestCount.value = friends.count { it.status == "requested" }
+    private fun fetchRequestCount() {
+        viewModelScope.launch {
+            val result = userRepository.getPendingFriendRequests()
+            result.onSuccess { users ->
+                _requestCount.value = users.size
+                android.util.Log.d("FriendListViewModel", "요청 개수 업데이트: ${users.size}개")
+            }.onFailure {
+                android.util.Log.e("FriendListViewModel", "요청 개수 로드 실패")
             }
         }
     }
+
+    fun refreshAll() {
+        android.util.Log.d("FriendListViewModel", "전체 데이터 새로고침 시작")
+
+        // 1. 요청 개수 갱신
+        fetchRequestCount()
+
+        // 2. 친구 목록 옵저빙 재시작 (필요한 경우)
+        val myUid = auth.currentUser?.uid
+        if (myUid != null) {
+            userRepository.startObservingFriends(myUid)
+        }
+    }
+
 
     // 친구 요청 발송 함수
     fun sendFriendRequest(targetUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
