@@ -71,11 +71,7 @@ fun NotificationBanner(
                 detectDragGestures(
                     onDragEnd = {
                         if (offsetY.value < -100f) {
-                            coroutineScope.launch {
-                                launch { offsetY.animateTo(-300f) }
-                                launch { alpha.animateTo(0f) }
-                                onDismiss()
-                            }
+                            onDismiss()
                         } else {
                             coroutineScope.launch {
                                 launch { offsetY.animateTo(0f) }

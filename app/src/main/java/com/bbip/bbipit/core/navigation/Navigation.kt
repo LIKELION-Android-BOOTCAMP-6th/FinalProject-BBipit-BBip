@@ -15,11 +15,13 @@ import com.bbip.bbipit.presentation.map.ui.MapScreen
 import com.bbip.bbipit.presentation.mypage.EditProfileScreen
 import com.bbip.bbipit.presentation.mypage.MyPageScreen
 import com.bbip.bbipit.presentation.notification.NotificationScreen
+import com.bbip.bbipit.presentation.notification.NotificationViewModel
 
 @Composable
 fun BBipItNavigation(
     navController: NavHostController,
-    authRepository: AuthRepository
+    authRepository: AuthRepository,
+    notificationViewModel: NotificationViewModel
 ){
 
     val isLogin = authRepository.isAutoLogin()
@@ -34,7 +36,7 @@ fun BBipItNavigation(
         composable<Routes.Map> { MapScreen(navController) }
         composable<Routes.MyPage> { MyPageScreen(navController) }
         composable<Routes.ChatList> { ChatListScreen(navController) }
-        composable<Routes.Notification> { NotificationScreen(navController) }
+        composable<Routes.Notification> { NotificationScreen(navController, notificationViewModel)}
         composable<Routes.ChatRoom> { ChatDetailScreen(navController) }
         composable<Routes.EditProfile> { EditProfileScreen(navController) }
         composable<Routes.FriendList> { FriendListScreen(navController) }
