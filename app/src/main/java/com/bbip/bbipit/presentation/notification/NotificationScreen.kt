@@ -65,120 +65,119 @@ fun NotificationScreen(
         }
     }
 
-        Scaffold(
-            containerColor = background,
+    Scaffold(
+        containerColor = background,
+        modifier = Modifier.fillMaxSize()
+    ) { innerPadding ->
+        Column(
             modifier = Modifier.fillMaxSize()
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                NotificationHeader(
-                    onReadAll = { viewModel.onReadAllClick() },
-                    onAddTestClick = { type -> viewModel.createTestNotification(type) }
+        ) {
+            NotificationHeader(
+                onReadAll = { viewModel.onReadAllClick() },
+                onAddTestClick = { type -> viewModel.createTestNotification(type) }
+            )
+            Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
+                Spacer(modifier = Modifier.height(16.dp))
+                NotificationFilterBar(
+                    selected = selectedFilter,
+                    onSelect = { selectedFilter = it }
                 )
-                Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    NotificationFilterBar(
-                        selected = selectedFilter,
-                        onSelect = { selectedFilter = it }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            val listState = rememberLazyListState()
+
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 20.dp,
+                    bottom = innerPadding.calculateBottomPadding()
+                )
+            ) {
+                items(items = filteredList, key = { it.id }) { item ->
+                    @Suppress("DEPRECATION")
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = {
+                            if (it == SwipeToDismissBoxValue.EndToStart) {
+                                viewModel.markAsReadAndDelete(item.id)
+                                true
+                            } else false
+                        }
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
 
-                val listState = rememberLazyListState()
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        backgroundContent = {
+                            val progress = dismissState.progress
+                            val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(
-                        start = 20.dp,
-                        end = 20.dp,
-                        bottom = innerPadding.calculateBottomPadding()
-                    )
-                ) {
-                    items(items = filteredList, key = { it.id }) { item ->
-                        @Suppress("DEPRECATION")
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = {
-                                if (it == SwipeToDismissBoxValue.EndToStart) {
-                                    viewModel.markAsReadAndDelete(item.id)
-                                    true
-                                } else false
-                            }
-                        )
+                            if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
 
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                val progress = dismissState.progress
-                                val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+                            val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
+                            val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
 
-                                if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
-
-                                val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
-                                val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
-
-                                Box(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Color.Red.copy(alpha = bgAlpha),
-                                            RoundedCornerShape(20.dp)
-                                        )
-                                        .padding(start = 20.dp, end = 20.dp),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = iconAlpha)
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Color.Red.copy(alpha = bgAlpha),
+                                        RoundedCornerShape(20.dp)
                                     )
+                                    .padding(start = 20.dp, end = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = iconAlpha)
+                                )
+                            }
+                        },
+                        enableDismissFromStartToEnd = false
+                    ) {
+                        NotificationCard(
+                            item = item,
+                            currentTime = currentTime,
+                            readAllClicked = isReadAllClicked,
+                            isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
+                            isLocalRead = readIds.contains(item.id),
+                            onClick = {
+                                if (item.type == "DM") {
+                                    viewModel.markAsRead(item.id)
+                                    navController.navigate(Routes.ChatRoom(roomId = item.roomId))
                                 }
-                            },
-                            enableDismissFromStartToEnd = false
-                        ) {
-                            NotificationCard(
-                                item = item,
-                                currentTime = currentTime,
-                                readAllClicked = isReadAllClicked,
-                                isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
-                                isLocalRead = readIds.contains(item.id),
-                                onClick = {
-                                    if (item.type == "DM") {
+                                else if (item.type == "WALKIE") {
+                                    val alreadyExpired = item.isRead || item.isExpired || expiredVoiceIds.contains(item.id)
+                                    if (!alreadyExpired) {
                                         viewModel.markAsRead(item.id)
-                                        navController.navigate(Routes.ChatRoom(roomId = item.roomId))
-                                    }
-                                    else if (item.type == "WALKIE") {
-                                        val alreadyExpired = item.isRead || item.isExpired || expiredVoiceIds.contains(item.id)
-                                        if (!alreadyExpired) {
-                                            viewModel.markAsRead(item.id)
-                                            viewModel.setVoiceExpired(item.id)
-                                            Toast.makeText(
-                                                navController.context,
-                                                "무전을 확인합니다.",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
-                                    else if (item.type == "REQ") {
-                                        viewModel.markAsRead(item.id)
+                                        viewModel.setVoiceExpired(item.id)
                                         Toast.makeText(
                                             navController.context,
-                                            "친구요청을 확인합니다.",
+                                            "무전을 확인합니다.",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 }
-                            )
-                        }
+                                else if (item.type == "REQ") {
+                                    viewModel.markAsRead(item.id)
+                                    Toast.makeText(
+                                        navController.context,
+                                        "친구요청을 확인합니다.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        )
                     }
                 }
             }
         }
+    }
 }
 
 @Composable
@@ -277,7 +276,7 @@ fun NotificationCard(
                     style = Typography.bodySmall,
                     fontSize = 11.sp,
                     color = bottomBarBack
-                )}
+                )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -287,7 +286,7 @@ fun NotificationCard(
             }
         }
     }
-
+}
 
 @Composable
 fun StatusBadge(text: String, color: Color) {
@@ -311,38 +310,38 @@ fun NotificationHeader(onReadAll: () -> Unit, onAddTestClick: (String) -> Unit) 
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(start = 16.dp, end = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "알림", style = Typography.bodyLarge)
-            Text(
-                text = "전체 확인",
-                modifier = Modifier.clickable { onReadAll() },
-                style = Typography.bodySmall,
-                fontWeight = FontWeight.Bold,
-                color = primary
-            )
-        }
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "알림", style = Typography.bodyLarge)
+                Text(
+                    text = "전체 확인",
+                    modifier = Modifier.clickable { onReadAll() },
+                    style = Typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = primary
+                )
+            }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(text = "[+ DM 추가]", color = Color.Blue, fontSize = 10.sp, modifier = Modifier.clickable { onAddTestClick("DM") })
-            Text(text = "[+ 무전 추가]", color = Color.Magenta, modifier = Modifier.clickable { onAddTestClick("WALKIE") })
-            Text(text = "[+ 친구 추가]", color = Color.DarkGray, modifier = Modifier.clickable { onAddTestClick("REQ") })
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text = "[+ DM 추가]", color = Color.Blue, fontSize = 15.sp, modifier = Modifier.clickable { onAddTestClick("DM") })
+                Text(text = "[+ 무전 추가]", color = Color.Magenta, fontSize = 15.sp, modifier = Modifier.clickable { onAddTestClick("WALKIE") })
+                Text(text = "[+ 친구 추가]", color = Color.DarkGray, fontSize = 15.sp, modifier = Modifier.clickable { onAddTestClick("REQ") })
+            }
         }
     }
 }
-
-
 
 @Composable
 fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {

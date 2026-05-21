@@ -90,17 +90,6 @@ class NotificationRepositoryImpl @Inject constructor(
                     Log.d("NotificationRepo", "실시간 알림 스트림 갱신: ${items.size}건")
                 }
             }
-
-                /*if (snapshot != null) {
-                    val items = snapshot.documents.mapNotNull { doc ->
-                        val dto = doc.toObject(NotificationDto::class.java)
-                        dto?.toEntity(doc.id)
-                    }
-                    trySend(items)
-                    Log.d("NotificationRepo", "실시간 알림 스트림 갱신: ${items.size}건")
-                }
-            }
-*/
             awaitClose { listener.remove() }
         }
     }

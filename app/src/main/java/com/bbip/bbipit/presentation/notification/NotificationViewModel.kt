@@ -17,7 +17,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -71,9 +70,10 @@ class NotificationViewModel @Inject constructor(
                 notificationRepository.observeNotification(currentUserId)
                     .collect { liveNotifications ->
 
-                        val safeNotifications = liveNotifications.filter {
-                            it.id !in _deletedIds.value
-                        }
+                        // 삭제된 알림 제외 및 최신순(createdAt 내림차순) 정렬
+                        val safeNotifications = liveNotifications
+                            .filter { it.id !in _deletedIds.value }
+                            .sortedByDescending { it.createdAt }
 
                         if (!isInitialLoad) {
                             val newlyAdded = safeNotifications.filter { new ->
@@ -81,9 +81,13 @@ class NotificationViewModel @Inject constructor(
                             }
 
                             if (newlyAdded.isNotEmpty()) {
+                                // 새로 들어온 알림 중 가장 최신 것 탐색
                                 val brandNew = newlyAdded.maxByOrNull { it.createdAt }
                                 if (brandNew != null && !brandNew.isRead) {
-                                    Log.d("NotificationVM", "배너 트리거: ${brandNew.type}, id: ${brandNew.id}")
+                                    Log.d(
+                                        "NotificationVM",
+                                        "배너 트리거: ${brandNew.type}, id: ${brandNew.id}"
+                                    )
                                     triggerInAppBanner(brandNew)
                                 }
                             }
@@ -92,7 +96,10 @@ class NotificationViewModel @Inject constructor(
                             Log.d("NotificationVM", "초기 로드 완료 — 이후 새 알림부터 배너 표시")
                         }
 
-                        Log.d("NotificationVM", "전체: ${liveNotifications.size}, 필터 후: ${safeNotifications.size}")
+                        Log.d(
+                            "NotificationVM",
+                            "전체: ${liveNotifications.size}, 정렬 후: ${safeNotifications.size}"
+                        )
                         _notification.value = safeNotifications
                     }
             } catch (e: Exception) {
@@ -101,12 +108,12 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    private fun triggerInAppBanner(noti: Notification) {
+    private fun triggerInAppBanner(notification: Notification) {
         viewModelScope.launch {
-            _latestInAppNotification.value = noti
+            _latestInAppNotification.value = notification
             _showInAppBanner.value = true
 
-            showSystemNotification(noti)
+            showSystemNotification(notification)
         }
     }
 
@@ -124,7 +131,8 @@ class NotificationViewModel @Inject constructor(
             }
 
             // 시스템에 채널 등록
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
 
@@ -144,12 +152,14 @@ class NotificationViewModel @Inject constructor(
             .setAutoCancel(true)
 
         // 3. 알림 발생시키기
-        try {
-            with(androidx.core.app.NotificationManagerCompat.from(context)) {
-                notify(notification.id.hashCode(), builder.build())
+        if (notification.type != "WALKIE") {
+            try {
+                with(androidx.core.app.NotificationManagerCompat.from(context)) {
+                    notify(notification.id.hashCode(), builder.build())
+                }
+            } catch (e: SecurityException) {
+                Log.e("NotificationVM", "알림 권한이 거부되어 팝업을 띄울 수 없습니다: ${e.message}")
             }
-        } catch (e: SecurityException) {
-            Log.e("NotificationVM", "알림 권한이 거부되어 팝업을 띄울 수 없습니다: ${e.message}")
         }
     }
 
@@ -159,7 +169,8 @@ class NotificationViewModel @Inject constructor(
 
     // 현재 기기의 네트워크 연결 상태를 체크하는 함수
     private fun isNetworkAvailable(): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connectivityManager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
         return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
@@ -201,7 +212,9 @@ class NotificationViewModel @Inject constructor(
 
     fun markAsRead(id: String) {
         if (currentUserId.isEmpty()) return
-        if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
+        if (!isNetworkAvailable()) {
+            showNetworkErrorToast(); return
+        }
 
         _readIds.value += id
 
@@ -254,19 +267,20 @@ class NotificationViewModel @Inject constructor(
         val testData = hashMapOf(
             "id" to generatedId,
             "type" to type,
-            "senderName" to when(type) {
+            "senderName" to when (type) {
                 "DM" -> "홍길동(DM)"
                 "WALKIE" -> "김철수(무전)"
                 else -> "이영희(친구요청)"
             },
-            "content" to when(type) {
+            "content" to when (type) {
                 "DM" -> "지금 뭐해? 메시지 보냄!"
                 "WALKIE" -> "치익- 무전을 보냈습니다."
                 else -> "친구 요청을 보냈습니다."
             },
             "is_read" to false,
             // 🚨 숫자가 아닌 파이어베이스 순정 Timestamp 객체를 삽입합니다.
-            "created_at" to com.google.firebase.Timestamp.now(),            "roomId" to if (type == "DM") "test_room_123" else "",
+            "created_at" to com.google.firebase.Timestamp.now(),
+            "roomId" to if (type == "DM") "test_room_123" else "",
             "isExpired" to false,
             "expiresAt" to if (type == "WALKIE") System.currentTimeMillis() + (3 * 60 * 60 * 1000L) else 0L
         )
