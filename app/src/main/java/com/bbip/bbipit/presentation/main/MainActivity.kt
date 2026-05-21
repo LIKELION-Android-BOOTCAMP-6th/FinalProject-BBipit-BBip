@@ -8,13 +8,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -33,7 +31,6 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.bbip.bbipit.core.base.AppLifecycleObserver
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
-import com.bbip.bbipit.presentation.notification.NotificationBannerHost
 import com.bbip.bbipit.presentation.notification.NotificationViewModel
 
 // 파이어베이스 App Check 관련 임포트 추가
@@ -43,7 +40,6 @@ import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     @Inject
     lateinit var authRepository: AuthRepository
     @Inject
@@ -118,13 +114,13 @@ class MainActivity : ComponentActivity() {
                             notificationViewModel = notificationViewModel
                         )
 
-                        // 전역 음성 수신 오버레이 패널 (바텀 네비게이션 상단 배치 목적)
+                        // 전역 음성 수신 오버레이 패널 (바텀 네비게이션 상단 배치)
                         VoicePlayerScreen(
                             viewModel = voicePlayerViewModel,
                             modifier = Modifier
-                                .align(Alignment.BottomCenter) // 화면 하단 중앙 정렬
+                                .align(Alignment.BottomCenter)
                                 .padding(
-                                    // 바텀바가 표시 중일 때만 바텀바의 높이(calculateBottomPadding)만큼 하단 여백을 줍니다.
+                                    // 바텀바가 표시 중일 때만 바텀바의 높이만큼 하단 여백
                                     bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 100.dp
                                 )
                         )

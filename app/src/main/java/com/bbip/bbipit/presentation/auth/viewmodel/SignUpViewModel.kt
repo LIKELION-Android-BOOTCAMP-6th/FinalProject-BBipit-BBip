@@ -9,6 +9,7 @@ import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,7 +85,7 @@ class SignUpViewModel @Inject constructor(
             authRepository.signUpWithEmail(_uiState.value.email, _uiState.value.password, _uiState.value.name)
                 .onSuccess {
                     onUpdateLoading(false)
-                    userRepository.updateProfile(nickname = _uiState.value.name)
+                    //userRepository.updateProfile(nickname = _uiState.value.name)
                     onUpdateNotiShown(true)
                 }
                 .onFailure { exception ->

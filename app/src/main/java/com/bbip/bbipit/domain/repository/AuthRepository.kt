@@ -33,4 +33,7 @@ interface AuthRepository {
     suspend fun getTerms(type: TermsType): Result<String>
 
     fun isAutoLogin() : Boolean
+    fun isEmailVerified(): Boolean
+
+    fun signOut()
 }
