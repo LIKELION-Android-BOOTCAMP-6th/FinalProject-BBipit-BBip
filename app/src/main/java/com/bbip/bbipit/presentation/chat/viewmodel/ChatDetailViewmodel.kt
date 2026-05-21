@@ -15,10 +15,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 
 @HiltViewModel // Hilt 어노테이션
 class ChatDetailViewModel @Inject constructor(
-    private val chatRepository: ChatRepository // 리포지토리 가져오기
+    private val chatRepository: ChatRepository, // 리포지토리 가져오기
+    private val auth: com.google.firebase.auth.FirebaseAuth
 ) : ViewModel() {
 
-    private val myUid: String = "Wy102dzyw4buC0V6YJuqxjtf6qA2"
+    private val myUid: String
+        get() = auth.currentUser?.uid ?: ""
+
     // UI 상태 관리
     private val _uiState = MutableStateFlow(ChatDetailUiState())
     val uiState: StateFlow<ChatDetailUiState> = _uiState.asStateFlow()
@@ -37,6 +40,7 @@ class ChatDetailViewModel @Inject constructor(
             chatRepository.observeMessages(roomId).collect { domainMessages ->
 
                 // 도메인 엔티티(ChatMessage) 리스트를 UI용 모델(MessageItem) 리스트로 맵 변환
+                // 엔티티에 추가해서 사용하기
                 val uiMessageItems = domainMessages.map { chatMessage ->
                     MessageItem(
                         id = chatMessage.id,

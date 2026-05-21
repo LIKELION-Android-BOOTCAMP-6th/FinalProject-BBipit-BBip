@@ -24,6 +24,9 @@ import androidx.navigation.NavController
 import com.bbip.bbipit.core.ui.theme.background
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.fontDefault
+import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendRequestViewModel
 
 
@@ -51,15 +54,30 @@ fun FriendRequestScreen(
             Text("친구 요청 수락", fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
 
+
         // 요청 목록
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(requestList) { request ->
-                FriendRequestItem(
-                    nickname = request.nickname,
-                    profileImageUrl = request.profileImageUrl,
-                    onAccept = { viewModel.acceptFriendRequest(request.id) },
-                    onReject = { viewModel.rejectFriendRequest(request.id) }
+        if (requestList.isEmpty()) {
+            // 리스트가 비어있을 때 보여줄 UI
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "받은 친구 요청이 없습니다.",
+                    fontSize = 16.sp,
+                    color = Color.Gray
                 )
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(requestList) { friend -> // request 대신 friend 사용
+                    FriendRequestItem(
+                        nickname = friend.nickname,
+                        profileImageUrl = friend.profile_image_url, // 'model' 파라미터가 아니라 정의된 이름 사용
+                        onAccept = { viewModel.acceptFriendRequest(friend.uid) }, // request.id -> friend.uid
+                        onReject = { viewModel.rejectFriendRequest(friend.uid) }  // request.id -> friend.uid
+                    )
+                }
             }
         }
     }
@@ -113,14 +131,14 @@ fun FriendRequestItem(
 
             // 버튼들은 Row 안에서 나란히 배치
             TextButton(onClick = onReject) {
-                Text("거절", color = Color.Gray)
+                Text("거절", style = Typography.bodyLarge, color = fontDefault)
             }
             Button(
                 onClick = onAccept,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                colors = ButtonDefaults.buttonColors(containerColor = primary),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("수락")
+                Text("수락", style = Typography.bodyLarge, color = fontDefault)
             }
         }
     }

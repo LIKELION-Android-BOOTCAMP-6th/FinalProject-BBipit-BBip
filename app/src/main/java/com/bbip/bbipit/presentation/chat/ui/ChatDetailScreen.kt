@@ -294,8 +294,6 @@ fun MessageBubble(
     onDeleteClick: (MessageItem) -> Unit = {} // 실패한 메세지 삭제 콜백
 ) {
 
-    // 토스트를 띄우기 위한 현재 화면의 Context 가져오기
-    val context = androidx.compose.ui.platform.LocalContext.current
     // 안드로이드 시스템 클립보드 매니저
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
@@ -304,6 +302,8 @@ fun MessageBubble(
     val textColor = if (message.isMine) Color.White else Color.Black
 
     var showMenu by remember { mutableStateOf(false) }
+
+    var showCopyToast by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -407,11 +407,7 @@ fun MessageBubble(
                             showMenu = false // 메뉴 닫기
 
                             // 하단 토스트 메시지 띄우기
-                            android.widget.Toast.makeText(
-                                context,
-                                "메시지가 복사되었습니다.",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            showCopyToast = true
                         },
                         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 6.dp)
                     )
@@ -422,6 +418,13 @@ fun MessageBubble(
                 Spacer(modifier = Modifier.width(4.dp))
                 MessageStatusSection(message)
             }
+        }
+    }
+    if (showCopyToast) {
+        // 공통 컴포넌트 호출
+        com.bbip.bbipit.presentation.base.ShowToast(message = "메시지가 복사되었습니다.")
+        LaunchedEffect(Unit) {
+            showCopyToast = false
         }
     }
 }
