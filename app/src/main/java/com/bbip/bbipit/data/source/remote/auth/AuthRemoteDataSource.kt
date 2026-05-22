@@ -7,9 +7,6 @@ import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
 interface AuthRemoteDataSource {
-    suspend fun loginWithKakao(): String
-//    suspend fun loginWithGoogle(appContext: Context): String?
-    suspend fun loginWithGoogle(): String?
     suspend fun signInWithCustomToken(accessToken: String, type: LoginType)
     suspend fun signOutGoogle()
     suspend fun signOutKakao()
