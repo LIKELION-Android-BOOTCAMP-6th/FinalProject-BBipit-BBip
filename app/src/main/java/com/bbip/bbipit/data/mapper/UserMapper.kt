@@ -16,7 +16,8 @@ fun UserDto.toDomain(id: String): User = User(
     isOnline = isOnline,
     fcmToken = fcmToken,
     lastActive = lastActive?.toDate()?.time ?: 0L,
-    friendUids = friendUids
+    friendUids = friendUids,
+    loginType = loginType
 )
 
 /**
@@ -30,7 +31,8 @@ fun User.toDto(): UserDto = UserDto(
     isOnline = isOnline,
     fcmToken = fcmToken,
     lastActive = if (lastActive != 0L) Timestamp(java.util.Date(lastActive)) else null,
-    friendUids = friendUids
+    friendUids = friendUids,
+    loginType = loginType
 )
 
 /**
@@ -46,6 +48,7 @@ fun Map<String, Any>.toDomain(): User {
         isOnline = this["is_online"] as? Boolean ?: false,
         fcmToken = "", // 보안상 Functions에서 제외됨
         lastActive = (this["last_active"] as? Number)?.toLong() ?: 0L,
-        friendUids = emptyList() // 보안상 Functions에서 제외됨
+        friendUids = emptyList(), // 보안상 Functions에서 제외됨
+        loginType = ""
     )
 }

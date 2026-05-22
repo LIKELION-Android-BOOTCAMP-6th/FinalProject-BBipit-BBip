@@ -35,7 +35,7 @@ class FriendRequestViewModel @Inject constructor(
     private fun observePendingRequests() {
         viewModelScope.launch {
             // 1. myFriends(이미 친구)를 보는 게 아니라, 요청 목록을 직접 가져오기
-            val result = userRepository.getPendingFriendRequests()
+            val result = friendRepository.getPendingFriendRequests()
 
             result.onSuccess { users ->
                 // 2. 받아온 User 리스트를 Friend 리스트로 변환
@@ -50,12 +50,16 @@ class FriendRequestViewModel @Inject constructor(
                 }
 
                 _requestList.value = requestedFriends
-                android.util.Log.d("FriendRequestViewModel", "요청 목록 로드 성공: ${requestedFriends.size}명")
+                android.util.Log.d(
+                    "FriendRequestViewModel",
+                    "요청 목록 로드 성공: ${requestedFriends.size}명"
+                )
             }.onFailure { error ->
                 android.util.Log.e("FriendRequestViewModel", "요청 목록 로드 실패: ${error.message}")
 
-            friendRepository.myFriends.collect { friends ->
-                _requestList.value = friends.filter { it.status == "requested" }
+                friendRepository.myFriends.collect { friends ->
+                    _requestList.value = friends.filter { it.status == "requested" }
+                }
             }
         }
     }
