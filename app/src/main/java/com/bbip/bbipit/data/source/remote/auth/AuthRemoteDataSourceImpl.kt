@@ -2,10 +2,13 @@ package com.bbip.bbipit.data.source.remote.auth
 
 import android.content.Context
 import android.util.Log
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.GetCredentialException
 import com.bbip.bbipit.R
+import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -46,6 +49,8 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     private val firebaseFunctions: FirebaseFunctions,
     private val credentialManager: CredentialManager
 ) : AuthRemoteDataSource {
+    val userClient = UserApiClient.instance
+
     override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
     // 카카오 로그인
     override suspend fun loginWithKakao(): String = suspendCancellableCoroutine { continuation ->
@@ -61,7 +66,6 @@ class AuthRemoteDataSourceImpl @Inject constructor(
                 }
             }
         }
-        val userClient = UserApiClient.instance
         if (userClient.isKakaoTalkLoginAvailable(context)){
             userClient.loginWithKakaoTalk(context) { token, error ->
                 if(error != null){
@@ -127,6 +131,25 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         }
     }
 
+    override suspend fun signOutGoogle() {
+        try {
+            val clearRequest = ClearCredentialStateRequest()
+            credentialManager.clearCredentialState(clearRequest)
+        } catch (e: ClearCredentialException){
+            e.printStackTrace()
+            Log.e("Google Logout ERROR", e.message.toString())
+        }
+
+    }
+
+    override suspend fun signOutKakao() = suspendCancellableCoroutine<Unit> { continuation ->
+        userClient.logout { error ->
+            if (error != null)
+                Log.e("Kakao Logout", error.message.toString())
+            continuation.resume(Unit) //카카오 로그아웃은 성공 여부와 상관 없이 무조건 토큰 삭제함
+        }
+    }
+
     // 이메일 회원가입
     override suspend fun signUpWithEmail(email: String, password: String, nickname: String): AuthResult {
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
@@ -181,6 +204,9 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     }
 
     override fun isEmailVerified(): Boolean {
-        return firebaseAuth.currentUser?.isEmailVerified ?: false
+        val user = firebaseAuth.currentUser?: return false
+        val provider = user.providerData.map { it.providerId }
+        return if (provider.contains(LoginType.GOOGLE.provider) || provider.contains(LoginType.KAKAO.provider)) true
+                else user.isEmailVerified
     }
 }

@@ -2,6 +2,7 @@ package com.bbip.bbipit.domain.repository
 
 import android.content.Context
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.TermsType
 import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
@@ -35,5 +36,5 @@ interface AuthRepository {
     fun isAutoLogin() : Boolean
     fun isEmailVerified(): Boolean
 
-    fun signOut()
+    suspend fun signOut(type: LoginType = LoginType.EMAIL)
 }
