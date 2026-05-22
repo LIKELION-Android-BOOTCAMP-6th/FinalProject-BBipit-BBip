@@ -1,13 +1,13 @@
-package com.bbip.bbipit.presentation.notification
+package com.bbip.bbipit.presentation.notification.viewmodel
 
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import android.widget.Toast
+import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bbip.bbipit.R
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
@@ -19,8 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Date
 import javax.inject.Inject
-import androidx.core.content.edit
 
 @HiltViewModel
 class NotificationViewModel @Inject constructor(
@@ -57,7 +57,9 @@ class NotificationViewModel @Inject constructor(
                     Log.d("NotificationVM", "id: ${it.id}, isRead: ${it.isRead}, type: ${it.type}")
                 }
                 // 데이터 정렬
-                _notification.value = liveNotifications.sortedByDescending { it.createdAt }
+                _notification.value = liveNotifications
+                    .sortedByDescending { it.createdAt }
+                    .toList()
             }
         }
     }
@@ -176,10 +178,10 @@ class NotificationViewModel @Inject constructor(
                 else -> "친구 요청을 보냈습니다."
             },
             "is_read" to false,
-            "created_at" to Timestamp.now(),
+            "created_at" to Timestamp.Companion.now(),
             "room_id" to if (type == "DM") "test_room_123" else null,
             "expires_at" to if (type == "WALKIE") Timestamp(
-                java.util.Date(System.currentTimeMillis() + (3 * 60 * 60 * 1000L))
+                Date(System.currentTimeMillis() + (3 * 60 * 60 * 1000L))
             ) else null
         )
 

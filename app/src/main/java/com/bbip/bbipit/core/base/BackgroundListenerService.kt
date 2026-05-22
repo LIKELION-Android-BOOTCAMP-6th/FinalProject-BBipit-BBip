@@ -699,11 +699,20 @@ class BackgroundListenerService : Service() {
             else -> notification.content
         }
 
-        // 배너 클릭 시 MainActivity로 전달할 Intent 구성
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("notification_type", notification.type)
-            putExtra("notification_room_id", notification.roomId)
+        //배너 클릭 시 Intent
+        val intent = when (notification.type) {
+            "DM" -> Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("notification_type", "DM")
+                putExtra("notification_room_id", notification.roomId)
+            }
+            "REQ" -> Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("notification_type", "REQ")
+            }
+            else -> Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
         }
 
         // 알림 클릭 시 Intent

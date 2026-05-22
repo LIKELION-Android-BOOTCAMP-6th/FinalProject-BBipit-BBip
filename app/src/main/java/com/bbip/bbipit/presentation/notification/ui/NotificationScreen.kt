@@ -1,6 +1,5 @@
-package com.bbip.bbipit.presentation.notification
+package com.bbip.bbipit.presentation.notification.ui
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,14 +16,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,8 +30,9 @@ import com.bbip.bbipit.core.ui.theme.*
 import com.bbip.bbipit.domain.entity.Notification
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
+import kotlinx.coroutines.delay
 
 // 전체 레이아웃 / 필터링된 리스트 관리 등
 @Composable
@@ -46,7 +43,7 @@ fun NotificationScreen(
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while(true) {
-            kotlinx.coroutines.delay(60000) // 1분 대기
+            delay(60000) // 1분 대기
             currentTime = System.currentTimeMillis() // 현재 시간 갱신
         }
     }
@@ -70,7 +67,9 @@ fun NotificationScreen(
         modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding().padding(bottom = 68.dp),
         ) {
             NotificationHeader(
                 onReadAll = { viewModel.onReadAllClick() },
@@ -86,6 +85,12 @@ fun NotificationScreen(
             }
 
             val listState = rememberLazyListState()
+
+            LaunchedEffect(filteredList.size) {
+                if (filteredList.isNotEmpty()) {
+                    listState.animateScrollToItem(0)
+                }
+            }
 
             LazyColumn(
                 state = listState,
