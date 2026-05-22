@@ -46,6 +46,8 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
     private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
 
+    private val TAG = "WatchAudioSender"
+
     init {
         messageClient.addListener(this)
     }
@@ -78,6 +80,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
      * 오디오 전송 프로세스 시작
      */
     fun startVoiceTransmission(
+        targetUid: String,
         onStartSuccess: () -> Unit,
         onStartFailure: () -> Unit
     ) {
@@ -108,7 +111,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                 }
 
                 // 폰 응답 대기
-                withTimeoutOrNull(1500) {
+                withTimeoutOrNull(3000) {
                     while (isWaitingForReply) { delay(50) }
                 }
 
@@ -120,10 +123,12 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                     return@launch
                 }
 
-                Log.d("WatchAudioSender", "휴대폰 통신 확인 완료. 오디오 스트리밍을 시작합니다.")
+                Log.d(TAG, "휴대폰 통신 확인 완료. 오디오 스트리밍을 시작합니다.")
 
+                // 채널 오픈 시 고정 경로 대신 수신 대상 유저의 UID를 경로 뒤에 결합하여 개방
+                val channelPath = "/audio_stream/$targetUid"
                 // 채널 오픈 및 스트림 바인딩
-                val channel = channelClient.openChannel(phoneNode.id, "/audio_stream").await()
+                val channel = channelClient.openChannel(phoneNode.id, channelPath).await()
                 val outputStream = channelClient.getOutputStream(channel).await()
 
                 currentChannel = channel
@@ -141,7 +146,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                                 currentOutputStream?.write(readBuffer, 0, readBytes)
                             }
                         } catch (e: Exception) {
-                            Log.e("WatchAudioSender", "스트리밍 중 에러 발생: ${e.message}")
+                            Log.e(TAG, "스트리밍 중 에러 발생: ${e.message}")
                             break
                         }
                     }
@@ -150,7 +155,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                 withContext(Dispatchers.Main) { onStartSuccess() }
 
             } catch (e: Exception) {
-                Log.e("WatchAudioSender", "오디오 스트리밍 전반적 실패: ${e.message}", e)
+                Log.e(TAG, "오디오 스트리밍 전반적 실패: ${e.message}", e)
                 cleanUpResources()
                 withContext(Dispatchers.Main) { onStartFailure() }
             }
@@ -161,9 +166,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
      * 오디오 전송 중단 및 자원 정리
      */
     fun stopVoiceTransmission() {
-        streamingJob?.cancel()
-        streamingJob = null
-
+        // 마이크 입력은 즉시 중단하여 추가적인 노이즈나 무음이 들어오지 않게 차단
         try {
             audioRecord?.let {
                 if (it.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -172,13 +175,28 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                 it.release()
             }
         } catch (e: Exception) {
-            Log.e("WatchAudioSender", "AudioRecord 해제 실패", e)
-        } finally {
-            audioRecord = null
+            Log.e(TAG, "AudioRecord stop 실패", e)
         }
 
+        // 백그라운드 IO 스코프에서 채널 내 잔여 데이터 전송 시간을 벌어준 뒤 최종 자원을 해제
         CoroutineScope(Dispatchers.IO).launch {
-            cleanUpResources()
+            try {
+                // 🔥 [수정] 4.5초 제한 타이머 등으로 강제 차단 시 대용량 PCM 데이터 유실을 방지하기 위해 1.5초 대기
+                delay(1500)
+
+                // 스트리밍 루프 취소
+                streamingJob?.cancel()
+                streamingJob = null
+
+                // 마이크 리소스 최종 해제
+                audioRecord?.release()
+                audioRecord = null
+
+                // 채널 및 스트림 close
+                cleanUpResources()
+            } catch (e: Exception) {
+                Log.e(TAG, "오디오 중단 파이프라인 처리 중 에러", e)
+            }
         }
     }
 
@@ -195,7 +213,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                 runCatching { channelClient.close(channel).await() }
             }
         } catch (e: Exception) {
-            Log.e("WatchAudioSender", "자원 정리 중 에러", e)
+            Log.e(TAG, "자원 정리 중 에러", e)
         } finally {
             currentOutputStream = null
             currentChannel = null

@@ -403,19 +403,29 @@ class BackgroundListenerService : Service() {
      * 워치 송신 원격 입력 스트림 채널 개방, 캐시 파일 임시 저장, 완료 시 파일 변환 파이프라인 위임 함수
      */
     private fun receiveWatchAudio(channel: Channel) {
-        Log.d("AudioService", "워치 음성 채널 연결 및 데이터 수신 시작")
+        Log.d("AudioService", "워치 음성 채널 연결 및 데이터 수신 시작, 경로: ${channel.path}")
         scope.launch {
-            try {
-                val pcmFile = File(cacheDir, "walkie_talkie.pcm")
-                val m4aFile = File(cacheDir, "walkie_talkie.m4a")
+            val pcmFile = File(cacheDir, "walkie_talkie.pcm")
+            val m4aFile = File(cacheDir, "walkie_talkie.m4a")
+            val startTime = System.currentTimeMillis()
 
+                // 채널 경로에서 타겟 대상의 고유 UID 식별자를 온전하게 파싱
+                val targetUid = channel.path.substringAfter("/audio_stream/", "").trim()
+
+                // 채널 경로 가드레일
+                if (targetUid.isEmpty()) {
+                    Log.e("AudioService", "❌ 채널 경로 파싱 결과 수신자 UID 정보가 소실되어 수신 작업을 기각합니다.")
+                    runCatching { channelClient.close(channel).await() }
+                    return@launch
+                }
+
+            try {
                 if (pcmFile.exists()) pcmFile.delete()
                 if (m4aFile.exists()) m4aFile.delete()
 
                 val inputStream = com.google.android.gms.tasks.Tasks.await(channelClient.getInputStream(channel))
-                val startTime = System.currentTimeMillis()
 
-                // 입력 스트림 버퍼 순회 기반 하드디스크 영역 바이트 로우 데이터 블록 동기식 출력 처리
+                // 입력 스트림 버퍼 순회 기반 출력 처리
                 inputStream.use { input ->
                     FileOutputStream(pcmFile, false).use { outputStream ->
                         val buffer = ByteArray(4096)
@@ -426,22 +436,31 @@ class BackgroundListenerService : Service() {
                         outputStream.flush()
                     }
                 }
-                val endTime = System.currentTimeMillis()
-                channelClient.close(channel).await()
-
-                if (pcmFile.exists() && pcmFile.length() > 0) {
-                    // PCM 파일 작성 완료 시점의 M4A 고압축 포맷 인코딩 위임
-                    encodePcmToM4a(pcmFile, m4aFile)
-                    val durationSeconds = ((endTime - startTime) / 1000).toInt().coerceAtLeast(1)
-
-                    if (m4aFile.exists() && m4aFile.length() > 0) {
-                        // 정상 생성 미디어 파일 객체의 중앙 백엔드 서버 최종 전송 처리
-                        sendWatchAudioToServer(Uri.fromFile(m4aFile), durationSeconds)
-                    }
-                    pcmFile.delete()
-                }
+            } catch (e: com.google.android.gms.wearable.ChannelIOException) {
+                Log.w("AudioService", "⚠️ 워치 스트림 채널이 전송 마감 중 끊김 처리됨 (안전하게 캐치 완료)")
             } catch (e: Exception) {
-                Log.e("AudioService", "오디오 수신 처리 중 오류 발생", e)
+                Log.e("AudioService", "❌ 오디오 수신 처리 중 일반 오류 발생", e)
+            } finally {
+                try {
+                    // 워치와의 채널을 최종 안전 종료
+                    channelClient.close(channel).await()
+
+                    if (pcmFile.exists() && pcmFile.length() > 0) {
+                        // PCM 파일 작성 완료 시점의 M4A 고압축 포맷 인코딩 위임
+                        encodePcmToM4a(pcmFile, m4aFile)
+
+                        val endTime = System.currentTimeMillis()
+                        val durationSeconds = (((endTime - startTime) / 1000).toInt() + 1).coerceAtLeast(1)
+
+                        if (m4aFile.exists() && m4aFile.length() > 0) {
+                            // 고정값을 탈피하고 파싱 처리해 둔 수신자 식별자 targetUid 값을 완전하게 할당
+                            sendWatchAudioToServer(targetUid, Uri.fromFile(m4aFile), durationSeconds)
+                        }
+                        pcmFile.delete()
+                    }
+                } catch (ex: Exception) {
+                    Log.e("AudioService", "오디오 데이터 수신 사후 정산 인코딩 파이프라인 처리 중 에러", ex)
+                }
             }
         }
     }
@@ -449,10 +468,9 @@ class BackgroundListenerService : Service() {
     /**
      * 로컬 스토리지 저장 오디오 미디어 파일 URI 기반 원격 스토리지 업로드 및 최종 메시지 전송 함수
      */
-    private fun sendWatchAudioToServer(fileUri: Uri, duration: Int) {
+    private fun sendWatchAudioToServer(targetUid: String, fileUri: Uri, duration: Int) {
         scope.launch {
             val senderUid = authRepository.getCurrentUserUid() ?: return@launch
-            val targetUid = "Wy102dzyw4buC0V6YJuqxjtf6qA2"
 
             val uploadResult = voiceRepository.uploadVoiceFile(fileUri)
             uploadResult.onSuccess { url ->
