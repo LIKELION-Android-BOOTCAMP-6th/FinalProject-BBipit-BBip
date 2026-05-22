@@ -10,7 +10,8 @@ interface AuthRemoteDataSource {
     suspend fun loginWithKakao(): String
     suspend fun loginWithGoogle(appContext: Context): String?
     suspend fun signInWithCustomToken(accessToken: String, type: LoginType)
-
+    suspend fun signOutGoogle()
+    suspend fun signOutKakao()
     suspend fun signUpWithEmail(email: String, password: String, nickname: String): AuthResult
     suspend fun signInWithEmail(email: String, password: String): AuthResult
 

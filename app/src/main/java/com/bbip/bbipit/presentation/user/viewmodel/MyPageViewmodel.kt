@@ -6,29 +6,52 @@ import android.content.Context
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.repository.UserRepository
+import com.bbip.bbipit.domain.type.LoginType
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class MyPageUiState(
+    val nickname: String = "불러오는 중...",
+    val status: String = "",
+    val profileImageUrl: String = "",
+    val uniqueId: String = "",
+    val isLoading: Boolean = true, // 로딩 중
+    val errorMessage: String? = null, // 에러
+    val isNotiDialogShown: Boolean = false,
+)
+
+sealed class MyPageEvent{
+    object NavigateToSignIn: MyPageEvent()
+
+}
 @HiltViewModel
 class MyPageViewmodel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val authRepository: AuthRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     // UI 상태를 관리하는 StateFlow
     private val _uiState = MutableStateFlow(MyPageUiState())
     val uiState: StateFlow<MyPageUiState> = _uiState.asStateFlow()
 
+    private val _event = Channel<MyPageEvent>(Channel.BUFFERED)
+    val event = _event.receiveAsFlow()
     /**
      * 1. 텍스트 복사 로직 (클립보드 연동)
      */
@@ -93,5 +116,19 @@ class MyPageViewmodel @Inject constructor(
                     }
                 }
             }
+    }
+
+    fun onChangeSignOutDialog(value: Boolean) = _uiState.update { it.copy(isNotiDialogShown = value) }
+    fun signOut(){
+        _uiState.update { it.copy(isLoading = true) }
+        //유저 정보 받아오는 거 리팩토링 후 수정 예정
+        val loginType = LoginType.GOOGLE
+        viewModelScope.launch {
+            authRepository.signOut(loginType)
+            _uiState.update { it.copy(isLoading = false) }
+            _event.send(MyPageEvent.NavigateToSignIn)
+
+        }
+
     }
 }

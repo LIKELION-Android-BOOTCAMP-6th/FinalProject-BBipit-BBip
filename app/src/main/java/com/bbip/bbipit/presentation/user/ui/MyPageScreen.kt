@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -34,19 +36,13 @@ import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
+import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
+import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.google.firebase.auth.FirebaseAuth
 
 val KakaoYellow = Color(0xFFFEE500)
 
-data class MyPageUiState(
-    val nickname: String = "불러오는 중...",
-    val status: String = "",
-    val profileImageUrl: String = "",
-    val uniqueId: String = "",
-    val isLoading: Boolean = true, // 로딩 중
-    val errorMessage: String? = null // 에러
-)
 
 @Composable
 fun MyPageScreen(
@@ -73,6 +69,16 @@ fun MyPageScreen(
         val myUid = FirebaseAuth.getInstance().currentUser?.uid
         if (myUid != null) {
             viewModel.fetchUserProfile(myUid)
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when(event){
+                is MyPageEvent.NavigateToSignIn ->
+                    navController.navigate(Routes.SignIn) {
+                        popUpTo(0){ inclusive = true }
+                    }
+            }
         }
     }
 
@@ -277,8 +283,29 @@ fun MyPageScreen(
                             )
                         }
                     }
+
+                    IconButton(onClick = {viewModel.onChangeSignOutDialog(true)}) {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.Logout, tint = Color.LightGray, contentDescription = "로그아웃")
+                    }
                 }
             }
         }
+    }
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Color.LightGray)
+        }
+    }
+    if (uiState.isNotiDialogShown){
+        ConfirmDialog(text = "로그아웃 하시겠습니까?",
+            onDismiss = {viewModel.onChangeSignOutDialog(false)},
+            onConfirm = {
+                viewModel.onChangeSignOutDialog(false)
+                viewModel.signOut()
+            }
+        )
     }
 }
