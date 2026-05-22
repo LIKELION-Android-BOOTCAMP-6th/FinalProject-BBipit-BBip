@@ -92,20 +92,16 @@ class MainActivity : ComponentActivity() {
         val path = "/watch_state"
         val payload = isActive.toString().toByteArray()
 
-        // 블루투스로 연동된 모바일 기기 노드 리스트 요청 및 패킷 순차 발송
-        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            for (node in nodes) {
-                messageClient.sendMessage(node.id, path, payload)
+        Wearable.getNodeClient(this).connectedNodes
+            .addOnSuccessListener { nodes ->
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, path, payload)
+                        .addOnFailureListener { e -> Log.e("WatchStatus", "상태 전송 실패", e) }
+                }
             }
-        }
-
-        // 안정적 패킷 전달 보장 및 예외 로그 출력을 위한 전송 실패 리스너 통합 핸들링
-        Wearable.getNodeClient(this).connectedNodes.addOnSuccessListener { nodes ->
-            for (node in nodes) {
-                messageClient.sendMessage(node.id, path, payload)
-                    .addOnFailureListener { e -> Log.e("WatchStatus", "전송 실패", e) }
+            .addOnFailureListener { e ->
+                Log.e("WatchStatus", "노드 가져오기 실패", e)
             }
-        }
     }
 
     /**

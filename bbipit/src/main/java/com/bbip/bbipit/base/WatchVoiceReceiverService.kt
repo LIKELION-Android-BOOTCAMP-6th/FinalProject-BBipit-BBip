@@ -10,6 +10,7 @@ import com.google.android.gms.wearable.WearableListenerService
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -21,53 +22,54 @@ class WatchVoiceReceiverService : WearableListenerService() {
     // 싱글톤 인스턴스를 통한 워치 오디오 재생 엔진 초기화
     private val audioPlayer by lazy { WatchAudioPlayer.getInstance(this) }
 
+    // 🔥 서비스 고유의 독립된 안전 코루틴 스코프 정의
+    private val serviceScope = CoroutineScope(Dispatchers.IO)
+
     /**
      * Wearable 데이터 레이어로 연결된 기기에서 메시지 수신 시 호출되는 콜백 함수
      */
     override fun onMessageReceived(messageEvent: MessageEvent) {
         // 음성 재생 요청 경로 일치 여부 검증
         if (messageEvent.path == "/play_voice") {
-            // 수신 데이터의 바이트 배열을 UTF-8 기반 문자열로 디코딩 및 JSON 파싱 처리
-            val payload = String(messageEvent.data, Charsets.UTF_8)
-            val data = Gson().fromJson(payload, Map::class.java)
-            val messageId = data["messageId"] as String
-            val voiceUrl = data["voiceUrl"] as String
-            val senderName = data["senderName"] as String
-            val senderProfileImage = data["senderProfileImage"] as String
+            try {
+                val payload = String(messageEvent.data, Charsets.UTF_8)
+                val data = Gson().fromJson(payload, Map::class.java)
+                val messageId = data["messageId"] as String
+                val voiceUrl = data["voiceUrl"] as String
+                val senderName = data["senderName"] as String
+                val senderProfileImage = data["senderProfileImage"] as String
 
-            // 메인 스레드 스코프를 활용한 실시간 음성 수신 팝업 UI 표출 이벤트 발행
-            CoroutineScope(Dispatchers.Main).launch {
-                VoiceEventBus.emitVoice(
-                    WatchVoiceData(
-                        messageId,
-                        voiceUrl,
-                        senderProfileImage,
-                        senderName))
-            }
-
-
-            // 원격 저장소 URL 기반의 오디오 스트리밍 재생 실행 및 완료 콜백 정의
-            audioPlayer.playFromUrl(voiceUrl) {
-
-                // 재생 완료 시점의 메인 스레드 기반 수신 팝업 UI 종료 이벤트 발행
-                CoroutineScope(Dispatchers.Main).launch {
-                    VoiceEventBus.emitVoice(null)
+                // 전역 이벤트 버스를 통해 UI 오버레이 팝업 트리거
+                serviceScope.launch(Dispatchers.Main) {
+                    VoiceEventBus.emitVoice(
+                        WatchVoiceData(messageId, voiceUrl, senderProfileImage, senderName)
+                    )
                 }
 
-                // 모바일 기기로의 오디오 컨텐츠 읽음 상태 동기화를 위한 비동기 메시지 전송
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        Wearable.getMessageClient(this@WatchVoiceReceiverService)
-                            .sendMessage(
-                                messageEvent.sourceNodeId, // 송신측 모바일 노드 식별자 지정
-                                "/mark_voice_read",
-                                messageId.toByteArray(Charsets.UTF_8)
-                            ).await()
-                        Log.d("WatchVoiceReceiver", "읽음 처리 요청 전송 완료: $messageId")
-                    } catch (e: Exception) {
-                        Log.e("WatchVoiceReceiver", "읽음 처리 요청 실패", e)
+                // OS의 서비스 라이프사이클 강제 종료에 영향을 받지 않는 고유 핸들러 스레드 기반 재생 실행
+                audioPlayer.playFromUrl(voiceUrl) {
+                    // [오디오 재생 완료 콜백 시점]
+                    serviceScope.launch(Dispatchers.Main) {
+                        VoiceEventBus.emitVoice(null) // 팝업 닫기
+                    }
+
+                    // 카운터 기반의 stopSelf() 대신 독립 스코프에서 네트워크 동기화 직접 처리
+                    serviceScope.launch {
+                        try {
+                            Wearable.getMessageClient(this@WatchVoiceReceiverService)
+                                .sendMessage(
+                                    messageEvent.sourceNodeId,
+                                    "/mark_voice_read",
+                                    messageId.toByteArray(Charsets.UTF_8)
+                                ).await()
+                            Log.d("WatchVoiceReceiver", "✅ 읽음 처리 요청 전송 완료: $messageId")
+                        } catch (e: Exception) {
+                            Log.e("WatchVoiceReceiver", "❌ 읽음 처리 요청 실패", e)
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("WatchVoiceReceiver", "패킷 처리 중 치명적 에러 발생", e)
             }
         }
     }
@@ -77,6 +79,7 @@ class WatchVoiceReceiverService : WearableListenerService() {
      */
     override fun onDestroy() {
         Log.d("WatchVoiceReceiver", "Service Destroyed!")
+        serviceScope.cancel() // 서비스 해제 시 비동기 코루틴 안전 통합 취소
         super.onDestroy()
     }
 }

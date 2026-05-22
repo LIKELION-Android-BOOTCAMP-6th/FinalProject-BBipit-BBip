@@ -138,9 +138,17 @@ fun WatchMapScreen(
 
         // 친구 마커 선택 시 해당 사용자 상세 프로필 및 무전 버튼 팝업 가시화
         clickedFriend?.let { friend ->
+            LaunchedEffect(friend.uid) {
+                // LaunchedEffect를 이용해 다이얼로그가 켜진 동안 UID 바인딩을 보장
+                voiceViewModel.setTargetUid(friend.uid)
+            }
             WatchFriendProfileDialog(
                 friend = friend,
-                onDismiss = { clickedFriend = null },
+                onDismiss = {
+                    // 다이얼로그를 닫을 때 타겟 UID 정보를 안전하게 비움
+                    voiceViewModel.setTargetUid(null)
+                    clickedFriend = null
+                },
                 walkieTalkieButton = {
                     WatchPushToTalkButton(
                         viewModel = voiceViewModel,

@@ -30,6 +30,8 @@ class PushToTalkViewModel @Inject constructor(
     private val audioRecorder: AudioRecorder
 ) : BaseViewModel<VoiceUiState>(VoiceUiState()) {
 
+    val TAG = "PushToTalkViewModel"
+
     /**
      * 하드웨어 녹음 시작 및 UI 녹음 상태 전환
      */
@@ -42,7 +44,7 @@ class PushToTalkViewModel @Inject constructor(
             )
         }
         audioRecorder.start()
-        Log.d("Voice", "Recording started inside ViewModel")
+        Log.d(TAG, "Recording started inside ViewModel")
     }
 
     /**
@@ -59,38 +61,42 @@ class PushToTalkViewModel @Inject constructor(
                     error = "녹음 시간이 너무 짧습니다. 길게 눌러 무전해 주세요."
                 )
             }
-            Log.d("Voice", "Recording cancelled: Duration too short ($duration s)")
+            Log.d(TAG, "Recording cancelled: Duration too short ($duration s)")
             return
         }
 
-        // 하드웨어 녹음 중단 및 로컬 파일 Uri 획득
-        val uri = audioRecorder.stop()
+        // UI 상태는 먼저 녹음 중으로 유지하거나 업데이트 유도
+        updateState { copy(isRecording = false, isUploading = true) }
 
-        updateState {
-            copy(
-                isRecording = false,
-                recordedFileUri = uri?.toString(),
-                isUploading = true
-            )
-        }
-        Log.d("Voice", "Recording stopped inside ViewModel, uri: $uri")
-
-        // 녹음 파일 유효성 검증 실패 시 예외 처리
-        if (uri == null) {
-            updateState { copy(isUploading = false, error = "녹음된 파일이 없거나 유효하지 않습니다.") }
-            return
-        }
-
-        val senderUid = authRepository.getCurrentUserUid()
-        val targetUid = currentState.selectedTargetUid
-
-        // 송수신자 인증 정보 유효성 검증 실패 시 예외 처리
-        if (senderUid == null || targetUid == null) {
-            updateState { copy(isUploading = false, error = "사용자 인증 정보 또는 수신자 정보가 올바르지 않습니다.") }
-            return
-        }
+        // 딜레이를 주기 전, 실제 서버에 보낼 오디오 길이에 1초를 보정
+        // (0.5초 딜레이로 인해 파일이 더 길어지므로 올림 처리 개념)
+        val correctedDuration = duration + 1
 
         viewModelScope.launch {
+            // 버퍼의 마지막 내용이 파일에 기록될 수 있도록 0.5초(500ms) 대기
+            kotlinx.coroutines.delay(500)
+
+            // 하드웨어 녹음 중단 및 로컬 파일 Uri 획득
+            val uri = audioRecorder.stop()
+
+            updateState { copy(recordedFileUri = uri?.toString()) }
+            Log.d(TAG, "Recording stopped inside ViewModel, uri: $uri")
+
+            // 녹음 파일 유효성 검증 실패 시 예외 처리
+            if (uri == null) {
+                updateState { copy(isUploading = false, error = "녹음된 파일이 없거나 유효하지 않습니다.") }
+                return@launch
+            }
+
+            val senderUid = authRepository.getCurrentUserUid()
+            val targetUid = currentState.selectedTargetUid
+
+            // 사용자 인증 정보 검증 실패 시 예외 처리
+            if (senderUid == null || targetUid == null) {
+                updateState { copy(isUploading = false, error = "사용자 인증 정보 또는 수신자 정보가 올바르지 않습니다.") }
+                return@launch
+            }
+
             // 원격 저장을 위한 Firebase Storage 업로드 비동기 요청
             val uploadResult = voiceRepository.uploadVoiceFile(uri)
 
@@ -98,15 +104,14 @@ class PushToTalkViewModel @Inject constructor(
                 Log.d("Voice", "Storage upload success: $url")
 
                 // 상대방 전달을 위한 업로드된 URL 기반의 Firestore 메시지 전송 비동기 요청
-                val sendResult = voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, duration)
+                val sendResult =
+                    voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, correctedDuration)
 
                 sendResult.onSuccess {
                     updateState { copy(isUploading = false, recordedFileUri = null) }
-                    Log.d("Voice", "Processing complete. Voice message sent successfully.")
                 }.onFailure { e ->
                     updateState { copy(isUploading = false, error = e.message) }
                 }
-
             }.onFailure { e ->
                 updateState { copy(isUploading = false, error = "스토리지 업로드 실패: ${e.message}") }
             }
