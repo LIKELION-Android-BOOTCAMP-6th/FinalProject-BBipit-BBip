@@ -12,67 +12,91 @@ import javax.inject.Inject
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.domain.entity.Friend
+import com.bbip.bbipit.domain.repository.FriendRepository
 
 
 @HiltViewModel
 class FriendRequestViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val friendRepository: FriendRepository
 ) : ViewModel() {
 
-    private val _requestList = MutableStateFlow<List<User>>(emptyList())
+    private val _requestList = MutableStateFlow<List<Friend>>(emptyList())
     val requestList = _requestList.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
     init {
-        loadPendingRequests()
+        observePendingRequests()
     }
 
     // 요청 목록 불러오기
-    fun loadPendingRequests() {
+    private fun observePendingRequests() {
         viewModelScope.launch {
-            // ※ 참고: UserRepository에 getPendingFriendRequests가 없다면,
-            // 위에서 정의한 쿼리 로직을 UserRemoteDataSource에 먼저 구현해야 합니다.
-            val result = userRepository.getPendingFriendRequests()
-            if (result is Result.Success) {
-                _requestList.value = result.data
+            // 1. myFriends(이미 친구)를 보는 게 아니라, 요청 목록을 직접 가져오기
+            val result = friendRepository.getPendingFriendRequests()
+
+            result.onSuccess { users ->
+                // 2. 받아온 User 리스트를 Friend 리스트로 변환
+                val requestedFriends = users.map { user ->
+                    Friend(
+                        uid = user.id,
+                        nickname = user.nickname,
+                        profile_image_url = user.profileImageUrl,
+                        status = user.status,
+                        friendshipStatus = "requested" // 이 리스트는 무조건 요청 상태임
+                    )
+                }
+
+                _requestList.value = requestedFriends
+                android.util.Log.d(
+                    "FriendRequestViewModel",
+                    "요청 목록 로드 성공: ${requestedFriends.size}명"
+                )
+            }.onFailure { error ->
+                android.util.Log.e("FriendRequestViewModel", "요청 목록 로드 실패: ${error.message}")
+
+                friendRepository.myFriends.collect { friends ->
+                    _requestList.value = friends.filter { it.status == "requested" }
+                }
             }
         }
     }
 
     // 친구 요청 수락
     fun acceptFriendRequest(targetUid: String) {
+        _requestList.value = _requestList.value.filter { it.uid != targetUid }
+
         viewModelScope.launch {
             _isLoading.value = true
 
-            val result = userRepository.acceptFriendRequest(targetUid)
+            val result = friendRepository.acceptFriendRequest(targetUid)
 
-            // 성공 처리
             result.onSuccess {
-                loadPendingRequests() // 성공 시 리스트 갱신
+                android.util.Log.d("FriendRequestViewModel", "수락 성공: $targetUid")
+
+            }.onFailure { appError ->
+                android.util.Log.e("FriendRequestViewModel", "수락 실패: ${appError.message}")
             }
 
-                // 실패 처리
-                .onFailure { appError ->
-                    android.util.Log.e("FriendRequestViewModel", "수락 실패: ${appError.message}")
-                }
             _isLoading.value = false
         }
     }
 
     // 친구 요청 거절
     fun rejectFriendRequest(targetUid: String) {
+        _requestList.value = _requestList.value.filter { it.uid != targetUid }
+
         viewModelScope.launch {
             _isLoading.value = true
 
-            val result = userRepository.declineFriendRequest(targetUid)
+            val result = friendRepository.declineFriendRequest(targetUid)
 
             result.onSuccess {
-                // 거절 성공 시 리스트 갱신 (요청 목록에서 해당 유저가 사라짐)
-                loadPendingRequests()
+                android.util.Log.d("FriendRequestViewModel", "거절 성공: $targetUid")
+
             }.onFailure { appError ->
-                // 실패 시 처리
                 android.util.Log.e("FriendRequestViewModel", "거절 실패: ${appError.message}")
             }
 

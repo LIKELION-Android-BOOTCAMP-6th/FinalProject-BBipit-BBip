@@ -9,6 +9,11 @@ import com.bbip.bbipit.domain.entity.ChatMessage
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.ChatRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.firestore.FirebaseFirestoreException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,7 +23,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
-    private val chatRemoteDataSource: ChatRemoteDataSource
+    private val chatRemoteDataSource: ChatRemoteDataSource,
+    private val db: FirebaseFirestore
 ) : ChatRepository {
 
     // 채팅방 생성 요청
@@ -44,8 +50,28 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     // 사용자 채팅방 목록 관찰
-    override fun observeChatRooms(myUid: String): Flow<List<ChatRoom>> {
-        return chatRemoteDataSource.observeChatRooms(myUid)
+    override fun observeChatRooms(myUid: String): Flow<List<ChatRoom>> = callbackFlow {
+        val listener = db.collection("rooms")
+            .whereArrayContains("participants", myUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("ChatRepository", "채팅방 실시간 구독 실패", error)
+                    close(error) // Flow를 에러와 함께 닫음
+                    return@addSnapshotListener
+                }
+
+                val chatRooms = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        doc.toObject(ChatRoom::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "ChatRoom 파싱 실패: ${doc.id}", e)
+                        null
+                    }
+                } ?: emptyList()
+
+                trySend(chatRooms)
+            }
+        awaitClose { listener.remove() }
     }
 
     // 특정 채팅방 메시지 관찰
