@@ -48,6 +48,7 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.domain.type.TermsType
 import com.bbip.bbipit.presentation.auth.ui.components.AgreeDialog
 import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
@@ -56,10 +57,6 @@ import com.bbip.bbipit.presentation.auth.viewmodel.SignUpViewModel
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.ShowToast
 
-enum class TermsType {
-    PRIVACY, // 개인정보 처리방침
-    SERVICE  // 서비스 이용약관
-}
 
 @Composable
 fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hiltViewModel()) {
@@ -73,7 +70,6 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
     }
     val focusManager = LocalFocusManager.current
 
-    var checkPw by remember { mutableStateOf("") }
     var showAgreeDialog by remember { mutableStateOf(false) }
     var currentTermsType by remember { mutableStateOf(TermsType.PRIVACY) }
     var isAgreed by remember { mutableStateOf(false) }
@@ -88,7 +84,8 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize().background(background).systemBarsPadding()) {
+    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding(),
+        containerColor = background) {
         innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp)
             .clickable(

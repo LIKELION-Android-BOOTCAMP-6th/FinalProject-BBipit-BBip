@@ -3,7 +3,7 @@ package com.bbip.bbipit.domain.repository
 import android.content.Context
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.type.LoginType
-import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
@@ -12,12 +12,8 @@ import kotlinx.coroutines.flow.Flow
  * 로그인, 회원가입 및 사용자 인증 상태 관리를 수행합니다.
  */
 interface AuthRepository {
-    // 카카오 로그인
-    suspend fun signInWithKakao(): Result<Unit>
-
-    // 구글 로그인
-    suspend fun signInWithGoogle(appContext: Context): Result<Unit>
-
+    //소셜 로그인 파이어베이스 어스로 연동
+    suspend fun signInWithCustomToken(idToken: String, type: LoginType): Result<Unit>
     // 이메일 회원가입
     suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult>
 
