@@ -1,6 +1,7 @@
 package com.bbip.bbipit.core.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,7 +26,20 @@ fun BBipItNavigation(
 ){
 
     val isLogin = authRepository.isAutoLogin()
-    val start = if (isLogin) Routes.Map else Routes.SignIn
+
+    // 로그인은 되어있으나 이메일 인증이 완료되지 않은 유저라면 자동 로그인을 차단합니다.
+    val isEmailVerified = authRepository.isEmailVerified()
+
+    // 두 조건이 모두 만족해야만 홈 화면(Map)으로 바로 진입합니다.
+    val start = if (isLogin && isEmailVerified) Routes.Map else Routes.SignIn
+
+    // 만약 로그인은 되어있는데 이메일 인증이 안 된 유저가 앱을 켰다면,
+    // 안전하게 기기 세션을 한번 더 로그아웃 시켜줍니다.
+    if (isLogin && !isEmailVerified) {
+        LaunchedEffect(Unit) {
+            authRepository.signOut()
+        }
+    }
 
     NavHost(
         navController = navController,

@@ -36,13 +36,10 @@ import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
-import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.input.KeyboardType
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.domain.entity.Friend
@@ -171,7 +168,7 @@ fun FriendListScreen(
                 onConfirm = { uid ->
                     // 💡 ViewModel의 친구 요청 함수 호출
                     viewModel.sendFriendRequest(
-                        targetUid = uid,
+                        targetCode = uid,
                         onSuccess = {
                             showDialog = false
                             showToastMessage = "친구 요청을 보냈습니다!"

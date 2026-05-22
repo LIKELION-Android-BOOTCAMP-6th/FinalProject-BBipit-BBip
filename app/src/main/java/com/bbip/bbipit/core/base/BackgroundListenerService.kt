@@ -20,9 +20,11 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.data.repository.FriendRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.AuthRepository
+import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
@@ -61,7 +63,7 @@ class BackgroundListenerService : Service() {
     @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var voiceRepository: VoiceRepository
     @Inject lateinit var liveStatusRepository: LiveStatusRepository
-    @Inject lateinit var userRepository: UserRepository
+    @Inject lateinit var friendRepository: FriendRepository
     @Inject lateinit var syncMyLocationUseCase: SyncMyLocationUseCase
     @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
     @Inject lateinit var lifeCycleManager: LifeCycleManager
@@ -115,13 +117,14 @@ class BackgroundListenerService : Service() {
 
         val myUid = authRepository.getCurrentUserUid()
         if (myUid != null) {
-            // 로그인 상태 확인 후 친구 위치 관찰 및 폰 자체 위치 추적 개시
+            // 친구 구독
+            friendRepository.startObservingFriends(myUid)
+            // 친구 상태 변화에 따른 위치 추적
             startFriendsLocationObservation(myUid)
+            // 내 위치 추적
             initLocationTracker()
-
             // 서비스 구동 시점 워치 측 대상 현재 화면 활성화 상태 파악용 쿼리 송신
             requestWatchStatus()
-
             // 초기 상태 조합 기반 하트비트 세션 상태 평가
             manageSessionByState()
         }
@@ -202,8 +205,8 @@ class BackgroundListenerService : Service() {
         super.onDestroy()
         Log.d(TAG, "BackgroundListenerService onDestroy")
 
-        if (userRepository is UserRepositoryImpl) {
-            (userRepository as UserRepositoryImpl).stopObservingFriends()
+        if (friendRepository is FriendRepositoryImpl) {
+            (friendRepository as FriendRepositoryImpl).stopObservingFriends()
         }
 
         // 세션 안전 중지 및 하드웨어 자원, 메시지 클라이언트 연결 해제
@@ -261,7 +264,7 @@ class BackgroundListenerService : Service() {
     private fun sendVoiceToWatch(messageId: String, senderId: String, voiceUrl: String) {
         scope.launch {
             try {
-                val senderFriend = userRepository.myFriends.value.find { it.uid == senderId }
+                val senderFriend = friendRepository.myFriends.value.find { it.uid == senderId }
                 val senderName = senderFriend?.nickname ?: "알 수 없음"
                 val senderProfileImage = senderFriend?.profile_image_url ?: ""
 
@@ -450,9 +453,7 @@ class BackgroundListenerService : Service() {
      */
     private fun startFriendsLocationObservation(myUid: String) {
         scope.launch {
-            userRepository.startObservingFriends(myUid)
             liveStatusRepository.observeFriendsLiveStatus(myUid)
-
             // 내 상태 데이터 스트림 및 주변인 상태 데이터 스트림 실시간 결합 목적
             combine(
                 liveStatusRepository.myLiveStatusFlow,

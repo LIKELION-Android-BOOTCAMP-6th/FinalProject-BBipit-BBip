@@ -8,5 +8,6 @@ data class FriendshipDto(
     val nickname: String = "",
     val profile_image_url: String = "",
     val status: String = "",
+    val is_online: Boolean = false,
     val friendship_status: String = ""
 )

@@ -2,13 +2,12 @@ package com.bbip.bbipit.presentation.friendship.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bbip.bbipit.domain.entity.User
-import com.bbip.bbipit.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Friend
+import com.bbip.bbipit.domain.repository.FriendRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -16,11 +15,10 @@ import javax.inject.Inject
 import kotlin.collections.emptyList
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
-import kotlinx.coroutines.tasks.await
 
 @HiltViewModel
 class FriendListViewModel @Inject constructor(
-    private val userRepository: UserRepository,
+    private val friendRepository: FriendRepository,
     private val functions: FirebaseFunctions,
     private val auth: com.google.firebase.auth.FirebaseAuth
 ) : ViewModel() {
@@ -47,7 +45,7 @@ class FriendListViewModel @Inject constructor(
 
     // 로딩 상태나 에러 처리를 위한 변수 (필요 시 사용)
     private fun observeFriends(myUid: String) {
-        userRepository.startObservingFriends(myUid)
+        friendRepository.startObservingFriends(myUid)
 
         viewModelScope.launch {
             // userRepository.myFriends는 이제 'accepted'된 친구들만 들어있다고 가정합니다.
@@ -61,6 +59,11 @@ class FriendListViewModel @Inject constructor(
         // 2. 요청 개수 가져오기 (요청 목록을 별도로 가져와서 개수만 세기)
         fetchRequestCount()
     }
+            // 그대로 수집해서 바로 할당!
+            friendRepository.myFriends.collect { friends ->
+                android.util.Log.d("FriendListDebug", "데이터 업데이트! 리스트 사이즈: ${friends.size}")
+                android.util.Log.d("FriendListViewModel", "친구 목록 수신: ${friends.size}명")
+                _friendList.value = friends
 
     private fun fetchRequestCount() {
         viewModelScope.launch {
@@ -89,16 +92,18 @@ class FriendListViewModel @Inject constructor(
 
 
     // 친구 요청 발송 함수
-    fun sendFriendRequest(targetUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun sendFriendRequest(targetCode: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             try {
                 // 파이어베이스 Callable 함수 호출
-                val data = hashMapOf("targetUid" to targetUid)
+//                val data = hashMapOf("targetUid" to targetUid)
+//
+//                val result = functions
+//                    .getHttpsCallable("requestFriend")
+//                    .call(data)
+//                    .await()
 
-                val result = functions
-                    .getHttpsCallable("requestFriend")
-                    .call(data)
-                    .await()
+                friendRepository.sendFriendRequest(targetCode)
 
                 // 성공 시 UI에 알림 및 리스트 새로고침
                 onSuccess()

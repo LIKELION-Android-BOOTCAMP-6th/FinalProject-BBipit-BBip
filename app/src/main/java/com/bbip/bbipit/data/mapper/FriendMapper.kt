@@ -12,6 +12,7 @@ fun FriendshipDto.toDomain(): Friend {
         nickname = this.nickname,
         profile_image_url = this.profile_image_url,
         status = this.status,
+        isOnline = this.is_online,
         friendshipStatus = this.friendship_status
     )
 }
@@ -27,6 +28,8 @@ fun Map<String, Any>?.toFriendshipDto(): FriendshipDto {
         nickname = this["nickname"] as? String ?: "",
         profile_image_url = this["profile_image_url"] as? String ?: "",
         status = this["friendship_status"] as? String ?: "",
+        status = this["status"] as? String ?: "",
+        is_online = this["is_online"] as? Boolean ?: false,
         friendship_status = this["friendship_status"] as? String ?: ""
     )
 }
