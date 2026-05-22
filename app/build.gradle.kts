@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.foundation)
     implementation(libs.firebase.appcheck.debug)
+    implementation(libs.androidx.runtime)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

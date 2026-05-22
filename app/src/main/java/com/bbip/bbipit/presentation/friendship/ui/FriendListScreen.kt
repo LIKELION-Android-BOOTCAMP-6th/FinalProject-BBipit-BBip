@@ -30,17 +30,25 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.layout.ContentScale
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.domain.entity.Friend
 import com.bbip.bbipit.presentation.base.ShowToast
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 
 @Composable
 fun FriendListScreen(
@@ -50,6 +58,19 @@ fun FriendListScreen(
     val friendList by viewModel.friendList.collectAsStateWithLifecycle()
 
     val requestCount by viewModel.requestCount.collectAsStateWithLifecycle()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // [추가] 화면이 다시 활성화될 때(ON_RESUME)마다 refreshAll() 호출
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshAll()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var showDialog by remember { mutableStateOf(false) }
 
@@ -124,6 +145,10 @@ fun FriendListScreen(
                                 }
                             )
                             android.util.Log.d("FriendList", "${friend.nickname}님과의 채팅방으로 이동")
+                        },
+                        onDelete = {
+                            // viewModel.deleteFriend(friend.uid) 호출
+                            android.util.Log.d("FriendList", "${friend.nickname} 삭제 요청")
                         }
                     )
                 }
@@ -191,73 +216,145 @@ fun FriendRequestCard(count: Int, onClick: () -> Unit) {
 }
 
 @Composable
-fun FriendListItem(friend: Friend, onMessageClick: () -> Unit) {
+fun FriendListItem(
+    friend: Friend,
+    onMessageClick: () -> Unit,
+    onDelete: () -> Unit) {
     android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}'")
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // 프로필 이미지
-            Box(modifier = Modifier.size(50.dp)) {
-                AsyncImage(
-                    model = friend.profile_image_url,
-                    contentDescription = "프로필 이미지",
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
 
-                // 온라인/오프라인 상태 표시
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .align(Alignment.BottomEnd)
-                        .clip(CircleShape)
-                        .background(subBackground)
-                        .padding(2.dp) // 테두리 두께
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                            .background(if (friend.isOnline) online else Color.Gray) // 온라인(녹색), 오프라인(회색)
-                    )
-                }
-            }
+    val scope = rememberCoroutineScope()
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
-            Spacer(modifier = Modifier.width(16.dp))
+    // 1. 상태를 먼저 생성합니다. (여기선 confirmValueChange를 비워둡니다)
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { false } // 자동 삭제 방지
+    )
 
-            // 닉네임 및 상태 메시지 (Weight를 주어 버튼 공간 확보)
-            Column(modifier = Modifier.weight(1f)) {
-                Text(friend.nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(
-                    text = friend.status.ifBlank { "상태 메시지가 없습니다." },
-                    fontSize = 13.sp,
-                    color = Color.Gray
-                )
-            }
-
-            // DM 버튼 추가
-            IconButton(
-                onClick = onMessageClick,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Message,
-                    contentDescription = "메시지 보내기",
-                    tint = primary
-                )
-            }
+    // 2. 스와이프 상태가 특정 방향으로 끝까지 밀렸는지 감지합니다.
+    LaunchedEffect(dismissState.targetValue) {
+        if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+            showDeleteDialog = true
         }
     }
+
+    // 삭제 확인 다이얼로그
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                scope.launch { dismissState.reset() } // 닫으면 카드 원위치
+            },
+            title = { Text("친구 삭제") },
+            text = { Text("'${friend.nickname}'님을 친구 목록에서 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteDialog = false
+                    scope.launch { dismissState.reset() }
+                }) { Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    scope.launch { dismissState.reset() }
+                }) { Text("취소") }
+            }
+        )
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) Color.Red else Color.Transparent
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(color),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "삭제",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 24.dp)
+                )
+            }
+        },
+        content = {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                modifier = Modifier.clickable {
+                    // 카드를 다시 누르면 닫힘
+                    scope.launch { dismissState.reset() }
+                },
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 프로필 이미지
+                    Box(modifier = Modifier.size(50.dp)) {
+                        AsyncImage(
+                            model = friend.profile_image_url,
+                            contentDescription = "프로필 이미지",
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        // 온라인/오프라인 상태 표시
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .align(Alignment.BottomEnd)
+                                .clip(CircleShape)
+                                .background(subBackground)
+                                .padding(2.dp) // 테두리 두께
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .background(if (friend.isOnline) online else Color.Gray) // 온라인(녹색), 오프라인(회색)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // 닉네임 및 상태 메시지 (Weight를 주어 버튼 공간 확보)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(friend.nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(
+                            text = friend.status.ifBlank { "상태 메시지가 없습니다." },
+                            fontSize = 13.sp,
+                            color = Color.Gray
+                        )
+                    }
+
+                    // DM 버튼 추가
+                    IconButton(
+                        onClick = onMessageClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Message,
+                            contentDescription = "메시지 보내기",
+                            tint = primary
+                        )
+                    }
+                }
+            }
+        }
+    )
 }
 
 @Composable
