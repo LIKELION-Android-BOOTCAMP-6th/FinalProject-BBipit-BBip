@@ -32,10 +32,9 @@ import javax.inject.Inject
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.bbip.bbipit.core.base.AppLifecycleObserver
-import com.bbip.bbipit.presentation.notification.GoToScreenByNotification
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
-import com.bbip.bbipit.presentation.notification.NotificationViewModel
+import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -75,8 +74,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
-        pendingNotificationIntent = intent
+        pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,6 +88,9 @@ class MainActivity : ComponentActivity() {
 
         // 앱 전체 프로세스 수명 주기(ProcessLifecycleOwner) 대상 관찰자 등록
         ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
+
+        // 알림 클릭으로 온 Intent인지 구분
+        pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
 
         setContent {
             val voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
@@ -121,17 +122,11 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
 //                            .padding(innerPadding)
                     ) {
-                        GoToScreenByNotification(
-                            pendingIntent = pendingNotificationIntent,
-                            navController = navController,
-                            context = this@MainActivity,
-                            onHandled = { pendingNotificationIntent = null }
-                        )
-
                         BBipItNavigation(
                             navController = navController,
                             authRepository = authRepository,
-                            notificationViewModel = notificationViewModel
+                            notificationViewModel = notificationViewModel,
+                            notificationIntent = pendingNotificationIntent
                         )
 
                         // 전역 음성 수신 오버레이 패널 (바텀 네비게이션 상단 배치)

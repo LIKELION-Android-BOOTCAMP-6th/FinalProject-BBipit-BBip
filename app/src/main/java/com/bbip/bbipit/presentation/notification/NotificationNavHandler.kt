@@ -1,3 +1,4 @@
+/*
 package com.bbip.bbipit.presentation.notification
 
 import android.content.Context
@@ -11,10 +12,13 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.bbip.bbipit.core.navigation.Routes
 
+*/
 /**
  * 알림 클릭 Intent 감지 및 타입별 화면 이동 처리 컴포저블
  * MainActivity의 pendingIntent를 구독하여 navController 준비 후 자동 처리
- */
+ *//*
+
+
 @Composable
 fun GoToScreenByNotification(
     pendingIntent: Intent?,
@@ -22,20 +26,21 @@ fun GoToScreenByNotification(
     context: Context,
     onHandled: () -> Unit
 ) {
-    // navController의 현재 상태 관찰 (NavHost 준비 여부 확인용)
-    val currentEntry by navController.currentBackStackEntryAsState()
+    if (pendingIntent == null) return
 
-    LaunchedEffect(pendingIntent, currentEntry) {
-        val intent = pendingIntent ?: return@LaunchedEffect
-        // NavHost가 첫 화면(StartDestination)을 세팅하기 전에는 이동을 보류합니다.
-        if (currentEntry == null) return@LaunchedEffect
+    val type = pendingIntent.getStringExtra("notification_type") ?: return
+    val roomId = pendingIntent.getStringExtra("notification_room_id") ?: ""
 
-        val type = intent.getStringExtra("notification_type")
-        val roomId = intent.getStringExtra("notification_room_id") ?: ""
-
-        Log.d("NotificationNav", "알림 클릭 감지 - 타입: $type, 경로: ${currentEntry?.destination?.route}")
+    LaunchedEffect(Unit) {
+        // NavHost startDestination 세팅 완료까지 대기
+        while (navController.currentBackStackEntry == null) {
+            kotlinx.coroutines.delay(50)
+        }
+        // startDestination 완전히 안착할 때까지 추가 대기
+        kotlinx.coroutines.delay(100)
 
         when (type) {
+            // 채팅방 화면으로 이동 (roomId 필수)
             "DM" -> {
                 if (roomId.isNotEmpty()) {
                     navController.navigate(Routes.ChatRoom(roomId = roomId)) {
@@ -43,11 +48,10 @@ fun GoToScreenByNotification(
                     }
                 }
             }
+            // 친구 요청 화면으로 이동
             "REQ" -> {
                 navController.navigate(Routes.FriendRequestList) {
-                    // 동일 화면 중복 생성 방지 및 부드러운 전환을 위해 설정
                     launchSingleTop = true
-                    // 필요한 경우 백스택을 정리하여 뒤로가기 시 지도로 가도록 설정 가능
                 }
             }
             // 무전은 토스트로 안내
@@ -57,4 +61,4 @@ fun GoToScreenByNotification(
         }
         onHandled()
     }
-}
+}*/
