@@ -165,11 +165,7 @@ fun NotificationScreen(
                                 }
                                 else if (item.type == "REQ") {
                                     viewModel.markAsRead(item.id)
-                                    Toast.makeText(
-                                        navController.context,
-                                        "친구요청을 확인합니다.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    navController.navigate(Routes.FriendRequestList)
                                 }
                             }
                         )
@@ -209,8 +205,7 @@ fun NotificationCard(
                 modifier = Modifier.size(14.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                // 전체 확인 버튼 클릭 여부(readAllClicked) 감지 시 점 제거 사양 적용
-                val showDot = !item.isRead && !isWalkieExpired && !readAllClicked && !isLocalRead
+                val showDot = !item.isRead && !isWalkieExpired && !isLocalRead
                 if (showDot) {
                     Box(
                         modifier = Modifier

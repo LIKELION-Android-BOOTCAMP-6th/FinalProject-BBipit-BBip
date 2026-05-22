@@ -1,6 +1,7 @@
 package com.bbip.bbipit.presentation.main
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,7 @@ import javax.inject.Inject
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.bbip.bbipit.core.base.AppLifecycleObserver
+import com.bbip.bbipit.presentation.notification.GoToScreenByNotification
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
 import com.bbip.bbipit.presentation.notification.NotificationViewModel
@@ -47,6 +51,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var appLifecycleObserver: AppLifecycleObserver
 
+    // 알림 클릭 시 이동 처리를 위한 반응형 상태
+    private var pendingNotificationIntent by mutableStateOf<Intent?>(null)
+
     override fun onDestroy() {
         // 앱 프로세스 파괴 직전 내 실시간 상태 오프라인 변경 및 서버 동기화 처리
         val myUid = authRepository.getCurrentUserUid()
@@ -64,6 +71,12 @@ class MainActivity : ComponentActivity() {
             }
         }
         super.onDestroy()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingNotificationIntent = intent
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -108,6 +121,13 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
 //                            .padding(innerPadding)
                     ) {
+                        GoToScreenByNotification(
+                            pendingIntent = pendingNotificationIntent,
+                            navController = navController,
+                            context = this@MainActivity,
+                            onHandled = { pendingNotificationIntent = null }
+                        )
+
                         BBipItNavigation(
                             navController = navController,
                             authRepository = authRepository,

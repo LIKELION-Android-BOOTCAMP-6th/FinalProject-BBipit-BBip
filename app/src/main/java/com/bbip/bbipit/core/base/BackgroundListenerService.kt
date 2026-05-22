@@ -5,7 +5,9 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaCodec
@@ -26,9 +28,11 @@ import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
+import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import com.bbip.bbipit.domain.usecase.SyncMyLocationUseCase
+import com.bbip.bbipit.presentation.main.MainActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -67,6 +71,7 @@ class BackgroundListenerService : Service() {
     @Inject lateinit var syncMyLocationUseCase: SyncMyLocationUseCase
     @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
     @Inject lateinit var lifeCycleManager: LifeCycleManager
+    @Inject lateinit var notificationRepository: NotificationRepository
 
     // 비동기 작업 및 스트림 구독 통제용 서비스 전역 코루틴 스코프
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -83,6 +88,11 @@ class BackgroundListenerService : Service() {
 
     // 워치 앱 화면의 포어그라운드 활성화 상태 플래그 변수
     private var isWatchInForeground = false
+
+    // 실시간 알림 및 초기 진입 제어용 변수
+    private var isInitialData = true
+    private val serviceStartTime = System.currentTimeMillis()
+    private val notifiedIds = mutableSetOf<String>()
 
     /**
      * 워치측 화면 상태 변경 이벤트 수신용 메시지 리스너
@@ -127,10 +137,16 @@ class BackgroundListenerService : Service() {
             requestWatchStatus()
             // 초기 상태 조합 기반 하트비트 세션 상태 평가
             manageSessionByState()
+
+            // Repository에 구독 위임
+            notificationRepository.startObserving(myUid)
         }
 
         // 실시간 무전 신호 수신 처리용 관찰 흐름 개시
         observeVoiceMessages()
+
+        // 서비스가 시작 시 알림 구독 시작
+        observeNotifications()
     }
 
     /**
@@ -609,4 +625,107 @@ class BackgroundListenerService : Service() {
             startForeground(1, notification)
         }
     }
+
+    /**
+     * Repository 캐시 구독 기반 신규 알림 감지 및 시스템 알림 발행 함수
+     * 초기 수신 전체 문서는 notifiedIds에 등록만 하고 알림 발행 없이 스킵
+     * 이후 추가된 신규 문서만 시스템 알림으로 발행
+     * WALKIE 타입은 앱 백그라운드 상태일 때만 시스템 알림 발행
+     */
+    private fun observeNotifications() {
+        scope.launch {
+            notificationRepository.notifications.collect { notifications ->
+                if (isInitialData) {
+                    if (notifications.isNotEmpty()) {
+                        notifications.forEach { notification ->
+                            // 읽지 않은 알림은 등록하지 않아 신규 알림으로 처리되도록 허용
+                            if (notification.isRead) {
+                                notifiedIds.add(notification.id)
+                            }
+                        }
+                        isInitialData = false
+                        Log.d(TAG, "✅ 초기 데이터 ${notifications.size}건 중 읽은 것만 처리 완료 목록 등록")
+                    }
+                    return@collect
+                }
+
+                notifications.forEach { notification ->
+                    // 필터링 및 중복 검사 조건
+                    // 1. 읽지 않은 상태
+                    // 2. 이미 알림을 띄운 ID 리스트(Set)에 포함되지 않았을 것
+                    // 3. 서비스 시작 시점 이후에 생성된 데이터일 것
+                    // 4. WALKIE 타입은 앱 백그라운드 상태일 때만 발행
+                    if (!notification.isRead &&
+                        !notifiedIds.contains(notification.id) &&
+                        notification.createdAt > serviceStartTime
+                    ) {
+                        if (notification.type == "WALKIE" && appLifecycleObserver.isAppInForeground) {
+                            return@forEach
+                        }
+
+                        // 즉시 처리 완료 목록에 추가하여 동일 문서의 후속 수정으로 인한 재발 방지
+                        notifiedIds.add(notification.id)
+                        Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id}")
+
+                        // 시스템 알림 표출
+                        showSystemNotification(notification)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
+     * 알림 타입별 본문 메시지 분기 처리 및 고유 해시코드를 이용한 개별 알림 식별 목적
+     */
+    private fun showSystemNotification(notification: com.bbip.bbipit.domain.entity.Notification) {
+        Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
+        val channelId = "phone_alert_channel"
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // 오레오(API 26) 이상 대응용 알림 채널 생성 및 중요도(HIGH) 설정
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "중요 알림"
+            val channel = NotificationChannel(channelId, name, NotificationManager.IMPORTANCE_HIGH)
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        // 알림 타입별 표출 텍스트 가공
+        val bodyText = when (notification.type) {
+            "REQ" -> "친구 요청이 왔습니다."
+            "WALKIE" -> "무전이 왔습니다."
+            else -> notification.content
+        }
+
+        // 배너 클릭 시 MainActivity로 전달할 Intent 구성
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("notification_type", notification.type)
+            putExtra("notification_room_id", notification.roomId)
+        }
+
+        // 알림 클릭 시 Intent
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            notification.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 시스템 알림 빌더 구동 및 인텐트 파라미터 기반 시각적 요소 구성
+        val builder = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(com.bbip.bbipit.R.drawable.baseline_notifications_24)
+            .setContentTitle(notification.senderName)
+            .setContentText(bodyText)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+
+        // 고유 ID 기반 시스템 서비스 알림 발행 (중복 방지를 위해 문서 ID의 해시값 사용)
+        val notificationId = notification.id.hashCode()
+        Log.d(TAG, "🔔 알림 발행 시도: id=$notificationId")
+        notificationManager.notify(notificationId, builder.build())
+        Log.d(TAG, "🔔 알림 발행 완료: id=$notificationId")    }
 }

@@ -1,3 +1,4 @@
+/*
 package com.bbip.bbipit.presentation.notification
 
 import android.widget.Toast
@@ -20,8 +21,6 @@ fun NotificationBannerHost(
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
-    val showBanner by viewModel.showInAppBanner.collectAsState()
-    val bannerNotification by viewModel.latestInAppNotification.collectAsState()
     val context = LocalContext.current
     val banner = bannerNotification
 
@@ -70,4 +69,4 @@ fun NotificationBannerHost(
             )
         }
     }
-}
+}*/

@@ -1,3 +1,4 @@
+/*
 package com.bbip.bbipit.presentation.notification
 
 import androidx.compose.animation.core.Animatable
@@ -222,4 +223,4 @@ fun NotificationBannerPreview() {
             onClick = {}
         )
     }
-}
+}*/

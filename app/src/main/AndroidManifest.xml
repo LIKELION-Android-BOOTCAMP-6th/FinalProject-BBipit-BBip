@@ -16,6 +16,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- 외부 앱 연동 설정 -->
     <queries>
@@ -89,6 +90,15 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAP_KEY}" />
+
+        <!-- 테스트 알림 브로드캐스트 리시버 -->
+        <receiver
+            android:name=".presentation.notification.TestNotificationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.bbip.bbipit.TEST_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
