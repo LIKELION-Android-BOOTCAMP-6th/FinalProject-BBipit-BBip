@@ -29,7 +29,13 @@ class AuthRepositoryImpl @Inject constructor(
     private val firebaseAuth: FirebaseAuth
 ): AuthRepository {
 
-    override fun signOut() {
+    override suspend fun signOut(type: LoginType){
+        when(type){
+            LoginType.GOOGLE -> authRemoteDataSource.signOutGoogle()
+            LoginType.KAKAO -> authRemoteDataSource.signOutKakao()
+            else -> {}
+        }
+
         firebaseAuth.signOut()
     }
 
