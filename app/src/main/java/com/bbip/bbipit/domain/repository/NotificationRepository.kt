@@ -11,12 +11,17 @@ import kotlinx.coroutines.flow.StateFlow
 interface NotificationRepository {
 
     val notifications: StateFlow<List<Notification>>
+    val uiReadIds: StateFlow<Set<String>>
+
 
     // 구독 즉시 전체 문서를 수신하여 캐시에 보관
     fun startObserving(userId: String)
 
     // 구독 중단 (로그아웃 시 호출)
     fun stopObserving()
+
+    // 로그아웃 시 캐시 완전 초기화
+    fun clearCache()
 
     // 알림 목록 조회
     suspend fun getNotificationList(userId: String): Result<List<Notification>>

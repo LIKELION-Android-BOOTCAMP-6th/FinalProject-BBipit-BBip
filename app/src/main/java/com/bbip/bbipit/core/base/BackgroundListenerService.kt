@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -31,6 +32,7 @@ import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import com.bbip.bbipit.domain.usecase.SyncMyLocationUseCase
+import com.bbip.bbipit.presentation.main.MainActivity
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -632,14 +634,10 @@ class BackgroundListenerService : Service() {
      */
     private fun observeNotifications() {
         scope.launch {
-            // collectLatest 대신 collect 사용: 연속 스냅샷 수신 시 처리 블록 취소 방지
             notificationRepository.notifications.collect { notifications ->
-                // 초기 데이터 스킵: 구독 시작 시 수신된 전체 문서 중
-                // 이미 읽은 것만 notifiedIds에 등록 (읽지 않은 것은 등록 제외 → 신규로 처리)
                 if (isInitialData) {
                     if (notifications.isNotEmpty()) {
                         notifications.forEach { notification ->
-                            // 이미 읽은 알림만 처리 완료로 등록
                             // 읽지 않은 알림은 등록하지 않아 신규 알림으로 처리되도록 허용
                             if (notification.isRead) {
                                 notifiedIds.add(notification.id)
@@ -652,16 +650,15 @@ class BackgroundListenerService : Service() {
                 }
 
                 notifications.forEach { notification ->
-                    // 핵심 필터링 및 중복 검사 조건
+                    // 필터링 및 중복 검사 조건
                     // 1. 읽지 않은 상태
-                    // 2. 🚨 [핵심] 이미 알림을 띄운 ID 리스트(Set)에 포함되지 않았을 것
+                    // 2. 이미 알림을 띄운 ID 리스트(Set)에 포함되지 않았을 것
                     // 3. 서비스 시작 시점 이후에 생성된 데이터일 것
                     // 4. WALKIE 타입은 앱 백그라운드 상태일 때만 발행
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id) &&
                         notification.createdAt > serviceStartTime
                     ) {
-                        // WALKIE는 포그라운드에서 제외 (무전은 인앱에서 별도 처리)
                         if (notification.type == "WALKIE" && appLifecycleObserver.isAppInForeground) {
                             return@forEach
                         }
@@ -683,6 +680,7 @@ class BackgroundListenerService : Service() {
      * 알림 타입별 본문 메시지 분기 처리 및 고유 해시코드를 이용한 개별 알림 식별 목적
      */
     private fun showSystemNotification(notification: com.bbip.bbipit.domain.entity.Notification) {
+        Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
         val channelId = "phone_alert_channel"
         val notificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -701,6 +699,21 @@ class BackgroundListenerService : Service() {
             else -> notification.content
         }
 
+        // 배너 클릭 시 MainActivity로 전달할 Intent 구성
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("notification_type", notification.type)
+            putExtra("notification_room_id", notification.roomId)
+        }
+
+        // 알림 클릭 시 Intent
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            notification.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         // 시스템 알림 빌더 구동 및 인텐트 파라미터 기반 시각적 요소 구성
         val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(com.bbip.bbipit.R.drawable.baseline_notifications_24)
@@ -708,8 +721,11 @@ class BackgroundListenerService : Service() {
             .setContentText(bodyText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
 
         // 고유 ID 기반 시스템 서비스 알림 발행 (중복 방지를 위해 문서 ID의 해시값 사용)
-        notificationManager.notify(notification.id.hashCode(), builder.build())
-    }
+        val notificationId = notification.id.hashCode()
+        Log.d(TAG, "🔔 알림 발행 시도: id=$notificationId")
+        notificationManager.notify(notificationId, builder.build())
+        Log.d(TAG, "🔔 알림 발행 완료: id=$notificationId")    }
 }

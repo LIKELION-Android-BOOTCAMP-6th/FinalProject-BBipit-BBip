@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.core.content.edit
 
 @HiltViewModel
 class NotificationViewModel @Inject constructor(
@@ -39,7 +40,10 @@ class NotificationViewModel @Inject constructor(
 
     private val currentUserId: String = authRepository.getCurrentUserUid() ?: ""
 
-    private val _readIds = MutableStateFlow<Set<String>>(emptySet())
+    private val prefs = context.getSharedPreferences("notification_prefs", Context.MODE_PRIVATE)
+    private val _readIds = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("read_ids", emptySet()) ?: emptySet()
+    )
     val readIds: StateFlow<Set<String>> = _readIds.asStateFlow()
 
     private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -48,11 +52,23 @@ class NotificationViewModel @Inject constructor(
         viewModelScope.launch {
             // Repository 캐시 구독 → UI 갱신만 담당
             notificationRepository.notifications.collect { liveNotifications ->
+                // is_read 상태 로그
+                liveNotifications.forEach {
+                    Log.d("NotificationVM", "id: ${it.id}, isRead: ${it.isRead}, type: ${it.type}")
+                }
                 // 데이터 정렬
                 _notification.value = liveNotifications.sortedByDescending { it.createdAt }
             }
         }
     }
+
+    // readIds에 저장 + SharedPreferences 영구 저장
+    private fun saveReadId(id: String) {
+        val updated = _readIds.value + id
+        _readIds.value = updated
+        prefs.edit { putStringSet("read_ids", updated) }
+    }
+
 
     // 현재 기기의 네트워크 연결 상태를 체크하는 함수
     private fun isNetworkAvailable(): Boolean {
@@ -89,13 +105,13 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
+    // 항목 클릭 시: SharedPreferences 저장 + Firestore is_read=true
     fun markAsRead(id: String) {
         if (currentUserId.isEmpty()) return
-        if (!isNetworkAvailable()) {
-            showNetworkErrorToast(); return
-        }
+        if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
 
-        _readIds.value += id
+        // SharedPreferences에 영구 저장
+        saveReadId(id)
 
         viewModelScope.launch {
             try {
@@ -106,25 +122,34 @@ class NotificationViewModel @Inject constructor(
                     .document(id)
                     .update("is_read", true)
                     .addOnSuccessListener {
-                        Log.d("NotificationVM", "Firestore 직접 업데이트 성공: $id")
+                        Log.d("NotificationVM", "✅ Firestore 읽음 처리 성공: $id")
                     }
                     .addOnFailureListener { e ->
-                        Log.e("NotificationVM", "Firestore 직접 업데이트 실패: ${e.message}")
-                        _readIds.value -= id
+                        Log.e("NotificationVM", "❌ Firestore 읽음 처리 실패: $id, ${e.message}")
                     }
             } catch (e: Exception) {
                 Log.e("NotificationVM", "코루틴 에러: ${e.message}")
-                _readIds.value -= id
             }
         }
     }
 
-    // 전체 확인: 보라색 점만 제거 (isRead는 건드리지 않음)
+    // 전체 확인: 서버 API로 is_read=true 일괄 처리
     fun onReadAllClick() {
+        if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
+
+        val unreadIds = _notification.value.filter { !it.isRead }.map { it.id }.toSet()
+        val updated = _readIds.value + unreadIds
+        _readIds.value = updated
+        prefs.edit { putStringSet("read_ids", updated) }
         _readAllClicked.value = true
 
         viewModelScope.launch {
-            notificationRepository.markNotificationsAsRead("all", null)
+            try {
+                notificationRepository.markNotificationsAsRead(type = "all", notificationId = null)
+                Log.d("NotificationVM", "✅ 서버 전체 읽음 처리 API 호출 완료")
+            } catch (e: Exception) {
+                Log.e("NotificationVM", "❌ 전체 읽음 처리 실패: ${e.message}")
+            }
         }
     }
 
@@ -139,9 +164,8 @@ class NotificationViewModel @Inject constructor(
             .document().id
 
         val testData = hashMapOf(
-            "id" to generatedId,
             "type" to type,
-            "senderName" to when (type) {
+            "sender_name" to when (type) {
                 "DM" -> "홍길동(DM)"
                 "WALKIE" -> "김철수(무전)"
                 else -> "이영희(친구요청)"
@@ -153,9 +177,10 @@ class NotificationViewModel @Inject constructor(
             },
             "is_read" to false,
             "created_at" to Timestamp.now(),
-            "roomId" to if (type == "DM") "test_room_123" else "",
-            "isExpired" to false,
-            "expiresAt" to if (type == "WALKIE") System.currentTimeMillis() + (3 * 60 * 60 * 1000L) else 0L
+            "room_id" to if (type == "DM") "test_room_123" else null,
+            "expires_at" to if (type == "WALKIE") Timestamp(
+                java.util.Date(System.currentTimeMillis() + (3 * 60 * 60 * 1000L))
+            ) else null
         )
 
         FirebaseFirestore.getInstance()

@@ -37,6 +37,9 @@ class NotificationRepositoryImpl @Inject constructor(
     private val _notifications = MutableStateFlow<List<Notification>>(emptyList())
     override val notifications: StateFlow<List<Notification>> = _notifications.asStateFlow()
 
+    private val _uiReadIds = MutableStateFlow<Set<String>>(emptySet())
+    override val uiReadIds: StateFlow<Set<String>> = _uiReadIds.asStateFlow()
+
     // 메모리 캐시: 삭제된 ID 보관
     private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
 
@@ -60,6 +63,7 @@ class NotificationRepositoryImpl @Inject constructor(
 
         // 기존 리스너 제거 후 새로 등록
         stopObserving()
+        clearCache()
         observingUserId = userId
 
         val query = firestore
@@ -86,7 +90,7 @@ class NotificationRepositoryImpl @Inject constructor(
                         val dto = doc.toObject(NotificationDto::class.java)
                         dto?.toEntity(doc.id)
                     } catch (e: Exception) {
-                        Log.e("NotificationRepo", "데이터 변환 실패: ${doc.id}")
+                        Log.e("NotificationRepo", "데이터 변환 실패: ${doc.id}, 에러: ${e.message}, 데이터: ${doc.data}")
                         null
                     }
                 }
@@ -106,10 +110,8 @@ class NotificationRepositoryImpl @Inject constructor(
         listenerRegistration?.remove()
         listenerRegistration = null
         observingUserId = null
-        _notifications.value = emptyList()
         Log.d("NotificationRepo", "Firestore 알림 구독 중단 및 캐시 초기화")
     }
-
     // 알림 목록 조회
     override suspend fun getNotificationList(userId: String): Result<List<Notification>> {
         return try {
@@ -124,11 +126,11 @@ class NotificationRepositoryImpl @Inject constructor(
     // 알림 읽음 처리
     override suspend fun markNotificationsAsRead(
         type: String,
-        id: String?
+        notificationId: String?
     ): Result<Boolean> {
         val data = hashMapOf(
             "type" to type,
-            "id" to id
+            "notificationId" to notificationId
         )
         return try {
             val result = firebaseFunctions
@@ -136,7 +138,15 @@ class NotificationRepositoryImpl @Inject constructor(
                 .call(data)
                 .await()
             val res = result.data as? Map<*, *>
-            Result.Success(res?.get("success") as? Boolean ?: false)
+            
+            // 읽음 처리 성공 시 UI 상태 반영
+            if (notificationId != null) {
+                _uiReadIds.value += notificationId
+            } else if (type == "all") {
+                _uiReadIds.value = _notifications.value.map { it.id }.toSet()
+            }
+            
+            Result.Success(res?.get("success") as? Boolean ?: true)
         } catch (e: Exception) {
             Log.e("NotificationRepository", "알림 읽음 처리 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "알림 읽음 처리 중 오류 발생"))
@@ -177,5 +187,10 @@ class NotificationRepositoryImpl @Inject constructor(
             Log.e("NotificationRepository", "서버 삭제 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "삭제 실패"))
         }
+    }
+    override fun clearCache() {
+        _notifications.value = emptyList()
+        _uiReadIds.value = emptySet()
+        Log.d("NotificationRepo", "캐시 완전 초기화 (로그아웃)")
     }
 }
