@@ -71,7 +71,11 @@ fun MapScreen(
     val uiState by viewModel.uiState.collectAsState()
     val voiceUiState by pushToTalkViewModel.uiState.collectAsState()
 
-    var clickedFriend by remember { mutableStateOf<LiveStatus?>(null) }
+//    var clickedFriend by remember { mutableStateOf<LiveStatus?>(null) }
+
+    var clickedFriendUid by remember { mutableStateOf<String?>(null) }
+
+    val TAG = "MapScreen"
 
     // 비즈니스 전송 에러 발생 시 처리 스크립트
     LaunchedEffect(voiceUiState.error) {
@@ -89,7 +93,7 @@ fun MapScreen(
         val bluetoothConnectGranted = permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: false
 
         if (fineLocationGranted || coarseLocationGranted || bluetoothConnectGranted) {
-            Log.d("MapScreen", "권한 승인됨 -> BackgroundListenerService 가동")
+            Log.d(TAG, "권한 승인됨 -> BackgroundListenerService 가동")
             val intent = Intent(context, BackgroundListenerService::class.java)
 //            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 //                context.startForegroundService(intent)
@@ -105,7 +109,7 @@ fun MapScreen(
         modifier = Modifier.fillMaxSize(),
         // contentWindowInsets를 0으로 설정하여 시스템 UI 영역까지 콘텐츠가 채워지도록 함
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { innerPadding ->
+    ) { _ ->
         BackgroundBox {
             Box(modifier = Modifier.fillMaxSize()) {
                 // 구글 지도 및 마커 콘텐츠 레이어
@@ -113,20 +117,25 @@ fun MapScreen(
                     mapUiState = uiState,
                     modifier = Modifier.fillMaxSize(),
                     onFriendClick = { friend ->
-                        clickedFriend = friend
+                        clickedFriendUid = friend.uid
                     }
                 )
             }
 
+            // 전체 친구 목록에서 현재 선택된 UID의 최신 데이터를 탐색
+            val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
+                uiState.friendsStatuses.find { it.uid == clickedFriendUid }
+            }
+
             // 친구 정보 상세 다이얼로그
-            clickedFriend?.let { friend ->
+            currentClickedFriend?.let { friend ->
                 FriendProfileDialog(
                     friend = friend,
                     voiceUiState = voiceUiState,
                     voiceViewModel = pushToTalkViewModel,
-                    onDismiss = { clickedFriend = null },
+                    onDismiss = { clickedFriendUid = null },
                     onChatClick = {
-                        clickedFriend = null
+                        clickedFriendUid = null
                         Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
                             .show()
                     }
@@ -146,7 +155,7 @@ fun MapScreen(
 
         // 위치 권한 최소 하나 이상 승인 상태 기준의 백그라운드 서비스 안전 가동 처리
         if (hasFineLocation || hasCoarseLocation) {
-            Log.d("MapScreen", "✅ 위치 권한 확인 완료 -> 안전하게 서비스 시작")
+            Log.d(TAG, "✅ 위치 권한 확인 완료 -> 안전하게 서비스 시작")
             val intent = Intent(context, BackgroundListenerService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -155,7 +164,7 @@ fun MapScreen(
             }
         } else {
             // 위치 권한 부재 시 통합 권한 요청 팝업 런처 작동 (블루투스, 마이크, 위치 세트)
-            Log.d("MapScreen", "⚠️ 위치 권한 없음 -> 권한 요청 팝업 실행")
+            Log.d(TAG, "⚠️ 위치 권한 없음 -> 권한 요청 팝업 실행")
             requestMultiplePermissionsLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -185,9 +194,11 @@ private fun MapContent(
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
 
+    val TAG = "MapContent"
+
     LaunchedEffect(myLat, myLng) {
         if (myLat != null && myLng != null) {
-            Log.d("MapScreen", "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
+            Log.d(TAG, "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
             cameraPositionState.animate(
                 update = newLatLngZoom(
                     LatLng(myLat, myLng), 16f
@@ -232,11 +243,17 @@ private fun MapContent(
 
             mapUiState.friendsStatuses.forEach { friend ->
 
-                // 친구 마커 실시간 좌표 변경 시 동기 트래킹 보장 목적의 MarkerState 갱신 키 지정
-                val friendMarkerState = remember(friend.latitude, friend.longitude) {
+                // 마커 상태의 인스턴스는 오직 UID 기준으로만 딱 한 번 생성 및 유지 (깜빡임 방지)
+                val friendMarkerState = remember(friend.uid) {
                     MarkerState(position = LatLng(friend.latitude, friend.longitude))
                 }
-                // 친구 마커용 커스텀 프로필 마커 구조 단일화 목적의 아이콘 변수 생성
+
+                // 좌표가 실시간으로 바뀔 때만 기존 마커의 위치를 업데이트 (부드러운 무빙)
+                LaunchedEffect(friend.latitude, friend.longitude) {
+                    friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
+                }
+
+                // 아이콘과 관련된 상태(이미지 URL, 온라인 여부)가 바뀔 때만 비트맵을 새로 생성
                 var friendCustomMarkerIcon by remember(
                     friend.uid,
                     friend.profileImageUrl,
@@ -253,13 +270,14 @@ private fun MapContent(
                     )
                 }
 
+                // 닉네임이나 상태 메시지가 바뀌면 클릭 시 띄우는 Dialog에 알아서 실시간 반영됨
                 Marker(
                     state = friendMarkerState,
                     icon = friendCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
                         if (friend.isOnline) BitmapDescriptorFactory.HUE_GREEN else BitmapDescriptorFactory.HUE_RED
                     ),
                     onClick = {
-                        Log.d("MapScreen", "친구 마커 클릭됨: ${friend.nickname} (UID: ${friend.uid})")
+                        Log.d(TAG, "친구 마커 클릭됨: ${friend.nickname} (UID: ${friend.uid})")
                         onFriendClick(friend)
                         true
                     }
