@@ -10,7 +10,7 @@ import androidx.credentials.exceptions.GetCredentialException
 import com.bbip.bbipit.R
 import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.domain.type.LoginType
-import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.bbip.bbipit.domain.type.TermsType
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.AuthResult
@@ -24,6 +24,7 @@ import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
 import com.kakao.sdk.user.UserApiClient
+import dagger.hilt.android.qualifiers.ActivityContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -45,6 +46,7 @@ import kotlin.coroutines.resumeWithException
 @Singleton
 class AuthRemoteDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
+//    @ActivityContext private val appContext: Context,
     private val firebaseAuth: FirebaseAuth,
     private val firebaseFunctions: FirebaseFunctions,
     private val credentialManager: CredentialManager
@@ -85,7 +87,33 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         }
     }
     // 구글 로그인
-    override suspend fun loginWithGoogle(appContext: Context): String? {
+//    override suspend fun loginWithGoogle(appContext: Context): String? {
+//        val googleIdOption = GetGoogleIdOption.Builder()
+//            .setServerClientId(context.getString(R.string.default_web_client_id))
+//            .setFilterByAuthorizedAccounts(false)
+//            .setAutoSelectEnabled(false) // 구글 로그인 시도 시 핸드폰에 연결된 모든 계정 다이얼로그로 표출
+//            .build()
+//
+//        val request = GetCredentialRequest.Builder()
+//            .addCredentialOption(googleIdOption)
+//            .build()
+//
+//        return try{
+//            val result = credentialManager.getCredential(appContext, request)
+//            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+//            googleIdTokenCredential.idToken
+//        } catch (e: GetCredentialException) {
+//            Log.e("GoogleLogin", "자격 증명 로드 실패: ${e.message}")
+//            throw e
+//            null
+//            // 여기서 무한 블로킹 안 걸리게 예외를 가공해서 뷰모델로 던져줍니다.
+//        } catch (e: Exception){
+//            throw e
+//            null
+//        }
+//    }
+
+    override suspend fun loginWithGoogle(): String? {
         val googleIdOption = GetGoogleIdOption.Builder()
             .setServerClientId(context.getString(R.string.default_web_client_id))
             .setFilterByAuthorizedAccounts(false)
@@ -97,11 +125,10 @@ class AuthRemoteDataSourceImpl @Inject constructor(
             .build()
 
         return try{
-            val result = credentialManager.getCredential(appContext, request)
+            val result = credentialManager.getCredential(context, request)
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
             googleIdTokenCredential.idToken
         } catch (e: GetCredentialException) {
-            // 🚨 노트10이나 테스터 폰에서 'failed to launch...'가 터지면 일로 들어옵니다!
             Log.e("GoogleLogin", "자격 증명 로드 실패: ${e.message}")
             throw e
             null

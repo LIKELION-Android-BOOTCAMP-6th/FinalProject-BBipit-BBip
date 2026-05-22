@@ -43,7 +43,7 @@ import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
-import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.bbip.bbipit.domain.type.TermsType
 
 @Composable
 fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNext: () -> Unit, onDismissRequest: (Boolean) -> Unit, ){

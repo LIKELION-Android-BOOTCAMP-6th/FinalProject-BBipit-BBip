@@ -3,7 +3,7 @@ package com.bbip.bbipit.domain.repository
 import android.content.Context
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.type.LoginType
-import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
@@ -16,7 +16,8 @@ interface AuthRepository {
     suspend fun signInWithKakao(): Result<Unit>
 
     // 구글 로그인
-    suspend fun signInWithGoogle(appContext: Context): Result<Unit>
+//    suspend fun signInWithGoogle(appContext: Context): Result<Unit>
+    suspend fun signInWithGoogle(): Result<Unit>
 
     // 이메일 회원가입
     suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult>

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -51,7 +52,8 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
                 unfocusedContainerColor = Color.White,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
-                errorIndicatorColor = Color.Transparent
+                errorIndicatorColor = Color.Transparent,
+                errorContainerColor = Color.White
             ),
             shape = RoundedCornerShape(60.dp),
 
@@ -88,7 +90,8 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
                 text = errorText,
                 color = Color.Red,
                 style = Typography.bodySmall,
-                modifier = Modifier.padding(start = 16.dp)
+                modifier = Modifier.padding(start = 16.dp),
+                fontWeight = FontWeight.Bold
             )
         }
     }

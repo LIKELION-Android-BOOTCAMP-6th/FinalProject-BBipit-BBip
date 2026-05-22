@@ -79,7 +79,8 @@ class SignInViewModel @Inject constructor(
         viewModelScope.launch {
             val result = when(type){
                 LoginType.KAKAO -> authRepository.signInWithKakao()
-                LoginType.GOOGLE -> authRepository.signInWithGoogle(context)
+//                LoginType.GOOGLE -> authRepository.signInWithGoogle(context)
+                LoginType.GOOGLE -> authRepository.signInWithGoogle()
                 else -> return@launch
             }
             result.onSuccess {

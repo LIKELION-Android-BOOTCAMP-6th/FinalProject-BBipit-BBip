@@ -2,13 +2,14 @@ package com.bbip.bbipit.data.source.remote.auth
 
 import android.content.Context
 import com.bbip.bbipit.domain.type.LoginType
-import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.auth.AuthResult
 import kotlinx.coroutines.flow.Flow
 
 interface AuthRemoteDataSource {
     suspend fun loginWithKakao(): String
-    suspend fun loginWithGoogle(appContext: Context): String?
+//    suspend fun loginWithGoogle(appContext: Context): String?
+    suspend fun loginWithGoogle(): String?
     suspend fun signInWithCustomToken(accessToken: String, type: LoginType)
     suspend fun signOutGoogle()
     suspend fun signOutKakao()

@@ -1,6 +1,7 @@
 package com.bbip.bbipit.presentation.auth.viewmodel
 
 import android.util.Patterns
+import androidx.compose.runtime.currentComposer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.result.onFailure
@@ -8,7 +9,7 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
-import com.bbip.bbipit.presentation.auth.ui.TermsType
+import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -71,40 +72,41 @@ class SignUpViewModel @Inject constructor(
             if (!isValidEmail(_uiState.value.email)){
                 onUpdateEmailError("이메일 형식이 일치하지 않습니다.")
                 onUpdateLoading(false)
-                clearAll()
+                onUpdateEmail("")
                 return@launch
             }
 
             if (!isValidPassword(_uiState.value.password)){
                 onUpdatePwError("비밀번호 규칙이 올바르지 않습니다.")
                 onUpdateLoading(false)
-                clearAll()
+                onUpdatePassword("")
+                onUpdateCheckPw("")
                 return@launch
             }
 
             authRepository.signUpWithEmail(_uiState.value.email, _uiState.value.password, _uiState.value.name)
                 .onSuccess {
                     onUpdateLoading(false)
-                    //userRepository.updateProfile(nickname = _uiState.value.name)
                     onUpdateNotiShown(true)
                 }
                 .onFailure { exception ->
                     onUpdateLoading(false)
-                    _uiState.update { currentState ->
-                        when(exception){
-                            is AppError.Email -> {
-                                currentState.copy(emailError = exception.message)
-                            }
-                            is AppError.Password -> {
-                                currentState.copy(pwError = exception.message)
-                            }
-                            else -> {
-                                currentState.copy(error = exception.message)
-                            }
+
+                    when(exception){
+                        is AppError.Email ->{
+                            onUpdateEmail("")
+                            _uiState.update { it.copy(emailError = exception.message) }
+                        }
+                        is AppError.Password ->{
+                            onUpdatePassword("")
+                            onUpdateCheckPw("")
+                            _uiState.update { it.copy(pwError = exception.message) }
+                        }
+                        else -> {
+                            _uiState.update { it.copy(error = exception.message) }
+
                         }
                     }
-                    clearAll()
-
                 }
         }
     }
@@ -118,9 +120,7 @@ class SignUpViewModel @Inject constructor(
     fun onUpdateNotiShown(value: Boolean) = _uiState.update { it.copy(isNotiShown = value) }
     private fun onUpdatePwError(value: String) = _uiState.update { it.copy(pwError = value) }
     private fun onUpdateEmailError(value: String) = _uiState.update { it.copy(emailError = value) }
-    private fun clearAll() = _uiState.update {
-        it.copy(name = "", email = "", password = "", checkPw = "")
-    }
+
     fun clearErrorMessage() = _uiState.update { it.copy(emailError = null, pwError = null) }
     fun moveToSignIn(){
         viewModelScope.launch {
