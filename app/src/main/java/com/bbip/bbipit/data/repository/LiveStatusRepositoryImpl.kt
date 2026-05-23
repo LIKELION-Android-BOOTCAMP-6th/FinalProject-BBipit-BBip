@@ -21,43 +21,40 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 사용자 및 친구 실시간 위치·활성 상태 데이터 중앙 제어 및 메모리 캐싱 관리 도메인 리포지토리 구현체 클래스
+ * 사용자 및 친구 실시간 위치·접속 상태 관리
  */
 @Singleton
 class LiveStatusRepositoryImpl @Inject constructor(
-    private val  userRemoteDataSource: UserRemoteDataSourceImpl,
     private val liveStatusRemoteDataSource: LiveStatusRemoteDataSource,
     private val friendRepository: FriendRepository,
-    private val firestore: FirebaseFirestore
 ) : LiveStatusRepository {
 
-    // 데이터 소스 통신 및 흐름 구독 제어용 저장소 전역 비동기 코루틴 스코프
+    // 비동기 작업 처리용 Scope
     private val repositoryScope = CoroutineScope(Dispatchers.IO)
 
-    // 앱 실행 주기 동안 메모리 상의 내 상태 동기화 유지 목적의 쓰기 가능 전역 캐시 플로우
+    // 내 라이브 상태 저장 및 공유용 캐시 Flow
     private val _myLiveStatusFlow = MutableStateFlow<LiveStatus?>(null)
     override val myLiveStatusFlow: StateFlow<LiveStatus?> = _myLiveStatusFlow.asStateFlow()
 
-    // 친구 실시간 상태 배열 정보 전역 관찰 적재용 메모리 캐시 플로우
+    // 친구들의 라이브 상태 목록 저장 및 공유용 캐시 Flow
     private val _friendsLiveStatusFlow = MutableStateFlow<List<LiveStatus>>(emptyList())
     override val friendsLiveStatusFlow: StateFlow<List<LiveStatus>> = _friendsLiveStatusFlow.asStateFlow()
 
     /**
-     * 친구 데이터 저장소 목록 실시간 구독 기반 개별 위치 관찰 흐름 동적 재구성 제어 함수
-     * 변동 고유 식별자(UID) 목록 기준 개별 플로우 병합 처리를 통한 중앙 집중형 관측 데이터 세트 갱신 목적
+     * 친구 목록을 기반으로 개별 위치를 실시간 구독하는 함수
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeFriendsLiveStatus(myUid: String) {
         friendRepository.myFriends
             .flatMapLatest { friends ->
-                // 상태가 "accepted"인 수락된 친구들만 필터링
+                // 수락 완료된 친구 필터링 및 ID 추출
                 val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
                 val friendUids = acceptedFriends.map { it.uid }
 
                 if (friendUids.isEmpty()) {
                     flowOf(emptyList<LiveStatus>())
                 } else {
-                    // 유효 친구 목록(수락됨) 포함 인원 전원 대상 개별 실시간 파이어베이스 리스너 플로우 연계 개설
+                    // 친구 전원의 실시간 상태 관찰 Flow 생성
                     val friendFlows = friendUids.map { uid ->
                         observeUserLiveStatus(uid)
                             .map { result ->
@@ -67,11 +64,12 @@ class LiveStatusRepositoryImpl @Inject constructor(
                                 }
                             }
                     }
-                    // 다중 데이터 흐름 결합 연산자 적용을 통한 널(Null) 객체 배제 유효 결과 배열 복원 처리
+                    // 개별 Flow들을 하나의 리스트로 통합
                     combine(friendFlows) { statuses -> statuses.filterNotNull() }
                 }
             }
             .onEach { updatedList ->
+                // 캐시 Flow 갱신
                 _friendsLiveStatusFlow.value = updatedList
                 Log.d("관제탑 서비스", "🔄 [친구 위치 동기화됨] 현재 위치 추적 친구: ${updatedList.size}명")
             }
@@ -79,13 +77,14 @@ class LiveStatusRepositoryImpl @Inject constructor(
     }
 
     /**
-     * 내 최신 위치 및 상태 정보 원격 서버 전송 분기 동기화 함수
-     * 실시간 연산 반응성 향상 목적의 물리 네트워크 트래픽 발생 직전 메모리 캐시 데이터 선제 갱신 처리
+     * 내 위치 및 상태 정보를 원격 서버에 업데이트하는 함수
      */
     override suspend fun updateMyLiveStatus(liveStatus: LiveStatus): Result<Unit> {
         return try {
+            // 메모리 캐시 선제 갱신
             _myLiveStatusFlow.value = liveStatus
 
+            // 원격 저장소에 데이터 저장
             liveStatusRemoteDataSource.updateMyLiveStatus(
                 uid = liveStatus.uid,
                 dto = liveStatus.toDto()
@@ -93,50 +92,57 @@ class LiveStatusRepositoryImpl @Inject constructor(
 
             Result.Success(Unit)
         } catch (e: Exception) {
+            // 업데이트 실패 예외 처리
             Result.Failure(AppError.Unknown(e.message ?: "내 상태 업데이트 실패"))
         }
     }
 
     /**
-     * 현재 활성 상태 특정 채팅방 고유 식별자 전송 기반 세션 주기 신호(Heartbeat) 발생 함수
+     * 유저 온라인 상태 및 현재 채팅방 정보 업데이트 함수
      */
     override suspend fun updateLifeCycle(currentRoomId: String?): Result<Unit> {
         return try {
+            // 서버에 활성 상태 전송
             liveStatusRemoteDataSource.updateLifeCycle(currentRoomId)
             Result.Success(Unit)
         } catch (e: Exception) {
+            // 전송 실패 예외 처리
             Result.Failure(AppError.Unknown(e.message ?: "Heartbeat 실패"))
         }
     }
 
     /**
-     * 특정 사용자 UID 정보 조건 기준 원격 서버 단발성 상태 스냅샷 다이렉트 조회 함수
-     * 물리 원격 스토리지 직통 값 반영을 위한 로컬 캐시 판별 변수 비활성화(false) 명시 처리
+     * 특정 유저의 상태 정보를 1회성으로 조회하는 함수
      */
     override suspend fun getLiveStatusByUid(targetUid: String): Result<LiveStatus> {
         return try {
+            // 원격 데이터 조회 및 도메인 엔티티 변환
             val dto = liveStatusRemoteDataSource.getLiveStatusByUid(targetUid)
             val domainEntity = dto.toDomain(uid = targetUid, isFromCache = false)
             Result.Success(domainEntity)
         } catch (e: Exception) {
+            // 조회 실패 예외 처리
             Result.Failure(AppError.Unknown(e.message ?: "실시간 라이브 정보 조회 실패"))
         }
     }
 
-    // 메모리 상주 중인 내 수명 주기 상태 캐시 스냅샷 동기 즉시 인출 함수
+    /**
+     * 메모리 캐시에 저장된 내 라이브 상태 반환 함수
+     */
     override fun getCachedMyLiveStatus(): LiveStatus? = _myLiveStatusFlow.value
 
     /**
-     * 타인 원격 데이터베이스 상태 기록면 실시간 연속 모니터링 및 가공 인출 흐름 생성 함수
-     * 데이터 정합성 판단 기준 유지를 위한 로컬 내부 캐시 레이어 경유 여부 수반 처리
+     * 특정 유저의 라이브 상태 변화를 구독(관찰)하는 Flow 생성 함수
      */
     override fun observeUserLiveStatus(uid: String): Flow<Result<LiveStatus>> {
         return liveStatusRemoteDataSource.observeUserLiveStatus(uid)
             .map<Pair<LiveStatusDto, Boolean>, Result<LiveStatus>> { (dto, isFromCache) ->
+                // 데이터 수신 후 도메인 엔티티로 변환하여 반환
                 val domainEntity = dto.toDomain(uid, isFromCache)
                 Result.Success(domainEntity)
             }
             .catch { exception ->
+                // 구독 실패 예외 처리 및 에러 전달
                 emit(Result.Failure(AppError.Unknown(exception.message ?: "라이브 상태 구독 실패")))
             }
     }

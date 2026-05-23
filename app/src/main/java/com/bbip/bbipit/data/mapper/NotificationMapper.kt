@@ -4,7 +4,11 @@ package com.bbip.bbipit.data.mapper
 import com.bbip.bbipit.data.source.model.NotificationDto
 import com.bbip.bbipit.domain.entity.Notification
 
+/**
+ * DTO 객체의 도메인 엔티티 변환 확장 함수
+ */
 fun NotificationDto.toEntity(id: String): Notification {
+        // DTO 데이터를 엔티티 구조로 변환
         return Notification(
                 id = id,
                 type = type,

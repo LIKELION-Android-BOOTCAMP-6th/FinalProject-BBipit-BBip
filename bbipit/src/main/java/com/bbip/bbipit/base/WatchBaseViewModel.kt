@@ -7,23 +7,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * 워치 앱 공통 상태 관리를 위한 기본 뷰모델
+ * 워치 앱 공통 상태 관리를 위한 기본 ViewModel 클래스
  */
 abstract class WatchBaseViewModel<S>(initialState: S) : ViewModel() {
-    // UI 상태 흐름 관리를 위한 가변 상태
+
+    // UI 상태 흐름 관리를 위한 가변 상태 변수
     private val _uiState = MutableStateFlow(initialState)
-    // 외부에 공개되는 읽기 전용 상태 흐름
     val uiState: StateFlow<S> = _uiState.asStateFlow()
 
     /**
-     * 현재 상태를 새로운 상태로 업데이트
+     * 현재 상태를 새로운 상태로 업데이트하는 함수
      */
     protected fun updateState(reducer: S.() -> S) {
         _uiState.update { it.reducer() }
     }
 
     /**
-     * 현재 상태값 반환
+     * 현재 상태값을 반환하는 프로퍼티
      */
     protected val currentState: S
         get() = uiState.value

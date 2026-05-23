@@ -1,8 +1,7 @@
 package com.bbip.bbipit.domain.entity
 
 /**
- * 음성 메시지 도메인 엔티티
- * 음성 메시지 식별자, 송수신자 정보, 오디오 URL, 재생 시간, 읽음 여부 및 생성 시각 포함
+ * 음성 무전 메시지 정보 엔티티
  */
 data class VoiceMessage(
     // 메시지 고유 식별자

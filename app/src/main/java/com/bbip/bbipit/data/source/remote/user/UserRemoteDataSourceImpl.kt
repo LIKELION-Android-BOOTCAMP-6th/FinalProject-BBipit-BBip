@@ -9,7 +9,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 파이어베이스 기능 컴포넌트 통합 호출 기반 사용자 상세 정보 및 원격 소셜 인터랙션 핸들링 구현체 클래스
+ * 사용자 정보 관련 원격 데이터 소스 구현체 클래스
+ * Firestore 및 Cloud Functions 연동을 통한 유저 프로필 및 상태 데이터 처리 수행
  */
 @Singleton
 class UserRemoteDataSourceImpl @Inject constructor(
@@ -19,22 +20,23 @@ class UserRemoteDataSourceImpl @Inject constructor(
 ) : UserRemoteDataSource {
 
     /**
-     * 구글 푸시 서버 환경 기준 현재 단말기 바인딩 가용 고유 푸시 FCM 토큰 문자열 비동기 발행 인출 함수
+     * 알림 푸시 토큰 조회 함수
      */
     override suspend fun getToken(): String? {
         return try {
+            // FCM 토큰 발행 및 반환
             val token = firebaseMessaging.token.await()
             Log.d("token", token)
             token
         } catch (e: Exception) {
+            // 토큰 발급 실패 예외 처리
             Log.e("token 발급", e.printStackTrace().toString())
             null
         }
     }
 
     /**
-     * 닉네임, 상태메시지, 사진 주소 및 토큰 정보 매핑 후 HTTPS 클라우드 함수 원격 게이트웨이 트리거 기반 내 프로필 변경 함수
-     * 페일로드 전송용 널(Null) 값 제외 유효 엔트리 데이터 항목 스크리닝 필터링 처리 포함
+     * 프로필 정보 및 푸시 토큰 갱신 함수
      */
     override suspend fun updateProfile(
         nickname: String?,
@@ -48,43 +50,47 @@ class UserRemoteDataSourceImpl @Inject constructor(
             "photoURL" to profileImageUrl,
             "fcmToken" to fcmToken
         )
+        // 유효한 데이터 항목 필터링 후 원격 서버 전송
         val data = rawData.filterValues { it != null }
         val result = firebaseFunctions.getHttpsCallable("updateProfile").call(data).await()
         val res = result.data as? Map<*, *>
         return res?.get("message")?.toString() ?: "프로필 업데이트 완료"
     }
 
-
-    // 온라인 상태 업데이트
+    /**
+     * 온라인 접속 상태 변경 함수
+     */
     override suspend fun updateOnlineStatus(isOnline: Boolean): Boolean {
+        // 원격 서버 접속 상태 최신화 요청
         val data = hashMapOf("isOnline" to isOnline)
         val result = firebaseFunctions.getHttpsCallable("updateOnlineStatus").call(data).await()
         val res = result.data as Map<*, *>
         return res["success"] as? Boolean ?: false
     }
 
-
     /**
-     * 특정 사용자 UID 코드 키 조건 기준 서버 저장소 원격 스캔을 통한 기초 프로필 원본 매핑 데이터 단발성 인출 함수
+     * 타인 프로필 정보 조회 함수
      */
     override suspend fun getUserProfile(targetUid: String): Map<String, Any>? {
+        // 특정 유저 식별자 기준 프로필 데이터 획득
         val data = mapOf("targetUid" to targetUid)
         val result = firebaseFunctions.getHttpsCallable("getUserProfile").call(data).await()
         return result.data as? Map<String, Any>
     }
 
-
     /**
-     * 내 고유 식별 명세 인자 대입 기반 파이어스토어 영속성 루트 users 컬렉션 영역 내 개인 원본 프로필 스냅샷 정보 다이렉트 조회 함수
+     * 내 프로필 정보 조회 함수
      */
     override suspend fun getMyProfile(uid: String): Map<String, Any>? {
         return try {
+            // 원격 저장소 user 컬렉션 문서 단발성 조회
             val documentSnapshot = firestore.collection("users")
                 .document(uid)
                 .get()
                 .await()
             documentSnapshot.data
         } catch (e: Exception) {
+            // 조회 실패 예외 처리
             null
         }
     }

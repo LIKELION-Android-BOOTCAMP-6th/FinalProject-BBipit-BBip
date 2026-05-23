@@ -1,8 +1,7 @@
 package com.bbip.bbipit.domain.entity
 
 /**
- * 사용자 정보 도메인 엔티티
- * 사용자 식별자, 닉네임, 프로필 이미지, 상태 메시지, 공유 상태, 온라인 여부 등 계정 정보 포함
+ * 유저 계정 정보 엔티티
  */
 data class User(
     // 사용자 고유 식별자

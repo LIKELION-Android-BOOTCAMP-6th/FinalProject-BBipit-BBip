@@ -27,7 +27,7 @@ import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.tasks.await
 
 /**
- * 실시간 위치 확인 및 무전 기능을 통합 제공하는 워치 지도 화면 컴포저블
+ * 워치 지도 및 무전 통합 화면 컴포저블
  */
 @Composable
 fun WatchMapScreen(
@@ -35,34 +35,36 @@ fun WatchMapScreen(
 ) {
     val context = LocalContext.current
 
-    // 데이터 스트림 및 상태 관리를 위한 뷰모델 인스턴스 획득
+    // 뷰모델 인스턴스 획득
     val mapViewModel: WatchMapViewModel = viewModel()
-    val locationList by mapViewModel.locationList.collectAsState()
+    val uiState by mapViewModel.uiState.collectAsState()
 
-    // 의존성 주입 팩토리를 통한 무전 기능 전용 뷰모델 인스턴스 획득
+    val locationList = uiState.locationList
+
+    // 무전 뷰모델 팩토리 주입 및 인스턴스 획득
     val voiceViewModel: WatchVoiceViewModelWatch = viewModel(
         factory = WatchVoiceViewModelWatch.provideFactory(context)
     )
 
-    // 최초 지도 로딩 기준점 설정을 위한 서울 좌표 및 카메라 상태 정의
+    // 서울 초기 좌표 및 카메라 상태 정의
     val seoul = LatLng(37.5665, 126.9780)
     val cameraPositionState = rememberCameraPositionState {
         position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(seoul, 15f)
     }
 
-    // 상세 프로필 팝업 표출 여부를 제어하는 선택된 친구 데이터 상태
+    // 선택된 친구 데이터 상태
     var clickedFriend by remember { mutableStateOf<WatchLiveStatus?>(null) }
 
-    // 중복 연산 방지 및 상태별 테두리 갱신을 위한 유저별 커스텀 마커 이미지 캐시 상태
+    // 마커 이미지 캐시 상태
     var markerDescriptors by remember { mutableStateOf<Map<String, BitmapDescriptor>>(emptyMap()) }
 
-    // 화면 진입 초기 시점의 모바일 기기 대상 권한 동기화 및 위치 데이터 즉시 갱신 요청
+    // 초기 권한 요청 및 위치 동기화 신호 송신
     LaunchedEffect(Unit) {
         sendPermissionRequestToPhone(context)
         requestImmediateLocationSync(context)
     }
 
-    // 최초 1회에 한해 내 위치 중심으로 지도의 카메라를 부드럽게 이동시키는 초기화 루틴
+    // 내 위치 중심 카메라 초기 이동 처리
     var isCameraInitialized by remember { mutableStateOf(false) }
 
     LaunchedEffect(locationList) {
@@ -78,15 +80,15 @@ fun WatchMapScreen(
         }
     }
 
-    // 유저 리스트 혹은 실시간 접속 상태 변경 시 마커용 프로필 이미지를 비동기로 생성 및 캐싱하는 루틴
+    // 위치 리스트 변경 시 마커 이미지 생성 및 캐싱
     LaunchedEffect(locationList) {
         val updatedDescriptors = markerDescriptors.toMutableMap()
 
         locationList.forEach { userStatus ->
-            // 상태 변경에 따른 테두리 색상 갱신을 위해 닉네임과 온라인 여부를 결합한 고유 식별 키 정의
+            // 닉네임과 온라인 여부를 조합한 캐시 키 정의
             val cacheKey = "${userStatus.nickname}_${userStatus.isOnline}"
 
-            // 미등록 마커에 대한 비동기 그래픽 소스 로드 및 비트맵 변환 처리
+            // 미등록 마커 이미지 비동기 생성
             if (!updatedDescriptors.containsKey(cacheKey)) {
                 val bitmapDescriptor = createCustomMarkerBitmap(
                     context = context,
@@ -100,21 +102,21 @@ fun WatchMapScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 구글 맵 컴포넌트 배치 및 속성 설정
+        // 구글 맵 컴포넌트
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
         ) {
-            // 실시간 수집된 위치 데이터 기반의 마커 드로잉 반복 루프
+            // 위치 데이터 기반 마커 표시
             locationList.forEachIndexed { index, userStatus ->
                 val cacheKey = "${userStatus.nickname}_${userStatus.isOnline}"
 
-                // 캐시 비트맵 유무를 확인하고 로딩 시점에는 인덱스 및 상태별 시스템 기본 마커로 대체
+                // 캐시 이미지 없을 경우 상태별 기본 마커 적용
                 val markerIcon = markerDescriptors[cacheKey]
                     ?: BitmapDescriptorFactory.defaultMarker(
-                        if (index == 0) BitmapDescriptorFactory.HUE_AZURE // 본인 위치 마커 색상
-                        else if (userStatus.isOnline) BitmapDescriptorFactory.HUE_GREEN // 온라인 친구 마커 색상
-                        else BitmapDescriptorFactory.HUE_RED // 오프라인 친구 마커 색상
+                        if (index == 0) BitmapDescriptorFactory.HUE_AZURE // 본인 마커
+                        else if (userStatus.isOnline) BitmapDescriptorFactory.HUE_GREEN // 온라인 친구 마커
+                        else BitmapDescriptorFactory.HUE_RED // 오프라인 친구 마커
                     )
 
                 Marker(
@@ -124,9 +126,9 @@ fun WatchMapScreen(
                         position = LatLng(userStatus.latitude, userStatus.longitude)
                     },
                     title = userStatus.nickname,
-                    icon = markerIcon, // 커스텀 변환 비트맵 아이콘 적용
+                    icon = markerIcon,
                     onClick = {
-                        // 타인 마커 선택 시에만 프로필 상세 다이얼로그 활성화 처리
+                        // 타인 마커 클릭 시 프로필 다이얼로그 활성화
                         if (index != 0) {
                             clickedFriend = userStatus
                         }
@@ -136,16 +138,16 @@ fun WatchMapScreen(
             }
         }
 
-        // 친구 마커 선택 시 해당 사용자 상세 프로필 및 무전 버튼 팝업 가시화
+        // 친구 프로필 상세 다이얼로그 노출 및 무전 버튼 연결
         clickedFriend?.let { friend ->
             LaunchedEffect(friend.uid) {
-                // LaunchedEffect를 이용해 다이얼로그가 켜진 동안 UID 바인딩을 보장
+                // 다이얼로그 활성화 중 타겟 UID 바인딩 유지
                 voiceViewModel.setTargetUid(friend.uid)
             }
             WatchFriendProfileDialog(
                 friend = friend,
                 onDismiss = {
-                    // 다이얼로그를 닫을 때 타겟 UID 정보를 안전하게 비움
+                    // 다이얼로그 종료 시 타겟 UID 초기화
                     voiceViewModel.setTargetUid(null)
                     clickedFriend = null
                 },
@@ -161,22 +163,22 @@ fun WatchMapScreen(
 }
 
 /**
- * 백그라운드 캐시 갱신 유도를 위해 연결된 연동 스마트폰 기기로 위치 정보 즉시 동기화 신호 송신
+ * 모바일 기기로 친구 위치 정보 즉시 동기화 신호 송신
  */
 suspend fun requestImmediateLocationSync(context: Context) {
     try {
         val nodeClient = Wearable.getNodeClient(context)
         val messageClient = Wearable.getMessageClient(context)
 
-        // 현재 블루투스 및 네트워크로 연결된 모든 웨어러블 노드 검색
+        // 연결된 웨어러블 노드 검색
         val nodes = nodeClient.connectedNodes.await()
 
-        // 검색된 첫 번째 매칭 노드를 스마트폰으로 간주하여 고유 식별자 추출 후 동기화 명령 송신
+        // 첫 번째 노드(스마트폰)로 위치 갱신 명령 전달
         nodes.firstOrNull()?.id?.let { targetNodeId ->
             messageClient.sendMessage(
                 targetNodeId,
                 "/request_friends_location",
-                byteArrayOf() // 단순 트리거 목적의 데이터가 없는 단발성 페이로드 전달
+                byteArrayOf()
             ).await()
         }
     } catch (e: Exception) {
@@ -185,7 +187,7 @@ suspend fun requestImmediateLocationSync(context: Context) {
 }
 
 /**
- * 모바일 기기의 위치 수집 엔진 및 백그라운드 프로세스 활성화를 위한 동기화 신호 송신
+ * 모바일 기기로 권한 요청 가이드 신호 송신
  */
 suspend fun sendPermissionRequestToPhone(context: Context) {
     val nodeClient = Wearable.getNodeClient(context)
@@ -195,7 +197,7 @@ suspend fun sendPermissionRequestToPhone(context: Context) {
         val nodes = nodeClient.connectedNodes.await()
         val targetNodeId = nodes.firstOrNull()?.id
 
-        // 연동된 스마트폰 식별자 유효성 확인 후 모바일 전용 권한 팝업 가이드 유도 메시지 송신
+        // 연결된 노드 유효성 확인 후 권한 안내 메시지 전달
         if (targetNodeId != null) {
             messageClient.sendMessage(
                 targetNodeId,

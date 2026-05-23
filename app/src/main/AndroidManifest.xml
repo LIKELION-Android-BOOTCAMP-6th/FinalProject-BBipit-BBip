@@ -48,6 +48,7 @@
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
 
+                <data android:host="*" android:scheme="wear" android:pathPrefix="/mark_voice_read" />
                 <data android:host="*" android:scheme="wear" android:pathPrefix="/check_phone_status" />
                 <data android:host="*" android:scheme="wear" android:pathPrefix="/request_friends_location" />
             </intent-filter>

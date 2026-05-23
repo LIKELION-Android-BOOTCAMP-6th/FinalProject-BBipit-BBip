@@ -5,10 +5,10 @@ import com.bbip.bbipit.domain.entity.LiveStatus
 import com.google.firebase.Timestamp
 
 /**
- * 도메인 레이어 실시간 상태 엔티티의 파이어베이스 통신용 DTO 객체 매핑 확장 함수 (쓰기용)
- * 데이터 적재 시점 기준 파이어베이스 현재 서버 타임스탬프 자동 주입 목적
+ * 도메인 엔티티의 DTO 변환 확장 함수
  */
 fun LiveStatus.toDto(): LiveStatusDto {
+    // 엔티티 데이터를 DTO 구조로 변환
     return LiveStatusDto(
         nickname = this.nickname,
         profileImageUrl = this.profileImageUrl,
@@ -22,11 +22,13 @@ fun LiveStatus.toDto(): LiveStatusDto {
 }
 
 /**
- * 파이어베이스 스냅샷 구조 Firestore Map 데이터의 DTO 전환 확장 함수 (읽기용)
- * 숫자형 좌표 데이터 유실 방지 목적의 넘버 형식 조회 및 더블 타입 변환 처리 적용
+ * 맵 객체의 DTO 변환 확장 함수
  */
 fun Map<String, Any>?.toDto(): LiveStatusDto {
+    // 데이터가 없으면 빈 객체 반환
     if (this == null) return LiveStatusDto()
+
+    // 맵 데이터를 DTO 구조로 변환
     return LiveStatusDto(
         nickname = this["nickname"] as? String ?: "",
         profileImageUrl = this["profile_image_url"] as? String ?: "",
@@ -40,10 +42,10 @@ fun Map<String, Any>?.toDto(): LiveStatusDto {
 }
 
 /**
- * 가공 완료 DTO 인스턴스의 플랫폼 비종속적 순수 코틀린 도메인 엔티티 최종 변환 확장 함수 (읽기용)
- * 파이어베이스 전용 데이터 객체의 코틀린 범용 롱(Long) 타입 밀리초 단위 파싱 연산 및 저장 목적
+ * DTO 객체의 도메인 엔티티 변환 확장 함수
  */
 fun LiveStatusDto.toDomain(uid: String, isFromCache: Boolean): LiveStatus {
+    // DTO 데이터를 엔티티 구조로 변환
     return LiveStatus(
         uid = uid,
         nickname = this.nickname,

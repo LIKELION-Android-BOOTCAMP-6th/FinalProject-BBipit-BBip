@@ -13,11 +13,7 @@ import androidx.core.app.ActivityCompat
 object WatchPermissionUtil {
 
     /**
-     * 워치 권한 거부 시 시나리오 처리
-     * 
-     * @param context Context 객체
-     * @param permission 거부된 권한
-     * @param onShowToast 토스트 메시지 출력 람다
+     * 권한 거부 시나리오 처리
      */
     fun handlePermissionDenial(
         context: Context,
@@ -30,15 +26,17 @@ object WatchPermissionUtil {
         } ?: true
 
         if (!shouldShowRationale) {
+            // 영구 거부 상태일 경우 설정 화면 이동
             onShowToast("워치 설정에서 권한을 직접 허용해주세요.")
             context.openWatchSettings()
         } else {
+            // 일반 거부 상태일 경우 안내 문구 표시
             onShowToast("무전 기능을 사용하려면 권한이 필요합니다.")
         }
     }
 
     /**
-     * Wear OS 시스템의 애플리케이션 상세 설정 화면 이동
+     * 워치 애플리케이션 상세 설정 화면 이동
      */
     fun Context.openWatchSettings() {
         val intent = Intent(

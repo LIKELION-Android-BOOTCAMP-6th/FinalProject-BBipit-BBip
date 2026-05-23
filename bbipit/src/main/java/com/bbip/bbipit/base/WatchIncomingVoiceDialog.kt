@@ -33,23 +33,23 @@ import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.models.WatchVoiceData
 
 /**
- * 실시간 음성 메시지 수신 상태를 화면에 표시하는 워치용 팝업 다이얼로그 컴포저블
+ * 워치용 실시간 음성 수신 다이얼로그
  */
 @Composable
 fun WatchIncomingVoiceDialog(
     voiceData: WatchVoiceData,
     onDismiss: () -> Unit
 ) {
-    // 배경 딤 처리 및 워치 해상도 전체 영역 선언을 위한 다이얼로그 컨테이너
+    // 다이얼로그 컨테이너 및 배경 터치 시 닫기 설정
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFFF3F4F9).copy(alpha = 0.9f))
-                .clickable { onDismiss() }, // 외부 배경 영역 터치 시 다이얼로그 종료 처리
+                .clickable { onDismiss() },
             contentAlignment = Alignment.Center
         ) {
-            // 콘텐츠 터치 시 다이얼로그 닫힘 현상 방지를 위한 이벤트 전파 차단 레이어
+            // 내부 콘텐츠 터치 시 이벤트 전파 차단
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -57,7 +57,7 @@ fun WatchIncomingVoiceDialog(
                 contentAlignment = Alignment.Center
             ) {
 
-                // 상단 무전 수신 상태 안내 타이틀 바 영역
+                // 상단 타이틀 영역
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -65,7 +65,6 @@ fun WatchIncomingVoiceDialog(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 무전 상태 직관성을 높이기 위한 마이크/스피크 시스템 아이콘 배치
                     Icon(
                         painter = painterResource(id = android.R.drawable.ic_btn_speak_now),
                         contentDescription = "Radio Icon",
@@ -80,7 +79,7 @@ fun WatchIncomingVoiceDialog(
                     )
                 }
 
-                // 송신자 프로필 및 재생 상태 표시를 포함하는 중앙 콘텐츠 레이아웃
+                // 중앙 프로필 및 재생 상태 레이아웃
                 Column(
                     modifier = Modifier
                         .fillMaxWidth(),
@@ -88,11 +87,11 @@ fun WatchIncomingVoiceDialog(
                     verticalArrangement = Arrangement.Center
                 ) {
 
-                    // 고유 브랜드 색상 테두리가 적용된 송신자 프로필 아바타 영역
+                    // 송신자 프로필 이미지 및 테두리 설정
                     Box(
                         modifier = Modifier
-                            .size(80.dp) // 시인성 확대를 고려한 컨테이너 크기 지정
-                            .border(2.5.dp, Color(0xFF956AFC), CircleShape) // 브랜드 컬러 외곽선 적용
+                            .size(80.dp)
+                            .border(2.5.dp, Color(0xFF956AFC), CircleShape)
                             .padding(2.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -125,7 +124,7 @@ fun WatchIncomingVoiceDialog(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // 실시간 오디오 재생 상태 시각화를 위한 캡슐형 인디케이터 레이아웃
+                    // 오디오 재생 상태 인디케이터 레이아웃
                     Row(
                         modifier = Modifier
                             .fillMaxWidth(0.50f)
@@ -134,7 +133,6 @@ fun WatchIncomingVoiceDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 오디오 출력 상태 인지를 위한 시스템 볼륨 아이콘 배치
                         Icon(
                             painter = painterResource(id = android.R.drawable.ic_lock_silent_mode_off),
                             contentDescription = "Listening",
@@ -142,10 +140,10 @@ fun WatchIncomingVoiceDialog(
                             modifier = Modifier.size(14.dp)
                         )
 
-                        // 캡슐 내부 잔여 공간을 모두 활용한 실시간 오디오 파형 그래픽 배치
+                        // 실시간 오디오 파형 영역
                         Box(
                             modifier = Modifier
-                                .weight(1f), // 아이콘과 가이드 텍스트 간 공간 균형 조절을 위한 가중치 설정
+                                .weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
                             WatchAnimatedWaveform()
@@ -160,14 +158,13 @@ fun WatchIncomingVoiceDialog(
                     }
                 }
 
-                // 사용자의 팝업 닫기 동작 유도를 위한 최하단 가이드 힌트 영역
+                // 하단 가이드 문구 및 인디케이터 바
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 스와이프 제스처 시각화를 위한 상단 가이드 바
                     Box(
                         modifier = Modifier
                             .width(24.dp)
@@ -188,7 +185,7 @@ fun WatchIncomingVoiceDialog(
 }
 
 /**
- * 음성 재생 상태를 직관적으로 표현하는 콤팩트 무한 애니메이션 웨이브폼 컴포저블
+ * 애니메이션 오디오 파형 컴포저블
  */
 @Composable
 fun WatchAnimatedWaveform() {
@@ -197,9 +194,9 @@ fun WatchAnimatedWaveform() {
         horizontalArrangement = Arrangement.spacedBy(1.5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 소형 디스플레이 해상도를 고려하여 6개의 그래픽 바로 수량 제한 규칙 적용
+        // 총 6개의 파형 바 구성
         repeat(6) { index ->
-            // 자연스러운 파형 연출을 위한 바별 무작위 애니메이션 주기 설정
+            // 무작위 애니메이션 주기를 통한 파형 연출
             val duration = remember { (400..700).random() }
             val heightMultiplier by infiniteTransition.animateFloat(
                 initialValue = 0.4f,
@@ -211,7 +208,7 @@ fun WatchAnimatedWaveform() {
                 label = "barHeight"
             )
 
-            // 리듬감 형성을 위한 인덱스별 기본 높이값 차등 할당
+            // 인덱스별 기본 높이값 차등 할당
             val baseHeight = when (index % 3) {
                 0 -> 6.dp
                 1 -> 12.dp
@@ -223,7 +220,7 @@ fun WatchAnimatedWaveform() {
                     .width(2.dp)
                     .height(baseHeight * heightMultiplier)
                     .clip(RoundedCornerShape(1.dp))
-                    .background(Color.White) // 보라색 배경 캡슐과의 대비를 위한 단색 처리
+                    .background(Color.White)
             )
         }
     }

@@ -17,8 +17,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * 기존 UI 구조 명세 완벽 충족 목적의 최적화 완료 지도 매핑 아키텍처 상태 구조 클래스
@@ -37,10 +40,16 @@ class MapViewModel @Inject constructor(
 
     // 서버 데이터 공급 전 로컬 캐시 레이어 즉시 파싱용 백업용 Flow
     private val cacheMyStatus = MutableStateFlow<LiveStatus?>(null)
+    private val TAG = "MapViewModel"
 
     init {
         // 인스턴스 초기화 즉시 기기 캐시 기반 마지막 동선 확보 가동
         fetchLastKnownLocation()
+    }
+
+    companion object {
+        private const val DEFAULT_LATITUDE = 37.5665
+        private const val DEFAULT_LONGITUDE = 126.9780
     }
 
     /**
@@ -73,45 +82,58 @@ class MapViewModel @Inject constructor(
     @SuppressLint("MissingPermission")
     private fun fetchLastKnownLocation() {
         viewModelScope.launch {
-            val uid = FirebaseAuth.getInstance().currentUser?.uid
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: "unknown_me"
             try {
-                // 캐시 위치 가져오기 선제 시도
-                var lastLocation = fusedLocationClient.lastLocation.await()
+                // 안전하게 취소 가능한 형태로 최근 위치 파싱 [suspendCancellableCoroutine]
+                var lastLocation = suspendCancellableCoroutine { continuation ->
+                    fusedLocationClient.lastLocation
+                        .addOnSuccessListener { location -> continuation.resume(location) }
+                        .addOnFailureListener { exception ->
+                            continuation.resumeWithException(
+                                exception
+                            )
+                        }
+                }
 
-                // 신규 가입 등으로 캐시 부재 시 신선한 현재 위치 단발성 요청 (Priority.PRIORITY_HIGH_ACCURACY)
                 if (lastLocation == null) {
-                    Log.d("MapViewModel", "캐시 위치가 없으므로 실시간 단발성 위치(CurrentLocation)를 조회합니다.")
+                    Log.d(TAG, "캐시 위치가 없으므로 실시간 단발성 위치를 조회합니다.")
                     val locationRequest = CurrentLocationRequest.Builder()
                         .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                         .build()
-                    lastLocation = fusedLocationClient.getCurrentLocation(locationRequest, null).await()
+
+                    lastLocation = suspendCancellableCoroutine { continuation ->
+                        fusedLocationClient.getCurrentLocation(locationRequest, null)
+                            .addOnSuccessListener { location -> continuation.resume(location) }
+                            .addOnFailureListener { exception ->
+                                continuation.resumeWithException(
+                                    exception
+                                )
+                            }
+                    }
                 }
 
                 if (lastLocation != null) {
-                    Log.d("MapViewModel", "🎯 초기 위치 확보 성공: ${lastLocation.latitude}, ${lastLocation.longitude}")
+                    Log.d(TAG, "🎯 초기 위치 확보 성공: ${lastLocation.latitude}, ${lastLocation.longitude}")
                     cacheMyStatus.value = LiveStatus(
-                        uid = uid ?: "unknown_me",
+                        uid = uid,
                         latitude = lastLocation.latitude,
                         longitude = lastLocation.longitude
                     )
                 } else {
-                    // 극단적 음영 지역 혹은 GPS 비활성화 시 무한 로딩 방지 목적의 서울시청 임시 좌표 부여
-                    Log.w("MapViewModel", "⚠️ 모든 위치 조회 실패: 무한 로딩 방지를 위해 기본 앵커를 설정합니다.")
-                    cacheMyStatus.value = LiveStatus(
-                        uid = uid ?: "unknown_me",
-                        latitude = 37.5665,
-                        longitude = 126.9780
-                    )
+                    setDefaultLocation(uid, "모든 위치 조회 실패")
                 }
             } catch (e: Exception) {
-                Log.e("MapViewModel", "최근 위치 획득 실패 예외 발생: ${e.message}")
-                // 예외 발생 시 무한 인디케이터 방어용 임시 좌표 설정
-                cacheMyStatus.value = LiveStatus(
-                    uid = uid ?: "unknown_me",
-                    latitude = 37.5665,
-                    longitude = 126.9780
-                )
+                setDefaultLocation(uid, "예외 발생: ${e.message}")
             }
         }
+    }
+
+    private fun setDefaultLocation(uid: String, reason: String) {
+        Log.w(TAG, "⚠️ $reason: 무한 로딩 방지를 위해 기본 앵커를 설정합니다.")
+        cacheMyStatus.value = LiveStatus(
+            uid = uid,
+            latitude = DEFAULT_LATITUDE,
+            longitude = DEFAULT_LONGITUDE
+        )
     }
 }
