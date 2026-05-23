@@ -15,8 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 음성 메시지 관련 원격 데이터 소스 구현체입니다.
- * Firebase Storage 및 Firestore를 통해 음성 파일 업로드와 메시지 전송 기능을 처리합니다.
+ * 음성 메시지 관련 원격 데이터 소스 구현체 클래스
  */
 @Singleton
 class VoiceRemoteDataSourceImpl @Inject constructor(
@@ -25,7 +24,9 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     private val storage: FirebaseStorage
 ) : VoiceRemoteDataSource {
 
-    // 음성 메시지 전송
+    /**
+     * 음성 메시지 전송 함수
+     */
     override suspend fun sendVoiceMessage(receiverId: String, voiceUrl: String, duration: Int): Boolean {
         val data = hashMapOf(
             "receiverId" to receiverId,
@@ -36,7 +37,9 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
         return (result.data as? Map<*, *>)?.get("isOnline") as? Boolean ?: false
     }
 
-    // 수신 음성 메시지 실시간 관찰
+    /**
+     * 수신된 음성 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
+     */
     override fun observeIncomingVoice(myUid: String): Flow<Pair<String, VoiceMessageDto>> = callbackFlow {
         val query = firestore.collection("VoiceMessages")
             .document(myUid)
@@ -48,6 +51,7 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
                 close(e)
                 return@addSnapshotListener
             }
+            // 새로 추가된 문서만 필터링하여 전달
             snapshot?.documentChanges?.forEach { dc ->
                 if (dc.type == DocumentChange.Type.ADDED) {
                     val dto = dc.document.toObject(VoiceMessageDto::class.java)
@@ -60,7 +64,9 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
         awaitClose { subscription.remove() }
     }
 
-    // 음성 파일 업로드
+    /**
+     * 음성 파일을 스토리지에 업로드하는 함수
+     */
     override suspend fun uploadVoiceFile(localFileUri: android.net.Uri): String {
         val fileName = "voices/${UUID.randomUUID()}.m4a"
         val voiceRef = storage.reference.child(fileName)
@@ -70,7 +76,9 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
         }.await().toString()
     }
 
-    // 음성 메시지 직접 전송
+    /**
+     * 음성 메시지를 상대방에게 직접 전송하는 함수
+     */
     override suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int) {
         val messageData = hashMapOf(
             "sender_id" to senderId,
@@ -87,7 +95,9 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
             .await()
     }
 
-    // 음성 메시지 읽음 처리
+    /**
+     * 음성 메시지를 읽음 상태로 업데이트하는 함수
+     */
     override suspend fun markVoiceMessageAsRead(messageId: String) {
         val data = hashMapOf("messageId" to messageId)
         functions.getHttpsCallable("markVoiceMessageAsRead").call(data).await()

@@ -21,7 +21,7 @@ import javax.inject.Singleton
 import dagger.Lazy
 
 /**
- * 프로필 관리, 친구 관계 설정 관장 및 유저 데이터 소스 계층 연동 저장소 구현체 클래스
+ * 유저 프로필 및 상태 관리
  */
 @Singleton
 class UserRepositoryImpl @Inject constructor(
@@ -29,11 +29,13 @@ class UserRepositoryImpl @Inject constructor(
     private val liveStatusRepositoryProvider: Lazy<LiveStatusRepository>,
 ) : UserRepository {
 
-    // 서버 영역 적재 기존 유효 푸시 서비스 토큰 코드 인출 함수
+    /**
+     * 알림 푸시 토큰 조회 함수
+     */
     override suspend fun getFcmToken(): String? = userRemoteDataSource.getToken()
 
     /**
-     * 변경 프로필 내용 및 수신 토큰 상태의 데이터 소스 컴포넌트 경유 원격 갱신 함수
+     * 유저 프로필 정보 및 푸시 토큰 업데이트 함수
      */
     override suspend fun updateProfile(
         nickname: String?,
@@ -42,76 +44,88 @@ class UserRepositoryImpl @Inject constructor(
         fcmToken: String?
     ): Result<String> {
         return try {
+            // 원격 서버의 프로필 데이터 수정
             val message =
                 userRemoteDataSource.updateProfile(nickname, status, profileImageUrl, fcmToken)
             Result.Success(message)
         } catch (e: Exception) {
+            // 업데이트 실패 예외 처리
             Log.e("UserRepository", "프로필 업데이트 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "알 수 없는 오류"))
         }
     }
 
     /**
-     * 순환 의존성 오류 회피 목적의 프로바이더 패턴 적용 및 수명 주기 상태 관리자 내 현재 체류 채팅방 ID 동기화 함수
+     * 현재 활성화된 채팅방 정보 전송 및 하트비트 발생 함수
      */
     override suspend fun updateHeartbeat(currentRoomId: String?): Result<Unit> {
         return try {
+            // updateLifeCycle 통해 활성 상태 동기화
             liveStatusRepositoryProvider.get().updateLifeCycle(currentRoomId)
             Result.Success(Unit)
         } catch (e: Exception) {
+            // 전송 실패 예외 처리
             Log.e("UserRepository", "Heartbeat 업데이트 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "Heartbeat 실패"))
         }
     }
 
     /**
-     * 네트워크 소켓 온라인 연결 상태 플래그 실시간 토글 보정 함수
+     * 온라인 접속 상태 업데이트 함수
      */
     override suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean> {
         return try {
+            // 원격 서버에 온라인 상태 저장
             val isSuccess = userRemoteDataSource.updateOnlineStatus(isOnline)
             Result.Success(isSuccess)
         } catch (e: Exception) {
+            // 상태 변경 실패 예외 처리
             Log.e("UserRepository", "온라인 상태 업데이트 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "상태 업데이트 실패"))
         }
     }
 
     /**
-     * 타인 식별자 코드 기반 서버 원격 공용 프로필 맵 데이터 추적 및 도메인 규격 매칭 디코딩 함수
+     * 다른 유저의 프로필 정보 조회 함수
      */
     override suspend fun getUserProfile(targetUid: String): Result<User> {
         return try {
+            // 원격 데이터 조회 및 유효성 검증
             val response = userRemoteDataSource.getUserProfile(targetUid)
             val success = response?.get("success") as? Boolean ?: false
             val profileMap = response?.get("profile") as? Map<String, Any>
 
+            // 검증 성공 시 도메인 엔티티로 변환하여 반환
             if (success && profileMap != null) {
                 Result.Success(profileMap.toDomain())
             } else {
                 Result.Failure(AppError.Unknown("유저 정보를 찾을 수 없습니다."))
             }
         } catch (e: Exception) {
+            // 조회 실패 예외 처리
             Log.e("UserRepository", "유저 프로필 조회 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "프로필 조회 실패"))
         }
     }
 
     /**
-     * 내 고유 계정 키값 파라미터 대입을 통한 마이페이지 개인 프로필 세부 데이터 인출 가공 함수
+     * 내 프로필 상세 정보 조회 함수
      */
     override suspend fun getMyProfile(uid: String): Result<User> {
         return try {
+            // 원격 저장소에서 내 프로필 조회 및 유효성 검증
             val response = userRemoteDataSource.getMyProfile(uid)
             val success = response?.get("success") as? Boolean ?: false
             val profileMap = response?.get("profile") as? Map<String, Any>
 
+            // 검증 성공 시 도메인 엔티티로 변환하여 반환
             if (success && profileMap != null) {
                 Result.Success(profileMap.toDomain())
             } else {
                 Result.Failure(AppError.Unknown("내 정보를 찾을 수 없습니다."))
             }
         } catch (e: Exception) {
+            // 조회 실패 예외 처리
             Log.e("UserRepository", "내 프로필 조회 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "내 프로필 조회 실패"))
         }

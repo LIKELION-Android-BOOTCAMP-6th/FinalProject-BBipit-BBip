@@ -1,6 +1,8 @@
 package com.bbip.bbipit.domain.entity
 
-// 개별 메시지 정보
+/**
+ * 개별 채팅 메시지 정보 엔티티
+ */
 data class ChatMessage(
     val id: String = "",
     val senderId: String = "",

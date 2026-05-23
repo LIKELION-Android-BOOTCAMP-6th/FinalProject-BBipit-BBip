@@ -22,8 +22,7 @@ import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.primary
 
 /**
- * 실시간 음성 메시지 인입 시 화면 최하단 레이어 오버레이 노출용 전역 재생 바 컴포넌트
- * 수신 뷰모델 가시성 플래그 상태 관찰 기반 스프링 탄성 물리 효과 적용 업다운 슬라이드 애니메이션 수행 목적
+ * 실시간 음성 메시지 수신 시 화면 하단에 노출되는 전역 재생 바 컴포넌트
  */
 @Composable
 fun VoicePlayerScreen(
@@ -62,7 +61,7 @@ fun VoicePlayerScreen(
 }
 
 /**
- * 수신 무전 데이터 발신자 프로필, 재생 트래킹 시간 및 커스텀 오디오 이퀄라이저 그래픽 집약 배치 표출 카드 컴포넌트
+ * 발신자 프로필, 재생 시간 및 이퀄라이저 파형을 보여주는 수신 카드 컴포넌트
  */
 @Composable
 fun VoiceReceptionCard(
@@ -87,7 +86,7 @@ fun VoiceReceptionCard(
                 .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 코일(Coil) 비동기 이미지 로더 컴포넌트 이용 발신자 원형 크롭 프로필 사진 렌더링 처리
+            // 발신자 프로필 이미지
             AsyncImage(
                 model = profileImageUrl,
                 contentDescription = "Profile Image",
@@ -115,7 +114,7 @@ fun VoiceReceptionCard(
                         ),
                         color = Color.DarkGray
                     )
-                    // 가독 시간 포맷팅 헬퍼 함수 경유 현재 재생 진척도 분초 규격 실시간 갱신 표출 처리
+                    // 현재 재생 시간 및 총 길이 표시
                     Text(
                         text = "${formatTime(currentPosition)} / ${formatTime(totalDuration)}",
                         style = MaterialTheme.typography.labelMedium,
@@ -123,7 +122,7 @@ fun VoiceReceptionCard(
                     )
                 }
                 Spacer(modifier = Modifier.height(6.dp))
-                // 무전 재생 문맥 상태 동적 시각화 목적의 인피니트 애니메이션 웨이브바 패널 배치 영역
+                // 음성 재생 애니메이션 파형 표시 영역
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.CenterStart
@@ -132,7 +131,7 @@ fun VoiceReceptionCard(
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
-            // 오버레이 컴포넌트 즉시 숨김 및 재생 상태 초기화용 명시적 닫기 아이콘 버튼
+            // 닫기 버튼
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier.size(28.dp)
@@ -149,7 +148,7 @@ fun VoiceReceptionCard(
 }
 
 /**
- * 정수형 초 단위 수치 데이터 대상 디지털 미디어 플레이어 규격(분:초) 형태 텍스트 패턴 문자열 변환 정렬 헬퍼 함수
+ * 초 단위 숫자를 분:초 형식의 문자열로 변환하는 함수
  */
 fun formatTime(seconds: Int): String {
     val m = seconds / 60
@@ -158,7 +157,7 @@ fun formatTime(seconds: Int): String {
 }
 
 /**
- * 무한 루프 트랜지션 명세 기준 개별 세로 막대 배율 팩터 난수 스케일링 가동 실시간 그래픽 웨이브폼 컴포넌트
+ * 실시간 애니메이션이 적용된 오디오 웨이브폼 컴포넌트
  */
 @Composable
 fun AnimatedWaveform() {
@@ -168,7 +167,7 @@ fun AnimatedWaveform() {
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 총 개수 한정 루프 순회 기반 개별 인덱스 주기 부합 고유 진폭 애니메이션 막대 생성 처리
+        // 반복 루프를 통한 개별 파형 막대 생성
         repeat(25) { index ->
             val duration = remember { (400..800).random() }
             val heightMultiplier by infiniteTransition.animateFloat(
@@ -180,7 +179,7 @@ fun AnimatedWaveform() {
                 ),
                 label = "barHeight"
             )
-            // 자연스러운 주파수 파형 유도 목적의 인덱스 나머지 연산 조건 분기 기준 기본 높이 지정
+            // 인덱스별 기본 높이 설정
             val baseHeight = when (index % 5) {
                 0 -> 10.dp
                 1 -> 16.dp
@@ -188,7 +187,7 @@ fun AnimatedWaveform() {
                 3 -> 18.dp
                 else -> 12.dp
             }
-            // 브랜드 고유 기본 색상 및 반투명 알파 채널 색상 배합 버티컬 그라데이션 박스 작도
+            // 그라데이션 색상이 적용된 파형 막대 생성
             Box(
                 modifier = Modifier
                     .width(3.dp)

@@ -5,6 +5,9 @@ import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.entity.ChatRoomResult
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * 채팅 관련 원격 데이터 소스 인터페이스
+ */
 interface ChatRemoteDataSource {
     suspend fun createChatRoom(targetUid: String): ChatRoomResult
     suspend fun sendMessage(roomId: String, receiverId: String, content: String): Map<String, Any>?

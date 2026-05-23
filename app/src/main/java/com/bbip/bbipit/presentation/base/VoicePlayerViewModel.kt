@@ -1,8 +1,10 @@
 package com.bbip.bbipit.presentation.base
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.util.AudioPlayer
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.User
@@ -35,28 +37,29 @@ data class IncomingVoiceUiState(
 )
 
 /**
- * 전역 음성 메시지 수신 및 자동 재생 관리용 뷰모델(ViewModel) 클래스
+ * 전역 음성 메시지 수신 및 자동 재생 관리용 ViewModel 클래스
  */
 @HiltViewModel
 class VoicePlayerViewModel @Inject constructor(
     private val voiceRepository: VoiceRepository,
     private val userRepository: UserRepository,
-    private val authRepository: AuthRepository,
     @ApplicationContext private val context: Context
-) : ViewModel() {
+) : BaseViewModel<IncomingVoiceUiState>(IncomingVoiceUiState()) {
 
     private val audioPlayer = AudioPlayer(context)
-    private val _uiState = MutableStateFlow(IncomingVoiceUiState())
-    val uiState: StateFlow<IncomingVoiceUiState> = _uiState.asStateFlow()
+
+    private val TAG = "VoicePlayerViewModel"
 
     init {
-        // startObservingIncomingVoice()
         listenToServiceVoiceEvent()
     }
 
+    /**
+     * 음성 메시지 수신 이벤트 구독 및 재생 처리 함수
+     */
     private fun listenToServiceVoiceEvent() {
         viewModelScope.launch {
-            // 서비스 분기 전달 폰 재생용 음성 스트림 구독 처리
+            // 음성 메시지 이벤트 구독
             voiceRepository.voiceMessageEvent.collect { voiceMessage ->
                 val url = voiceMessage.voiceUrl ?: return@collect
 
@@ -67,50 +70,71 @@ class VoicePlayerViewModel @Inject constructor(
                     is Result.Failure -> null
                 }
 
-                // VoicePlayerScreen 카드 노출 및 재생 바 작동 목적의 UI 상태 업데이트
-                _uiState.update {
-                    it.copy(
+                // UI 노출 및 데이터 업데이트
+                updateState {
+                    copy(
                         isVisible = true,
                         sender = sender,
                         currentVoiceMessage = voiceMessage
                     )
                 }
 
-                // 오디오 출력 실행 및 재생 완료 시점 종료 처리 포함
+                // 오디오 재생 및 완료 처리
                 audioPlayer.playFromUrl(url) {
                     viewModelScope.launch {
-                        // 읽음 처리는 서비스에서 이미 했으므로 여기서는 제거하거나 유지해도 무방하지만 중복 가능성 검토
+                        // 완료 시 재생 위치를 총 길이로 보정
+                        updateState { copy(currentPosition = currentVoiceMessage?.duration ?: 0) }
+
+                        // 음성 메시지 읽음 처리
                         voiceRepository.markVoiceMessageAsRead(voiceMessage.id)
                         delay(1000)
-                        dismissMessage() // 재생 완료 시 닫기
+                        dismissMessage()
                     }
                 }
 
-                // 트래킹 시작
+                // 재생 진행 위치 추적 시작
                 startPositionTracking()
             }
         }
     }
 
-    // 수신 메시지 UI 초기화 함수
+    /**
+     * 수신 메시지 UI 및 데이터 초기화 함수
+     */
     fun dismissMessage() {
-        _uiState.update { it.copy(isVisible = false, sender = null, currentVoiceMessage = null, currentPosition = 0) }
+        updateState { copy(isVisible = false, sender = null, currentVoiceMessage = null, currentPosition = 0) }
     }
 
-    // 오디오 재생 위치 추적 함수
+    /**
+     * 오디오 재생 진행 위치 추적 함수
+     */
     private fun startPositionTracking() {
         viewModelScope.launch {
-            // 재생 시작 대기 목적의 딜레이
-            delay(500)
+            var waitCount = 0
+            val maxWaitAttempts = 25 // 최대 5초 대기 가드레일
+
+            // 플레이어 준비 대기
+            while (isActive && !audioPlayer.isPlaying() && waitCount < maxWaitAttempts) {
+                delay(200)
+                waitCount++
+            }
+
+            Log.d(TAG, "🎵 재생 감지 성공 (버퍼링 대기: ${waitCount * 200}ms) - 타이머 시작")
+
+            // 재생 중인 동안 실시간으로 진행 시간 업데이트
             while (isActive && audioPlayer.isPlaying()) {
                 val posSeconds = (audioPlayer.getCurrentPosition() / 1000)
-                _uiState.update { it.copy(currentPosition = posSeconds) }
+                updateState { copy(currentPosition = posSeconds) }
                 delay(200)
             }
+
+            Log.d(TAG, "🔇 재생이 정지되었거나 종료되어 타이머를 마칩니다.")
         }
     }
 
-    // 하드웨어 및 플레이어 자원 정리 콜백 함수
+    /**
+     * 뷰모델 소멸 시 플레이어 자원 해제 함수
+     */
     override fun onCleared() {
         super.onCleared()
         audioPlayer.stopAudio()

@@ -10,38 +10,39 @@ import android.util.Log
  * Android MediaPlayer API 기반 스트리밍 재생, 상태 관리 및 자원 해제 기능 수행
  */
 class AudioPlayer(private val context: Context) {
-    // 음성 재생 담당 프레임워크 객체
+
+    // 음성 재생 담당 시스템 객체
     private var mediaPlayer: MediaPlayer? = null
 
     /**
-     * 외부 URL을 통한 스트리밍 재생 수행
-     * 네트워크 상태 고려 비동기 준비(prepareAsync) 방식 사용 및 완료 시 자동 재생 시작
-     * @param url 재생할 음성 파일 경로
-     * @param onCompletion 재생 완료 콜백
+     * 외부 URL 기반 스트리밍 재생 함수
      */
     fun playFromUrl(url: String, onCompletion: () -> Unit = {}) {
         try {
             Log.d("AudioPlayer", "Attempting to play audio from: $url")
-            // 재생 전 기존 자원 정리
+
+            // 기존 재생 종료 및 초기화
             stopAudio()
 
+            // 재생기 생성 및 설정
             mediaPlayer = MediaPlayer().apply {
+                // 오디오 속성 설정
                 setAudioAttributes(
                     AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .build()
                 )
-                // 음성 파일 경로 설정
+                // 재생할 파일 경로 지정
                 setDataSource(url)
 
-                // 버퍼링 완료 시 재생 시작 정의
+                // 재생 준비 완료 시 재생 시작
                 setOnPreparedListener {
                     Log.d("AudioPlayer", "Audio prepared, starting playback")
                     it.start()
                 }
 
-                // 재생 완료 시 자원 해제 및 콜백 호출 정의
+                // 재생 완료 시 자원 해제
                 setOnCompletionListener {
                     Log.d("AudioPlayer", "Playback completed")
                     onCompletion()
@@ -49,7 +50,7 @@ class AudioPlayer(private val context: Context) {
                     if (mediaPlayer == it) mediaPlayer = null
                 }
 
-                // 오류 발생 시 자원 해제 및 에러 처리 알림
+                // 에러 발생 시 자원 해제
                 setOnErrorListener { mp, what, extra ->
                     Log.e("AudioPlayer", "MediaPlayer Error: what=$what, extra=$extra")
                     mp.release()
@@ -57,33 +58,34 @@ class AudioPlayer(private val context: Context) {
                     true
                 }
 
-                // 네트워크 데이터 로딩을 위한 비동기 준비 실행
+                // 비동기 재생 준비 실행
                 prepareAsync()
             }
         } catch (e: Exception) {
-            // URL 오류 및 네트워크 예외 기록
+            // 재생 구성 실패 예외 처리
             Log.e("AudioPlayer", "Error playing audio", e)
         }
     }
 
     /**
-     * 현재 오디오 진행 위치(밀리초) 반환
+     * 현재 오디오 진행 위치(밀리초) 반환 함수
      */
     fun getCurrentPosition(): Int = mediaPlayer?.currentPosition ?: 0
 
     /**
-     * 현재 오디오 재생 여부 반환
+     * 현재 오디오 재생 여부 반환 함수
      */
     fun isPlaying(): Boolean = mediaPlayer?.isPlaying ?: false
 
     /**
-     * 오디오 재생 즉시 중단 및 자원 반납
-     *
-     * 화면 전환이나 정지 버튼 호출 시 하드웨어 자원 낭비 방지 및 상태 초기화
+     * 오디오 재생 즉시 중단 및 미디어 자원 반납 함수
      */
     fun stopAudio() {
+        // 재생 정지 및 자원 해제
         mediaPlayer?.stop()
         mediaPlayer?.release()
+
+        // 인스턴스 초기화
         mediaPlayer = null
     }
 }
