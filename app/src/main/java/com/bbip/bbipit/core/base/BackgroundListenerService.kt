@@ -450,7 +450,7 @@ class BackgroundListenerService : Service() {
                         encodePcmToM4a(pcmFile, m4aFile)
 
                         val endTime = System.currentTimeMillis()
-                        val durationSeconds = (((endTime - startTime) / 1000).toInt() + 1).coerceAtLeast(1)
+                        val durationSeconds = (((endTime - startTime) / 1000).toInt()).coerceAtLeast(1)
 
                         if (m4aFile.exists() && m4aFile.length() > 0) {
                             // 고정값을 탈피하고 파싱 처리해 둔 수신자 식별자 targetUid 값을 완전하게 할당
