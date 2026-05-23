@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.People // 친구 목록 아이콘용 추가
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,7 @@ import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
 import com.bbip.bbipit.presentation.map.viewmodel.MapViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.VoiceUiState
 import com.bbip.bbipit.presentation.map.viewmodel.PushToTalkViewModel
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -59,6 +61,8 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.CameraPositionState // 추가
+import kotlinx.coroutines.launch // CoroutineScope 제어용 추가
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +76,15 @@ fun MapScreen(
     val voiceUiState by pushToTalkViewModel.uiState.collectAsState()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
+
+    // 드로어 열림/닫힘 상태 제어용
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    val seoul = LatLng(37.5665, 126.9780)
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(seoul, 15f)
+    }
 
     val TAG = "MapScreen"
 
@@ -98,41 +111,78 @@ fun MapScreen(
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        // 시스템 UI 영역까지 콘텐츠를 채우도록 인셋을 0으로 설정
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { _ ->
-        BackgroundBox {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // 지도 및 마커 레이어 노출
-                MapContent(
-                    mapUiState = uiState,
-                    modifier = Modifier.fillMaxSize(),
-                    onFriendClick = { friend ->
+    // 최상단을 ModalNavigationDrawer로 감싸 드로어 레이어 선언
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            // 이전에 분리해 둔 커스텀 드로어 컴포넌트 호출
+            FriendListDrawer(
+                friends = uiState.friendsStatuses,
+                selectedFriendUid = clickedFriendUid,
+                onCloseClick = {
+                    scope.launch { drawerState.close() }
+                },
+                onFriendClick = { friend ->
+                    scope.launch {
                         clickedFriendUid = friend.uid
+                        // 서랍을 부드럽게 닫고
+                        drawerState.close()
+                        // 해당 친구의 실시간 위치 좌표로 카메라 이동
+                        cameraPositionState.animate(
+                            update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
+                        )
                     }
-                )
-            }
+                }
+            )
+        }
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        ) { _ ->
+            BackgroundBox {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // 지도 및 마커 레이어 노출 (cameraPositionState 패싱)
+                    MapContent(
+                        mapUiState = uiState,
+                        cameraPositionState = cameraPositionState,
+                        modifier = Modifier.fillMaxSize(),
+                        onFriendClick = { friend ->
+                            clickedFriendUid = friend.uid
+                        }
+                    )
 
-            // 선택된 친구의 최신 정보 조회
-            val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
-                uiState.friendsStatuses.find { it.uid == clickedFriendUid }
-            }
+                    // 지도 화면 우측 상단에 배치될 친구 목록 토글 버튼 (시안 스타일 반영)
+                    FriendListToggleButton(
+                        onClick = {
+                            scope.launch { drawerState.open() }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .statusBarsPadding() // 상태바 영역 침범 방지
+                            .padding(end = 16.dp, bottom = 200.dp)
+                    )
+                }
 
-            // 친구 상세 프로필 다이얼로그 표시
-            currentClickedFriend?.let { friend ->
-                FriendProfileDialog(
-                    friend = friend,
-                    voiceUiState = voiceUiState,
-                    voiceViewModel = pushToTalkViewModel,
-                    onDismiss = { clickedFriendUid = null },
-                    onChatClick = {
-                        clickedFriendUid = null
-                        Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
-                            .show()
-                    }
-                )
+                // 선택된 친구의 최신 정보 조회
+                val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
+                    uiState.friendsStatuses.find { it.uid == clickedFriendUid }
+                }
+
+                // 친구 상세 프로필 다이얼로그 표시
+                currentClickedFriend?.let { friend ->
+                    FriendProfileDialog(
+                        friend = friend,
+                        voiceUiState = voiceUiState,
+                        voiceViewModel = pushToTalkViewModel,
+                        onDismiss = { clickedFriendUid = null },
+                        onChatClick = {
+                            clickedFriendUid = null
+                            Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                    )
+                }
             }
         }
     }
@@ -173,14 +223,10 @@ fun MapScreen(
 @Composable
 private fun MapContent(
     mapUiState: MapUiState,
+    cameraPositionState: CameraPositionState,
     modifier: Modifier = Modifier,
     onFriendClick: (LiveStatus) -> Unit
 ) {
-    val seoul = LatLng(37.5665, 126.9780)
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(seoul, 15f)
-    }
-
     val context = LocalContext.current
 
     // 내 위치 좌표 추출
@@ -290,6 +336,36 @@ private fun MapContent(
     }
 }
 
+// 우측 친구목록 버튼 컴포저블
+@Composable
+fun FriendListToggleButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val buttonShape = RoundedCornerShape(14.dp) // 모서리 둥글기 규격 통일
+
+    FilledIconButton(
+        onClick = onClick,
+        modifier = modifier.size(50.dp)
+            .shadow(
+                elevation = 6.dp,
+                shape = buttonShape,
+                clip = false
+            ),
+        shape = buttonShape,
+        colors = IconButtonDefaults.filledIconButtonColors(
+            containerColor = Color(0xFFF1F5F9),
+            contentColor = Color.White
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Default.People,
+            contentDescription = "친구 목록 열기",
+            modifier = Modifier.size(24.dp),
+            tint = Color(0xFF956AFC) // 에러 원인이었던 속성 이름 수정 완료
+        )
+    }
+}
 @Composable
 fun FriendProfileDialog(
     friend: LiveStatus,
