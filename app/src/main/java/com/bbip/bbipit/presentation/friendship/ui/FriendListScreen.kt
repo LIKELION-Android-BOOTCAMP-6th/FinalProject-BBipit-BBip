@@ -147,7 +147,17 @@ fun FriendListScreen(
                             android.util.Log.d("FriendList", "${friend.nickname}님과의 채팅방으로 이동")
                         },
                         onDelete = {
-                            // viewModel.deleteFriend(friend.uid) 호출
+                            viewModel.deleteFriend(
+                                targetUid = friend.uid,
+                                onSuccess = { message ->
+                                    // 서버에서 온 메시지(예: "친구 삭제가 완료되었습니다.")를 토스트로 출력
+                                    showToastMessage = message
+                                },
+                                onError = { errorMessage ->
+                                    // 예외 처리 메시지 출력
+                                    showToastMessage = errorMessage
+                                }
+                            )
                             android.util.Log.d("FriendList", "${friend.nickname} 삭제 요청")
                         }
                     )
@@ -390,7 +400,7 @@ fun AddFriendDialog(
                 OutlinedTextField(
                     value = uid,
                     onValueChange = { uid = it },
-                    placeholder = { Text("UID 입력 (예: 1234-5678)", style = Typography.bodySmall, fontWeight = FontWeight.Bold) },
+                    placeholder = { Text("UID 입력 (예: 12345678)", style = Typography.bodySmall, fontWeight = FontWeight.Bold) },
                     shape = RoundedCornerShape(12.dp),
 //                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )

@@ -10,6 +10,7 @@ import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.bbip.bbipit.core.result.Result
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -114,6 +115,28 @@ class FriendListViewModel @Inject constructor(
 
 
     }
+
+    // 친구 삭제
+    fun deleteFriend(targetUid: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            // 서버 요청 시작
+            val result = friendRepository.deleteFriend(targetUid)
+
+            when (result) {
+                is Result.Success -> {
+                    refreshAll()
+                    onSuccess(result.data) // Result.Success 내부의 data 필드
+                }
+                is Result.Failure -> {
+                    // AppError 내부에 message가 있는지 확인 (보통 error.message 또는 error.toString() 사용)
+                    val errorMessage = result.error.message ?: "친구 삭제 중 오류가 발생했습니다."
+                    onError(errorMessage)
+                }
+            }
+        }
+    }
+
+    // 해당 프로필 사용자와 채팅 시작
     fun createOrGetChatRoom(
         targetUid: String,
         onSuccess: (String) -> Unit,

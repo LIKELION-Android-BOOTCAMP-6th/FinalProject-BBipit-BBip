@@ -102,7 +102,13 @@ class FriendRepositoryImpl @Inject constructor(
             val message = friendRemoteDataSource.deleteFriend(targetUid)
             Result.Success(message)
         } catch (e: Exception) {
-            Log.e("UserRepository", "친구 삭제 실패: ${e.message}")
+            Log.e("FriendRepository", "친구 삭제 실패: ${e.message}", e)
+
+            // Firebase 함수 에러일 경우 상세 정보 출력
+            if (e is com.google.firebase.functions.FirebaseFunctionsException) {
+                Log.e("FriendRepository", "Code: ${e.code}, Details: ${e.details}")
+            }
+
             Result.Failure(AppError.Unknown(e.message ?: "친구 삭제 중 오류 발생"))
         }
     }
