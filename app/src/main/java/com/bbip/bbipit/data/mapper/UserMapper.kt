@@ -5,7 +5,7 @@ import com.bbip.bbipit.domain.entity.User
 import com.google.firebase.Timestamp
 
 /**
-Dto -> Domain 변환
+ * UserDto를 User 엔티티로 변환하는 함수
  */
 fun UserDto.toDomain(id: String): User = User(
     id = id,
@@ -21,7 +21,7 @@ fun UserDto.toDomain(id: String): User = User(
 )
 
 /**
-Domain -> Dto 변환
+ * User 엔티티를 UserDto로 변환하는 함수
  */
 fun User.toDto(): UserDto = UserDto(
     nickname = nickname,
@@ -36,19 +36,20 @@ fun User.toDto(): UserDto = UserDto(
 )
 
 /**
-Cloud Functions 응답(Map) -> Domain 변환
+ * Map 데이터를 User 엔티티로 변환하는 함수
  */
 fun Map<String, Any>.toDomain(): User {
+    // 수신된 맵 데이터를 엔티티 구조로 변환
     return User(
         id = this["uid"] as? String ?: "",
         nickname = this["nickname"] as? String ?: "익명",
         profileImageUrl = this["profile_image_url"] as? String ?: "",
         status = this["status"] as? String ?: "",
-        isSharing = this["is_sharing"] as? Boolean ?: false, // DTO 필드명에 맞춰 추가
+        isSharing = this["is_sharing"] as? Boolean ?: false,
         isOnline = this["is_online"] as? Boolean ?: false,
-        fcmToken = "", // 보안상 Functions에서 제외됨
+        fcmToken = "",
         lastActive = (this["last_active"] as? Number)?.toLong() ?: 0L,
-        friendUids = emptyList(), // 보안상 Functions에서 제외됨
+        friendUids = emptyList(),
         loginType = ""
     )
 }

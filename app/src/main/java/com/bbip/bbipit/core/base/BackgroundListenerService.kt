@@ -1,6 +1,5 @@
 package com.bbip.bbipit.core.base
 
-import com.google.android.gms.common.api.ApiException
 import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
@@ -22,37 +21,22 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
-import com.bbip.bbipit.data.repository.FriendRepositoryImpl
-import com.bbip.bbipit.data.repository.UserRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
-import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import com.bbip.bbipit.domain.usecase.SyncMyLocationUseCase
 import com.bbip.bbipit.presentation.main.MainActivity
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.android.gms.wearable.ChannelClient
-import com.google.android.gms.wearable.ChannelClient.Channel
-import com.google.android.gms.wearable.ChannelClient.ChannelCallback
-import com.google.android.gms.wearable.Wearable
-import com.google.android.gms.wearable.MessageClient
-import com.google.android.gms.wearable.WearableListenerService
+import com.google.android.gms.location.*
+import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.wearable.*
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -60,7 +44,8 @@ import java.io.FileOutputStream
 import javax.inject.Inject
 
 /**
- * 백그라운드 위치 추적, 워치 통신, 무전 수신 지속용 포어그라운드 서비스 클래스
+ * 백그라운드 데이터 동기화 및 워치 통신 관리 서비스
+ * 앱의 전역 스코프에서 실시간 위치 추적, 오디오 스트리밍 인코딩, 워치 상태 동기화 및 시스템 알림 발행 수행
  */
 @AndroidEntryPoint
 class BackgroundListenerService : Service() {
@@ -73,196 +58,243 @@ class BackgroundListenerService : Service() {
     @Inject lateinit var lifeCycleManager: LifeCycleManager
     @Inject lateinit var notificationRepository: NotificationRepository
 
-    // 비동기 작업 및 스트림 구독 통제용 서비스 전역 코루틴 스코프
-    private val scope = CoroutineScope(Dispatchers.IO)
+    // 백그라운드 작업 관리용 코루틴 식별자
+    private val serviceJob = SupervisorJob()
+
+    // 백그라운드 연산 처리용 비동기 스코프
+    private val scope = CoroutineScope(Dispatchers.IO + serviceJob)
+
+    // 로그 출력용 클래스 식별 태그
     private val TAG = "BackgroundListenerService"
 
-    // 구글 위치 서비스 API 연동용 클라이언트 및 콜백 객체
+    // 음성 메시지 구독 관리용 작업 단위
+    private var voiceObservationJob: Job? = null
+
+    // 실시간 위치 추적용 클라이언트
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    // 주기적 위치 정보 수신 리스너
     private lateinit var locationCallback: LocationCallback
 
-    // 웨어러블 기기 데이터 송수신용 클라이언트 객체 지연 초기화
-    private val messageClient by lazy { Wearable.getMessageClient(this) }
-    private val nodeClient by lazy { Wearable.getNodeClient(this) }
+    // 워치 오디오 스트림 통신 인터페이스
     private lateinit var channelClient: ChannelClient
 
-    // 워치 앱 화면의 포어그라운드 활성화 상태 플래그 변수
+    // 워치 제어 메시지 송수신 클라이언트
+    private val messageClient by lazy { Wearable.getMessageClient(this) }
+
+    // 워치 노드 연결 상태 관리 컴포넌트
+    private val nodeClient by lazy { Wearable.getNodeClient(this) }
+
+    // 워치 앱의 화면 활성화 여부 플래그
     private var isWatchInForeground = false
 
-    // 실시간 알림 및 초기 진입 제어용 변수
+    // 알림 최초 로딩 스킵용 플래그
     private var isInitialData = true
+
+    // 과거 알림 필터링용 서비스 시작 타임스탬프
     private val serviceStartTime = System.currentTimeMillis()
+
+    // 배너 표출이 완료된 알림 식별자 저장소
     private val notifiedIds = mutableSetOf<String>()
 
     /**
-     * 워치측 화면 상태 변경 이벤트 수신용 메시지 리스너
-     * 바이트 데이터의 불리언 변환을 통한 플래그 갱신 및 상태별 세션 제어 파이프라인 구동 목적
+     * 웨어러블 디바이스 및 시스템 채널 식별자 통합 상수 공간
+     */
+    companion object {
+        // 워치 활성화 상태 전송 경로
+        const val PATH_WATCH_STATE = "/watch_state"
+
+        // 워치 상태 확인 요청 경로
+        const val PATH_REQUEST_WATCH_STATUS = "/request_watch_status"
+
+        // 친구 위치 목록 워치 전송 경로
+        const val PATH_RESPONSE_FRIENDS_LOCATION = "/response_friends_location"
+
+        // 워치 오디오 출력 명령 경로
+        const val PATH_PLAY_VOICE = "/play_voice"
+
+        // 오디오 스트리밍 채널 접두사
+        const val PATH_AUDIO_STREAM_PREFIX = "/audio_stream"
+
+        // 위치 정보 워치 강제 푸시 액션 명칭
+        const val ACTION_PUSH_LOCATION_TO_WATCH = "PUSH_LOCATION"
+
+        // 음성 메시지 읽음 확인 갱신 액션 명칭
+        const val ACTION_UPDATE_VOICE_READ = "UPDATE_VOICE_READ"
+
+        // 읽음 상태 갱신 대상 데이터 식별자 키값
+        const val EXTRA_VOICE_MESSAGE_ID = "extra_voice_message_id"
+
+        // 무전 대기용 상주 알림 채널 식별자
+        const val CHANNEL_ID_VOICE = "voice_receiver_channel"
+
+        // 푸시 배너 표출용 알림 채널 식별자
+        const val CHANNEL_ID_ALERT = "phone_alert_channel"
+    }
+
+    /**
+     * 워치 상태 변경 감지 및 세션 제어 리스너
      */
     private val messageListener = MessageClient.OnMessageReceivedListener { messageEvent ->
-        if (messageEvent.path == "/watch_state") {
+        if (messageEvent.path == PATH_WATCH_STATE) {
             val state = String(messageEvent.data).toBoolean()
             isWatchInForeground = state
             Log.d(TAG, "⌚ 워치 상태 변경 감지 -> 포어그라운드 여부: $state")
-
-            // 워치 상태 변화에 맞춘 하트비트 세션 활성화 여부 재결정
             manageSessionByState()
         }
     }
 
-    // 바인딩 서비스 미사용에 따른 null 반환
-    override fun onBind(intent: Intent?): IBinder? = null
-
     /**
-     * 서비스 최초 생성 시점 시스템 호출 초기화 콜백 함수
-     * 웨어러블 채널 및 메시지 리스너 등록, 초기 위치 추적 및 워치 상태 동기화 요청 목적
+     * 오디오 스트림 채널 감지 콜백
      */
-    override fun onCreate() {
-        super.onCreate()
-        Log.d(TAG, "BackgroundListenerService onCreate")
-
-        channelClient = Wearable.getChannelClient(this)
-        channelClient.registerChannelCallback(channelCallback)
-
-        Wearable.getMessageClient(this).addListener(messageListener)
-
-        val myUid = authRepository.getCurrentUserUid()
-        if (myUid != null) {
-            // 친구 구독
-            friendRepository.startObservingFriends(myUid)
-            // 친구 상태 변화에 따른 위치 추적
-            startFriendsLocationObservation(myUid)
-            // 내 위치 추적
-            initLocationTracker()
-            // 서비스 구동 시점 워치 측 대상 현재 화면 활성화 상태 파악용 쿼리 송신
-            requestWatchStatus()
-            // 초기 상태 조합 기반 하트비트 세션 상태 평가
-            manageSessionByState()
-
-            // Repository에 구독 위임
-            notificationRepository.startObserving(myUid)
-        }
-
-        // 실시간 무전 신호 수신 처리용 관찰 흐름 개시
-        observeVoiceMessages()
-
-        // 서비스가 시작 시 알림 구독 시작
-        observeNotifications()
-    }
-
-    /**
-     * 서비스 명령 전달 시점 호출 콜백 함수
-     * 시스템 알림 표시를 통한 포어그라운드 권한 유지 및 앱 라이프사이클 옵저버 트리거 대응 세션 관리 목적
-     */
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "BackgroundListenerService onStartCommand")
-
-        try {
-            // 안드로이드 운영체제 정책 부합용 포어그라운드 서비스 알림 표출
-            startForegroundServiceNotification()
-        } catch (e: Exception) {
-            // 포어그라운드 서비스 시작 금지 예외 발생 시 서비스 안전 자체 종료 처리
-            Log.e(TAG, "ForegroundServiceStartNotAllowedException 방어: ${e.message}")
-            stopSelf()
-        }
-
-        // 폰 내부 화면 전환 및 워치 신호 변경 시 최신 상태 취합 기반 세션 제어
-        manageSessionByState()
-
-        // 시스템 강제 종료 시 가용 상태로 즉시 재시작하도록 설정 (START_STICKY)
-        return START_STICKY
-    }
-
-    /**
-     * 페어링된 모든 워치 노드 탐색 및 현재 워치 앱 구동 상태 확인 요청 전송 함수
-     */
-    private fun requestWatchStatus() {
-        scope.launch {
-            try {
-                val nodes = nodeClient.connectedNodes.await()
-                for (node in nodes) {
-                    messageClient.sendMessage(node.id, "/request_watch_status", byteArrayOf()).await()
-                    Log.d(TAG, "🔄 워치(${node.displayName})에게 현재 상태 확인 요청 송신")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 워치 상태 요청 실패", e)
-            }
-        }
-    }
-
-    /**
-     * 모바일 및 워치 기기 화면 활성화 상태 종합 기반 실시간 서버 동기화 세션 통제 단일 파이프라인 함수
-     */
-    private fun manageSessionByState() {
-        val isMobileForeground = appLifecycleObserver.isAppInForeground
-        val isUserLoggedIn = authRepository.getCurrentUserUid() != null
-
-        // 비로그인 사용자의 세션 가동 원천 차단 및 기존 세션 파기 처리
-        if (!isUserLoggedIn) {
-            Log.d(TAG, "🛑 로그아웃 상태 -> 세션 종료")
-            lifeCycleManager.stopSession()
-            return
-        }
-
-        // 모바일 기기 혹은 워치 기기 활성화 시 세션 가동, 양측 모두 비활성화 시 중지 처리
-        if (isMobileForeground || isWatchInForeground) {
-            Log.d(TAG, "🔄 세션 조건 충족 [Start] -> (폰 포그라운드: $isMobileForeground, 워치 포그라운드: $isWatchInForeground)")
-            lifeCycleManager.startSession()
-        } else {
-            Log.d(TAG, "😴 둘 다 백그라운드 진입 [Stop] -> (폰 포그라운드: $isMobileForeground, 워치 포그라운드: $isWatchInForeground)")
-            lifeCycleManager.stopSession()
-        }
-    }
-
-    /**
-     * 서비스 파괴 시점 리소스 정리 콜백 함수
-     * 친구 목록 관찰 중단, 등록 리스너 해제, 코루틴 작업 전면 취소 목적
-     */
-    override fun onDestroy() {
-        super.onDestroy()
-        Log.d(TAG, "BackgroundListenerService onDestroy")
-
-        if (friendRepository is FriendRepositoryImpl) {
-            (friendRepository as FriendRepositoryImpl).stopObservingFriends()
-        }
-
-        // 세션 안전 중지 및 하드웨어 자원, 메시지 클라이언트 연결 해제
-        lifeCycleManager.stopSession()
-        Wearable.getMessageClient(this).removeListener(messageListener)
-
-        if(::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
-            fusedLocationClient.removeLocationUpdates(locationCallback)
-        }
-        scope.cancel()
-    }
-
-    /**
-     * 워치 대용량 데이터 채널 개방 시점 실시간 음성 스트림 경로 판별 및 데이터 수신 개시 콜백 객체
-     */
-    private val channelCallback = object : ChannelCallback() {
-        override fun onChannelOpened(channel: Channel) {
-            if (channel.path.startsWith("/audio_stream")) {
+    private val channelCallback = object : ChannelClient.ChannelCallback() {
+        override fun onChannelOpened(channel: ChannelClient.Channel) {
+            if (channel.path.startsWith(PATH_AUDIO_STREAM_PREFIX)) {
                 receiveWatchAudio(channel)
             }
         }
     }
 
-    // 라이프사이클 옵저버 플래그 역전 기반 스마트폰 백그라운드 위치 여부 반환 판별 함수
-    private fun isMobileBackground(): Boolean {
-        return !appLifecycleObserver.isAppInForeground
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * 서비스 초기 생성 및 데이터 옵저버 가동 함수
+     */
+    override fun onCreate() {
+        super.onCreate()
+        // 워치 통신 리스너 등록
+        channelClient = Wearable.getChannelClient(this).apply {
+            registerChannelCallback(channelCallback)
+        }
+        messageClient.addListener(messageListener)
+
+        // 사용자 데이터 및 위치 관찰 가동
+        authRepository.getCurrentUserUid()?.let { myUid ->
+            friendRepository.startObservingFriends(myUid)
+            startFriendsLocationObservation(myUid)
+            initLocationTracker()
+            requestWatchStatus()
+            manageSessionByState()
+            notificationRepository.startObserving(myUid)
+        }
+
+        // 음성 및 알림 모니터링 가동
+        if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
+            observeVoiceMessages()
+        }
+        observeNotifications()
     }
 
     /**
-     * 파이어베이스 서버 수신 무전 메시지 실시간 감시 함수
-     * 스마트폰 백그라운드 상태 혹은 워치 구동 시 워치로 가공 데이터 전달, 그 외 모바일 직접 이벤트 발행 처리 목적
+     * 명령 작업 수신 및 액션 라우팅 함수
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "BackgroundListenerService onStartCommand 수신")
+
+        // 상주 알림 표시
+        try {
+            startForegroundServiceNotification()
+        } catch (e: Exception) {
+            Log.e(TAG, "ForegroundServiceStartNotAllowedException 방어: ${e.message}")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        // 수신된 액션별 작업 처리
+        intent?.action?.let { action ->
+            Log.d(TAG, "⚡ 포어그라운드 서비스 위임 액션 감지: $action")
+            when (action) {
+                // 친구 위치 정보를 워치로 전송
+                ACTION_PUSH_LOCATION_TO_WATCH -> {
+                    scope.launch {
+                        val myStatus = liveStatusRepository.getCachedMyLiveStatus()
+                        val friendsList = friendRepository.myFriends.value.mapNotNull {
+                            liveStatusRepository.myLiveStatusFlow.value
+                        }
+                        pushLocationsToWatch(listOfNotNull(myStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
+                    }
+                }
+                // 음성 메시지 읽음 처리
+                ACTION_UPDATE_VOICE_READ -> {
+                    val messageId = intent.getStringExtra(EXTRA_VOICE_MESSAGE_ID)
+                    if (!messageId.isNullOrEmpty()) {
+                        updateVoiceMessageAsRead(messageId)
+                    }
+                }
+            }
+        }
+
+        // 앱 활성화 상태에 따른 세션 제어
+        manageSessionByState()
+        return START_STICKY
+    }
+
+    /**
+     * 음성 메시지 상태 읽음 업데이트 함수
+     */
+    private fun updateVoiceMessageAsRead(messageId: String) {
+        scope.launch {
+            // 원격 저장소 읽음 상태 변경
+            voiceRepository.markVoiceMessageAsRead(messageId)
+                .onSuccess {
+                    Log.d(TAG, "✅ [위임 작업] 음성 메시지($messageId) 읽음 처리 완료 성공")
+                }
+                .onFailure { e ->
+                    Log.e(TAG, "❌ [위임 작업] 음성 메시지 읽음 처리 업데이트 실패", e)
+                }
+        }
+    }
+
+    /**
+     * 연결된 모든 워치 디바이스 대상 활성화 상태 요청 함수
+     */
+    private fun requestWatchStatus() {
+        scope.launch {
+            runCatching {
+                // 모든 워치 노드에 상태 확인 메시지 송신
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_REQUEST_WATCH_STATUS, byteArrayOf()).await()
+                }
+            }.onFailure { e -> Log.e(TAG, "❌ 워치 상태 요청 실패", e) }
+        }
+    }
+
+    /**
+     * 모바일 및 워치 포어그라운드 상태 기반 세션 제어 함수
+     */
+    private fun manageSessionByState() {
+        val isMobileForeground = appLifecycleObserver.isAppInForeground
+        val isUserLoggedIn = authRepository.getCurrentUserUid() != null
+
+        // 비로그인 상태 세션 종료
+        if (!isUserLoggedIn) {
+            lifeCycleManager.stopSession()
+            return
+        }
+
+        // 기기 활성화 생태에 따른 동기화 제어
+        if (isMobileForeground || isWatchInForeground) {
+            lifeCycleManager.startSession()
+        } else {
+            lifeCycleManager.stopSession()
+        }
+    }
+
+    /**
+     * 수신 음성 메시지 모니터링 및 이벤트 분기 함수
      */
     private fun observeVoiceMessages() {
-        scope.launch {
-            authRepository.getAuthStateFlow().collectLatest { uid ->
+        voiceObservationJob = scope.launch {
+            // 인증 상태 확인 및 수신 음성메시지 구독
+            authRepository.getAuthStateFlow().collect { uid ->
                 if (uid != null) {
                     voiceRepository.observeIncomingVoice(uid).collect { voiceMessage ->
                         val url = voiceMessage.voiceUrl
+
+                        // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
                         if (url.isNotEmpty() && !voiceMessage.isRead) {
-                            if (isMobileBackground() && isWatchInForeground) {
+                            if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
                                 sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                             } else {
                                 voiceRepository.emitMobileVoiceEvent(voiceMessage)
@@ -275,100 +307,100 @@ class BackgroundListenerService : Service() {
     }
 
     /**
-     * 수신 무전 메시지 발신자 프로필 및 정보 데이터 취합 기반 워치 기기 원격 재생 명령 패킷 전송 함수
+     * 음성 재생 페이로드 가공 및 워치 메시지 송신 함수
      */
     private fun sendVoiceToWatch(messageId: String, senderId: String, voiceUrl: String) {
+        Log.d(TAG, "워치로 음성 전송중..",)
         scope.launch {
-            try {
+            runCatching {
+                // 발신자 정보 및 메시지 데이터 구성
                 val senderFriend = friendRepository.myFriends.value.find { it.uid == senderId }
-                val senderName = senderFriend?.nickname ?: "알 수 없음"
-                val senderProfileImage = senderFriend?.profile_image_url ?: ""
-
                 val payload = mapOf(
                     "messageId" to messageId,
-                    "senderId" to senderId,
                     "voiceUrl" to voiceUrl,
-                    "senderName" to senderName,
-                    "senderProfileImage" to senderProfileImage
+                    "senderName" to (senderFriend?.nickname ?: "알 수 없음"),
+                    "senderProfileImage" to (senderFriend?.profile_image_url ?: "")
                 )
-                val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
 
+                // 데이터 직렬화 후 모든 워치 기기로 송신
+                val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
                 val nodes = nodeClient.connectedNodes.await()
                 for (node in nodes) {
-                    messageClient.sendMessage(node.id, "/play_voice", byteArray).await()
-                    Log.d(TAG, "✅ [무전 수신] 워치(${node.displayName})로 음성 주소 전송 완료")
+                    messageClient.sendMessage(node.id, PATH_PLAY_VOICE, byteArray).await()
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 워치로 음성 전송 실패", e)
-            }
+            }.onFailure { e -> Log.e(TAG, "❌ 워치로 음성 전송 실패", e) }
         }
     }
 
     /**
-     * 워치 송신 생 오디오 로우 파일(PCM) 대상 범용 압축 포맷(AAC 계열 M4A) 고속 로우레벨 인코딩 변환 함수
+     * 오디오 파일 압축 인코딩 처리 함수
      */
     private fun encodePcmToM4a(pcmFile: File, outputFile: File) {
+        // 인코더 설정용 포맷 조건 정의
         val sampleRate = 16000
         val channels = 1
         val bitRate = 64000
         val timeoutUs = 10000L
 
-        // AAC Low Complexity 프로필 대응 오디오 포맷 구조 빌드
         val format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
             setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 8192)
         }
 
-        val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
-        codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        codec.start()
-
-        // 인코딩 스트림 데이터의 물리 컨테이너 파일 패킹용 멀티플렉서(Muxer) 세팅
-        val muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-        var audioTrackIndex = -1
+        var codec: MediaCodec? = null
+        var muxer: MediaMuxer? = null
+        var fis: FileInputStream? = null
         var isMuxerStarted = false
 
-        val bufferInfo = MediaCodec.BufferInfo()
-        val readBuffer = ByteArray(2048)
-        val fis = FileInputStream(pcmFile)
-
-        var isPcmEOS = false
-        var isCodecEOS = false
-        var presentationTimeUs = 0L
-
         try {
+            // 오디오 인코더 및 파일 저장소 인프라 준비
+            codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC).apply {
+                configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                start()
+            }
+            muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            fis = FileInputStream(pcmFile)
+
+            val bufferInfo = MediaCodec.BufferInfo()
+            val readBuffer = ByteArray(2048)
+            var audioTrackIndex = -1
+            var isPcmEOS = false
+            var isCodecEOS = false
+            var presentationTimeUs = 0L
+
+            // 원시 데이터를 가져와 압축 포맷으로 인코딩 반복 처리
             while (!isCodecEOS) {
-                // 원본 PCM 바이트 배열의 코덱 입력 인덱스 큐 순차 공급 처리
+                // 입력 파일에서 바이트 데이터를 읽어 인코더 큐에 삽입
                 if (!isPcmEOS) {
                     val inputBufferIndex = codec.dequeueInputBuffer(timeoutUs)
                     if (inputBufferIndex >= 0) {
-                        val inputBuffer = codec.getInputBuffer(inputBufferIndex) ?: continue
-                        inputBuffer.clear()
-
-                        val bytesRead = fis.read(readBuffer)
-                        if (bytesRead == -1) {
-                            isPcmEOS = true
-                            codec.queueInputBuffer(inputBufferIndex, 0, 0, presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        } else {
-                            inputBuffer.put(readBuffer, 0, bytesRead)
-                            codec.queueInputBuffer(inputBufferIndex, 0, bytesRead, presentationTimeUs, 0)
-                            // 오디오 샘플 크기 및 가용 채널 정보 수식화 기반 타임스탬프 보정
-                            presentationTimeUs += (bytesRead * 1_000_000L) / (sampleRate * channels * 2)
+                        val inputBuffer = codec.getInputBuffer(inputBufferIndex)
+                        if (inputBuffer != null) {
+                            inputBuffer.clear()
+                            val bytesRead = fis.read(readBuffer)
+                            if (bytesRead == -1) {
+                                isPcmEOS = true
+                                codec.queueInputBuffer(inputBufferIndex, 0, 0, presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            } else {
+                                inputBuffer.put(readBuffer, 0, bytesRead)
+                                codec.queueInputBuffer(inputBufferIndex, 0, bytesRead, presentationTimeUs, 0)
+                                presentationTimeUs += (bytesRead * 1_000_000L) / (sampleRate * channels * 2)
+                            }
                         }
                     }
                 }
 
-                // 인코더 출력 버퍼 내 변환 완료 부호화 데이터 추출 및 파일 멀티플렉서 기록 처리
+                // 인코딩 완료된 데이터를 파일 저장소 트랙에 기록
                 var outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, timeoutUs)
                 while (outputBufferIndex >= 0) {
-                    val outputBuffer = codec.getOutputBuffer(outputBufferIndex) ?: continue
+                    val outputBuffer = codec.getOutputBuffer(outputBufferIndex)
 
                     if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
                         bufferInfo.size = 0
                     }
 
-                    if (bufferInfo.size > 0 && isMuxerStarted) {
+                    if (bufferInfo.size > 0 && isMuxerStarted && outputBuffer != null) {
                         outputBuffer.position(bufferInfo.offset)
                         outputBuffer.limit(bufferInfo.offset + bufferInfo.size)
                         muxer.writeSampleData(audioTrackIndex, outputBuffer, bufferInfo)
@@ -382,7 +414,7 @@ class BackgroundListenerService : Service() {
                     outputBufferIndex = codec.dequeueOutputBuffer(bufferInfo, 0)
                 }
 
-                // 출력 포맷 변경 감지 최초 시점의 멀티플렉서 트랙 개설 및 미디어 스트림 작성 시작 처리
+                // 포맷 변경 확인 시 저장소 라이팅 시작
                 if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     if (!isMuxerStarted) {
                         audioTrackIndex = muxer.addTrack(codec.outputFormat)
@@ -391,199 +423,132 @@ class BackgroundListenerService : Service() {
                     }
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "인코딩 파이프라인 에러", e)
         } finally {
-            // 작업 성공 여부 무관 시스템 입출력 자원 및 코덱 컴포넌트 안전 릴리즈 처리
-            try { fis.close() } catch (e: Exception) { Log.d(TAG, e.toString()) }
-            try { codec.stop(); codec.release() } catch (e: Exception) { e.printStackTrace() }
-            try { if (isMuxerStarted) muxer.stop(); muxer.release() } catch (e: Exception) { e.printStackTrace() }
+            // 인코더 중단 및 스트림 자원 해제
+            runCatching { fis?.close() }
+            runCatching {
+                codec?.stop()
+                codec?.release()
+            }
+            runCatching {
+                if (isMuxerStarted) muxer?.stop()
+                muxer?.release()
+            }
         }
     }
 
     /**
-     * 워치 송신 원격 입력 스트림 채널 개방, 캐시 파일 임시 저장, 완료 시 파일 변환 파이프라인 위임 함수
+     * 워치 스트리밍 파일 데이터 수신 및 결합 처리 함수
      */
-    private fun receiveWatchAudio(channel: Channel) {
-        Log.d("AudioService", "워치 음성 채널 연결 및 데이터 수신 시작, 경로: ${channel.path}")
+    private fun receiveWatchAudio(channel: ChannelClient.Channel) {
         scope.launch {
             val pcmFile = File(cacheDir, "walkie_talkie.pcm")
             val m4aFile = File(cacheDir, "walkie_talkie.m4a")
             val startTime = System.currentTimeMillis()
+            val targetUid = channel.path.substringAfter("$PATH_AUDIO_STREAM_PREFIX/", "").trim()
 
-                // 채널 경로에서 타겟 대상의 고유 UID 식별자를 온전하게 파싱
-                val targetUid = channel.path.substringAfter("/audio_stream/", "").trim()
-
-                // 채널 경로 가드레일
-                if (targetUid.isEmpty()) {
-                    Log.e("AudioService", "❌ 채널 경로 파싱 결과 수신자 UID 정보가 소실되어 수신 작업을 기각합니다.")
-                    runCatching { channelClient.close(channel).await() }
-                    return@launch
-                }
+            // 타깃 사용자 유효성 검증
+            if (targetUid.isEmpty()) {
+                runCatching { channelClient.close(channel).await() }
+                return@launch
+            }
 
             try {
+                // 기존 파일 제거
                 if (pcmFile.exists()) pcmFile.delete()
                 if (m4aFile.exists()) m4aFile.delete()
 
-                val inputStream = com.google.android.gms.tasks.Tasks.await(channelClient.getInputStream(channel))
-
-                // 입력 스트림 버퍼 순회 기반 출력 처리
+                // 워치로부터 유입되는 오디오 스트림을 임시 파일로 수신 저장
+                val inputStream = Tasks.await(channelClient.getInputStream(channel))
                 inputStream.use { input ->
-                    FileOutputStream(pcmFile, false).use { outputStream ->
-                        val buffer = ByteArray(4096)
-                        var bytesRead: Int
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                        }
-                        outputStream.flush()
+                    FileOutputStream(pcmFile, false).use { output ->
+                        input.copyTo(output)
                     }
                 }
-            } catch (e: com.google.android.gms.wearable.ChannelIOException) {
-                Log.w("AudioService", "⚠️ 워치 스트림 채널이 전송 마감 중 끊김 처리됨 (안전하게 캐치 완료)")
+            } catch (e: ChannelIOException) {
+                Log.w(TAG, "⚠️ 워치 채널 전송 마감 중 끊김")
             } catch (e: Exception) {
-                Log.e("AudioService", "❌ 오디오 수신 처리 중 일반 오류 발생", e)
+                Log.e(TAG, "❌ 오디오 수신 오류", e)
             } finally {
-                try {
-                    // 워치와의 채널을 최종 안전 종료
+                // 수신 채널 종료 후 인코딩 변환 작업 및 서버 발송 연계
+                runCatching {
                     channelClient.close(channel).await()
-
                     if (pcmFile.exists() && pcmFile.length() > 0) {
-                        // PCM 파일 작성 완료 시점의 M4A 고압축 포맷 인코딩 위임
                         encodePcmToM4a(pcmFile, m4aFile)
-
-                        val endTime = System.currentTimeMillis()
-                        val durationSeconds = (((endTime - startTime) / 1000).toInt()).coerceAtLeast(1)
-
+                        val duration = (((System.currentTimeMillis() - startTime) / 1000).toInt()).coerceAtLeast(1)
                         if (m4aFile.exists() && m4aFile.length() > 0) {
-                            // 고정값을 탈피하고 파싱 처리해 둔 수신자 식별자 targetUid 값을 완전하게 할당
-                            sendWatchAudioToServer(targetUid, Uri.fromFile(m4aFile), durationSeconds)
+                            sendWatchAudioToServer(targetUid, Uri.fromFile(m4aFile), duration)
                         }
                         pcmFile.delete()
                     }
-                } catch (ex: Exception) {
-                    Log.e("AudioService", "오디오 데이터 수신 사후 정산 인코딩 파이프라인 처리 중 에러", ex)
                 }
             }
         }
     }
 
     /**
-     * 로컬 스토리지 저장 오디오 미디어 파일 URI 기반 원격 스토리지 업로드 및 최종 메시지 전송 함수
+     * 서버 업로드 및 다이렉트 음성 메시지 발송 함수
      */
     private fun sendWatchAudioToServer(targetUid: String, fileUri: Uri, duration: Int) {
         scope.launch {
             val senderUid = authRepository.getCurrentUserUid() ?: return@launch
 
-            val uploadResult = voiceRepository.uploadVoiceFile(fileUri)
-            uploadResult.onSuccess { url ->
-                val sendResult = voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, duration)
-                sendResult.onSuccess { Log.d("AudioService", "송신 성공") }
-                sendResult.onFailure { Log.e("AudioService", "메시지 전송 실패") }
-            }
-            uploadResult.onFailure { Log.e("AudioService", "파일 업로드 실패") }
+            // 파일 업로드 성공 후 음성 메시지 최종 전송
+            voiceRepository.uploadVoiceFile(fileUri)
+                .onSuccess { url ->
+                    voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, duration)
+                }
+                .onFailure { Log.e(TAG, "파일 전송 실패") }
         }
     }
 
     /**
-     * 친구 상태 변화 및 내 라이브 상태 병합 기반 관찰 경로 수립 관찰 초기화 함수
+     * 내 위치 및 친구 라이브 상태 결합 스트림 관찰 함수
      */
     private fun startFriendsLocationObservation(myUid: String) {
         scope.launch {
+            // 위치 변경 데이터를 통합 수집하여 워치 전송으로 연계
             liveStatusRepository.observeFriendsLiveStatus(myUid)
-            // 내 상태 데이터 스트림 및 주변인 상태 데이터 스트림 실시간 결합 목적
             combine(
                 liveStatusRepository.myLiveStatusFlow,
                 liveStatusRepository.friendsLiveStatusFlow
             ) { myStatus, friendsList ->
-                val totalList = mutableListOf<LiveStatus>()
-                myStatus?.let { totalList.add(it) }
-                totalList.addAll(friendsList)
-                totalList
-            }.collect { totalLocationsList ->
-                // 데이터 변동 시점의 페어링 워치 화면 대상 최신 위치 배열 패킷 푸시 처리
-                pushLocationsToWatch(totalLocationsList)
+                listOfNotNull(myStatus) + friendsList
+            }.collect { totalLocations ->
+                pushLocationsToWatch(totalLocations)
             }
         }
     }
 
     /**
-     * 스마트폰 동기화 사용자 위치 목록 대상 JSON 가공 및 무선 연결 워치 노드 송신 함수
+     * 최신 위치 좌표 데이터 구조체 워치 송신 함수
      */
     private fun pushLocationsToWatch(locations: List<LiveStatus>) {
         scope.launch {
-            try {
+            runCatching {
+                // 데이터를 직렬화하여 연결된 워치 기기들에 송신
                 val jsonPayload = Gson().toJson(locations)
                 val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
                 val nodes = nodeClient.connectedNodes.await()
                 for (node in nodes) {
-                    messageClient.sendMessage(node.id, "/response_friends_location", byteArray).await()
+                    messageClient.sendMessage(node.id, PATH_RESPONSE_FRIENDS_LOCATION, byteArray).await()
                 }
-            } catch (e: ApiException) {
-                if (e.statusCode == 17) { // 17: CommonStatusCodes.API_UNAVAILABLE
-                    Log.d(TAG, "워치 API 미지원 기기이므로 워치 연동 작업 생략")
-                } else {
-                    Log.e(TAG, "❌ 워치 통신 에러", e)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 워치 통신 에러", e)
-            }
+            }.onFailure { e -> Log.e(TAG, "❌ 워치 위치 푸시 에러", e) }
         }
     }
 
     /**
-     * 디바이스 GPS 추적 모듈 주기 및 정확도 설정, 최초 단기 위치 동기화 수행 초기화 작업 함수
+     * 위치 요청 파라미터 빌드 및 추적 옵저버 초기화 함수
      */
     private fun initLocationTracker() {
+        // 위치 추적 클라이언트 빌드 및 콜백 수신기 설정
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000L)
             .setMinUpdateDistanceMeters(10f)
             .build()
 
-        createLocationCallback()
-        fetchLastKnownLocationAndSync()
-        startLocationUpdates(locationRequest)
-    }
-
-    /**
-     * 장치 기록 최신 유효 위치 정보 조회 기반 첫 동기화 누락 리스크 방어용 안전 예방 함수
-     */
-    @SuppressLint("MissingPermission")
-    private fun fetchLastKnownLocationAndSync() {
-        scope.launch {
-            val myUid = authRepository.getCurrentUserUid() ?: return@launch
-            try {
-                val lastLocation = fusedLocationClient.lastLocation.await()
-                if (lastLocation != null) {
-                    processLocationUpdate(myUid, lastLocation.latitude, lastLocation.longitude)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "초기 위치 확보 실패: ${e.message}")
-            }
-        }
-    }
-
-    /**
-     * 측정 위경도 좌표 기반 도메인 모델 가공 및 서버 공간 최종 업로드 정합성 확보용 데이터 처리 함수
-     */
-    private suspend fun processLocationUpdate(myUid: String, latitude: Double, longitude: Double) {
-        var currentStatus = liveStatusRepository.getCachedMyLiveStatus()
-        if (currentStatus == null) {
-            val result = liveStatusRepository.getLiveStatusByUid(myUid)
-            if (result is com.bbip.bbipit.core.result.Result.Success) {
-                currentStatus = result.data
-            }
-        }
-
-        val updatedLiveStatus = currentStatus?.copy(
-            latitude = latitude,
-            longitude = longitude,
-        ) ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
-
-        syncMyLocationUseCase(updatedLiveStatus)
-    }
-
-    /**
-     * GPS 하드웨어 모듈 주기 반환 실제 위경도 패킷 감지용 내부 콜백 인스턴스 설계 함수
-     */
-    private fun createLocationCallback() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 scope.launch {
@@ -594,31 +559,69 @@ class BackgroundListenerService : Service() {
                 }
             }
         }
+
+        // 초기 위치 동기화 및 실시간 추적 시작
+        fetchLastKnownLocationAndSync()
+        startLocationUpdates(locationRequest)
     }
 
     /**
-     * 구글 플레이 위치 클라이언트 내 예약 콜백 및 갱신 요청 결합 등록 기반 런타임 추적 루프 구동 함수
+     * 로컬 장치 최종 기록 좌표 확인 및 동기화 유발 함수
      */
     @SuppressLint("MissingPermission")
-    private fun startLocationUpdates(request: LocationRequest) {
-        try {
-            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
-        } catch (e: SecurityException) {
-            Log.e("GPS_SERVICE", "위치 권한 거부: ${e.message}")
+    private fun fetchLastKnownLocationAndSync() {
+        scope.launch {
+            val myUid = authRepository.getCurrentUserUid() ?: return@launch
+
+            // 캐시 기록 기반의 기기 현재 위치 안전 추출 및 서버 전송
+            runCatching {
+                fusedLocationClient.lastLocation.await()?.let { location ->
+                    processLocationUpdate(myUid, location.latitude, location.longitude)
+                }
+            }.onFailure { e -> Log.e(TAG, "초기 위치 확보 실패: ${e.message}") }
         }
     }
 
     /**
-     * 운영체제 버전별 요구 상한선 준수 알림 채널 구성 및 지속 백그라운드 연산 자원 확보용 서비스 고정 함수
+     * 위치 데이터 가공 및 원격 서버 동기화 함수
+     */
+    private suspend fun processLocationUpdate(myUid: String, latitude: Double, longitude: Double) {
+        // 기존 상태 값을 가져와 좌표 정보 데이터 복사 최신화
+        val currentStatus = liveStatusRepository.getCachedMyLiveStatus()
+            ?: (liveStatusRepository.getLiveStatusByUid(myUid) as? com.bbip.bbipit.core.result.Result.Success)?.data
+
+        val updatedLiveStatus = currentStatus?.copy(latitude = latitude, longitude = longitude)
+            ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
+
+        // 원격 서버 위치 저장소 동기화 요청
+        syncMyLocationUseCase(updatedLiveStatus)
+    }
+
+    /**
+     * 시스템 위치 프로바이더 엔진 가동 등록 함수
+     */
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates(request: LocationRequest) {
+        // 시스템 내부 위치 관리 인터페이스에 콜백 가동 등록
+        runCatching {
+            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+        }.onFailure { Log.e(TAG, "위치 추적 시작 실패: ${it.message}") }
+    }
+
+    /**
+     * 시스템 알림 채널 정의 및 서비스 상주 알림 등록 함수
      */
     private fun startForegroundServiceNotification() {
         val channelId = "voice_receiver_channel"
+
+        // 오레오 버전 전제 알림 채널 빌드
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(channelId, "워치 무전 수신", NotificationManager.IMPORTANCE_LOW)
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
 
+        // 포어그라운드 유지용 영속 배너 설정
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("무전기 대기 중")
             .setContentText("워치로부터 음성 신호를 받을 준비가 되었습니다.")
@@ -626,7 +629,7 @@ class BackgroundListenerService : Service() {
             .setOngoing(true)
             .build()
 
-        // 안드로이드 14(Upside Down Cake, API 34) 이상 전제 필수 포어그라운드 유형 명시 가이드 우회 적용 처리
+        // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 startForeground(
@@ -637,7 +640,7 @@ class BackgroundListenerService : Service() {
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 )
             } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                startForeground(1, notification)
             }
         } else {
             startForeground(1, notification)

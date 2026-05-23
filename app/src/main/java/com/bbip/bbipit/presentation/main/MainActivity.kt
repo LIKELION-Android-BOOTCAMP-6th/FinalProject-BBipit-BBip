@@ -54,21 +54,6 @@ class MainActivity : ComponentActivity() {
     private var pendingNotificationIntent by mutableStateOf<Intent?>(null)
 
     override fun onDestroy() {
-        // 앱 프로세스 파괴 직전 내 실시간 상태 오프라인 변경 및 서버 동기화 처리
-        val myUid = authRepository.getCurrentUserUid()
-        val currentStatus = liveStatusRepository.getCachedMyLiveStatus()
-
-        if (myUid != null && currentStatus != null) {
-            // suspend 함수의 완전한 완료 대기 보장 목적의 runBlocking 구문
-            kotlinx.coroutines.runBlocking {
-                liveStatusRepository.updateMyLiveStatus(
-                    currentStatus.copy(
-                        isOnline = false,
-                        updatedAt = System.currentTimeMillis()
-                    )
-                )
-            }
-        }
         super.onDestroy()
     }
 
@@ -86,7 +71,7 @@ class MainActivity : ComponentActivity() {
             DebugAppCheckProviderFactory.getInstance()
         )
 
-        // 앱 전체 프로세스 수명 주기(ProcessLifecycleOwner) 대상 관찰자 등록
+        // 앱 수명 주기 관찰자 등록
         ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
 
         // 알림 클릭으로 온 Intent인지 구분
@@ -106,6 +91,7 @@ class MainActivity : ComponentActivity() {
                 // 미독 알림 개수(unreadCount) 존재 여부 실시간 확인 플래그
                 val hasUnreadChat = chatUiState.chatList.any { it.unreadCount > 0 }
 
+                // 바텀바 노출 여부 설정
                 val showBottomBar = navBackStackEntry?.destination?.let { destination ->
                     destination.hasRoute<Routes.Map>() ||
                             destination.hasRoute<Routes.ChatList>() || destination.hasRoute<Routes.FriendList>() ||
@@ -129,13 +115,12 @@ class MainActivity : ComponentActivity() {
                             notificationIntent = pendingNotificationIntent
                         )
 
-                        // 전역 음성 수신 오버레이 패널 (바텀 네비게이션 상단 배치)
+                        // 음성 수신 오버레이 패널 (바텀바 유무에 따라 하단 여백 조절)
                         VoicePlayerScreen(
                             viewModel = voicePlayerViewModel,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(
-                                    // 바텀바가 표시 중일 때만 바텀바의 높이만큼 하단 여백
                                     bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 100.dp
                                 )
                         )

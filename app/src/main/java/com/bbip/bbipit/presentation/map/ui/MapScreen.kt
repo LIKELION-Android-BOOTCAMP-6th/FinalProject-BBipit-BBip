@@ -71,13 +71,11 @@ fun MapScreen(
     val uiState by viewModel.uiState.collectAsState()
     val voiceUiState by pushToTalkViewModel.uiState.collectAsState()
 
-//    var clickedFriend by remember { mutableStateOf<LiveStatus?>(null) }
-
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
 
     val TAG = "MapScreen"
 
-    // 비즈니스 전송 에러 발생 시 처리 스크립트
+    // 음성 전송 실패 에러 발생 시 알림 처리
     LaunchedEffect(voiceUiState.error) {
         voiceUiState.error?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -95,11 +93,6 @@ fun MapScreen(
         if (fineLocationGranted || coarseLocationGranted || bluetoothConnectGranted) {
             Log.d(TAG, "권한 승인됨 -> BackgroundListenerService 가동")
             val intent = Intent(context, BackgroundListenerService::class.java)
-//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//                context.startForegroundService(intent)
-//            } else {
-//                context.startService(intent)
-//            }
         } else {
             Toast.makeText(context, "서비스 이용을 위해 위치 및 블루투스 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
@@ -107,12 +100,12 @@ fun MapScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        // contentWindowInsets를 0으로 설정하여 시스템 UI 영역까지 콘텐츠가 채워지도록 함
+        // 시스템 UI 영역까지 콘텐츠를 채우도록 인셋을 0으로 설정
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { _ ->
         BackgroundBox {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 구글 지도 및 마커 콘텐츠 레이어
+                // 지도 및 마커 레이어 노출
                 MapContent(
                     mapUiState = uiState,
                     modifier = Modifier.fillMaxSize(),
@@ -122,12 +115,12 @@ fun MapScreen(
                 )
             }
 
-            // 전체 친구 목록에서 현재 선택된 UID의 최신 데이터를 탐색
+            // 선택된 친구의 최신 정보 조회
             val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
                 uiState.friendsStatuses.find { it.uid == clickedFriendUid }
             }
 
-            // 친구 정보 상세 다이얼로그
+            // 친구 상세 프로필 다이얼로그 표시
             currentClickedFriend?.let { friend ->
                 FriendProfileDialog(
                     friend = friend,
@@ -153,7 +146,7 @@ fun MapScreen(
             context, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
-        // 위치 권한 최소 하나 이상 승인 상태 기준의 백그라운드 서비스 안전 가동 처리
+        // 위치 권한 승인 상태에 따른 백그라운드 서비스 실행 코드
         if (hasFineLocation || hasCoarseLocation) {
             Log.d(TAG, "✅ 위치 권한 확인 완료 -> 안전하게 서비스 시작")
             val intent = Intent(context, BackgroundListenerService::class.java)
@@ -163,7 +156,7 @@ fun MapScreen(
                 context.startService(intent)
             }
         } else {
-            // 위치 권한 부재 시 통합 권한 요청 팝업 런처 작동 (블루투스, 마이크, 위치 세트)
+            // 위치 권한이 없는 경우 통합 권한 요청 팝업 실행
             Log.d(TAG, "⚠️ 위치 권한 없음 -> 권한 요청 팝업 실행")
             requestMultiplePermissionsLauncher.launch(
                 arrayOf(
@@ -190,7 +183,7 @@ private fun MapContent(
 
     val context = LocalContext.current
 
-    // 위도 및 경도 좌표 자체의 유효성, 변화 관찰 목적의 정밀 타겟 변수 설정
+    // 내 위치 좌표 추출
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
 
@@ -199,11 +192,12 @@ private fun MapContent(
     LaunchedEffect(myLat, myLng) {
         if (myLat != null && myLng != null) {
             Log.d(TAG, "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
+            // 현재 내 위치로 지도 카메라 이동
             cameraPositionState.animate(
                 update = newLatLngZoom(
                     LatLng(myLat, myLng), 16f
                 ),
-                durationMs = 500 // 부드러운 카메라 스크롤 유저 경험 확보 목적의 시간 설정
+                durationMs = 500
             )
         }
     }
@@ -214,7 +208,7 @@ private fun MapContent(
             cameraPositionState = cameraPositionState
         ) {
             mapUiState.myStatus?.let { my ->
-                // 내 프로필 사진 및 상태 기반 마커 아이콘 기억(remember) 처리
+                // 내 프로필 이미지 기반 커스텀 마커 생성
                 var myCustomMarkerIcon by remember(my.uid, my.profileImageUrl) {
                     mutableStateOf<BitmapDescriptor?>(null)
                 }
@@ -222,18 +216,17 @@ private fun MapContent(
                     myCustomMarkerIcon = createCustomMarkerBitmap(
                         context = context,
                         imageUrl = my.profileImageUrl,
-                        isOnline = true // 내 상태 온라인 고정 표기
+                        isOnline = true
                     )
                 }
 
-                // 위도·경도 좌표 변경 시점 기준 MarkerState 객체 갱신 유도 키(Key) 지정
+                // 내 마커 상태 기억 및 설정
                 val myMarkerState = remember(my.latitude, my.longitude) {
                     MarkerState(position = LatLng(my.latitude, my.longitude))
                 }
 
                 Marker(
                     state = myMarkerState,
-                    // 이미지 로딩 전 대체용 구글 기본 마커 배치
                     icon = myCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
                         BitmapDescriptorFactory.HUE_AZURE
                     ),
@@ -243,17 +236,17 @@ private fun MapContent(
 
             mapUiState.friendsStatuses.forEach { friend ->
 
-                // 마커 상태의 인스턴스는 오직 UID 기준으로만 딱 한 번 생성 및 유지 (깜빡임 방지)
+                // 깜빡임 방지를 위해 UID 기준으로 한 번만 마커 상태 생성 및 유지
                 val friendMarkerState = remember(friend.uid) {
                     MarkerState(position = LatLng(friend.latitude, friend.longitude))
                 }
 
-                // 좌표가 실시간으로 바뀔 때만 기존 마커의 위치를 업데이트 (부드러운 무빙)
+                // 실시간 좌표 변경 시 마커 위치 업데이트
                 LaunchedEffect(friend.latitude, friend.longitude) {
                     friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
                 }
 
-                // 아이콘과 관련된 상태(이미지 URL, 온라인 여부)가 바뀔 때만 비트맵을 새로 생성
+                // 이미지 URL 또는 온라인 여부 변경 시 마커 비트맵 재생성
                 var friendCustomMarkerIcon by remember(
                     friend.uid,
                     friend.profileImageUrl,
@@ -270,7 +263,6 @@ private fun MapContent(
                     )
                 }
 
-                // 닉네임이나 상태 메시지가 바뀌면 클릭 시 띄우는 Dialog에 알아서 실시간 반영됨
                 Marker(
                     state = friendMarkerState,
                     icon = friendCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
@@ -289,7 +281,7 @@ private fun MapContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White.copy(alpha = 0.5f)), // 부자연스러운 화면 튐 방지용 반투명 가림막 배치
+                    .background(Color.White.copy(alpha = 0.5f)), // 부자연스러운 화면 깜빡임 방지용 반투명 배경 설정
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator()
@@ -310,7 +302,7 @@ fun FriendProfileDialog(
     var startTime by remember { mutableStateOf(0L) }
     val recordAudioPermission = Manifest.permission.RECORD_AUDIO
 
-    // 마이크 하드웨어 권한 제어용 런처
+    // 마이크 권한 요청 런처
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -339,7 +331,7 @@ fun FriendProfileDialog(
         ) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.85f) // 화면 가로 영역 대비 85% 강제 지정
+                    .fillMaxWidth(0.85f) // 화면 가로 영역의 85% 크기 지정
                     .wrapContentHeight()
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
@@ -429,7 +421,6 @@ fun FriendProfileDialog(
 
                         Box(
                             modifier = Modifier
-                                // 카드 크기 변화 대응 목적의 비율제 가로폭 지정
                                 .fillMaxWidth(0.9f)
                                 .background(
                                     color = Color(0xFFE2E4EE).copy(alpha = 0.6f),
@@ -452,7 +443,6 @@ fun FriendProfileDialog(
 
                         Spacer(modifier = Modifier.height(28.dp))
 
-                        // 하단 액션 버튼 영역
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -492,6 +482,7 @@ fun FriendProfileDialog(
                                         shape = RoundedCornerShape(28.dp)
                                     )
                                     .pointerInput(Unit) {
+                                        // 터치 및 홀드 감지를 통한 무전 녹음 제어
                                         detectTapGestures(
                                             onPress = {
                                                 val isGranted = ContextCompat.checkSelfPermission(

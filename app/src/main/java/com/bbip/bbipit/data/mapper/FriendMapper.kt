@@ -4,7 +4,7 @@ import com.bbip.bbipit.data.source.model.FriendshipDto
 import com.bbip.bbipit.domain.entity.Friend
 
 /**
- * 데이터 레이어 DTO 구조의 도메인 레이어 Friend 엔티티 규격 매핑 확장 함수
+ * DTO 객체의 도메인 엔티티 변환 확장 함수
  */
 fun FriendshipDto.toDomain(): Friend {
     return Friend(
@@ -18,11 +18,13 @@ fun FriendshipDto.toDomain(): Friend {
 }
 
 /**
- * 파이어베이스 원격 데이터베이스 맵 객체의 FriendshipDto 규격 가공 확장 함수
- * 서버 응답 데이터 파싱 및 안전한 타입 캐스팅 전담 목적
+ * 맵 객체의 DTO 변환 확장 함수
  */
 fun Map<String, Any>?.toFriendshipDto(): FriendshipDto {
+    // 데이터가 없으면 빈 객체 반환
     if (this == null) return FriendshipDto()
+
+    // 맵 데이터를 DTO 구조로 변환
     return FriendshipDto(
         uid = this["friend_uid"] as? String ?: "",
         nickname = this["nickname"] as? String ?: "",

@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * 웨어러블 기기에서 스마트폰으로 오디오를 스트리밍하는 기능 담당
+ * 워치 오디오 스트리밍 전송 클래스
  */
 class WatchAudioSender(private val context: Context) : MessageClient.OnMessageReceivedListener {
 
@@ -41,6 +41,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     private var currentChannel: Channel? = null
     private var currentOutputStream: java.io.OutputStream? = null
 
+    // 오디오 녹음 및 버퍼 설정
     private val sampleRate = 16000
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
@@ -53,7 +54,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     }
 
     /**
-     * 리스너 제거 및 자원 정리
+     * 리스너 제거 및 리소스 해제
      */
     fun destroy() {
         messageClient.removeListener(this)
@@ -61,7 +62,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     }
 
     /**
-     * 연결된 휴대폰 상태 응답 수신
+     * 모바일 기기 상태 응답 수신
      */
     override fun onMessageReceived(messageEvent: MessageEvent) {
         if (messageEvent.path == "/phone_status_reply") {
@@ -77,7 +78,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     }
 
     /**
-     * 오디오 전송 프로세스 시작
+     * 오디오 스트리밍 시작
      */
     fun startVoiceTransmission(
         targetUid: String,
@@ -99,7 +100,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                 isWaitingForReply = true
                 isPhoneReady = false
 
-                // 상태 체크 메시지 전송
+                // 상태 확인 메시지 전송
                 val sendResult = runCatching {
                     messageClient.sendMessage(phoneNode.id, "/check_phone_status", byteArrayOf()).await()
                 }
@@ -110,7 +111,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
                     return@launch
                 }
 
-                // 폰 응답 대기
+                // 모바일 기기 응답 대기
                 withTimeoutOrNull(3000) {
                     while (isWaitingForReply) { delay(50) }
                 }
@@ -125,18 +126,19 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
 
                 Log.d(TAG, "휴대폰 통신 확인 완료. 오디오 스트리밍을 시작합니다.")
 
-                // 채널 오픈 시 고정 경로 대신 수신 대상 유저의 UID를 경로 뒤에 결합하여 개방
+                // 타겟 UID 조합 채널 개방 및 스트림 바인딩
                 val channelPath = "/audio_stream/$targetUid"
-                // 채널 오픈 및 스트림 바인딩
                 val channel = channelClient.openChannel(phoneNode.id, channelPath).await()
                 val outputStream = channelClient.getOutputStream(channel).await()
 
                 currentChannel = channel
                 currentOutputStream = outputStream
 
+                // 녹음 시작
                 initAudioRecord()
                 audioRecord?.startRecording()
 
+                // 실시간 데이터 전송 코루틴 시작
                 streamingJob = launch(Dispatchers.IO) {
                     val readBuffer = ByteArray(bufferSize)
                     while (isActive) {
@@ -163,10 +165,10 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     }
 
     /**
-     * 오디오 전송 중단 및 자원 정리
+     * 오디오 스트리밍 정지 및 리소스 해제
      */
     fun stopVoiceTransmission() {
-        // 마이크 입력은 즉시 중단하여 추가적인 노이즈나 무음이 들어오지 않게 차단
+        // 마이크 입력 즉시 중단 및 리소스 해제
         try {
             audioRecord?.let {
                 if (it.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -178,21 +180,19 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
             Log.e(TAG, "AudioRecord stop 실패", e)
         }
 
-        // 백그라운드 IO 스코프에서 채널 내 잔여 데이터 전송 시간을 벌어준 뒤 최종 자원을 해제
+        // 잔여 데이터 전송 대기 후 자원 정리
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 🔥 [수정] 4.5초 제한 타이머 등으로 강제 차단 시 대용량 PCM 데이터 유실을 방지하기 위해 1.5초 대기
+                // 데이터 유실 방지를 위한 대기 시간 추가
                 delay(1500)
 
-                // 스트리밍 루프 취소
+                // 스트리밍 코루틴 취소
                 streamingJob?.cancel()
                 streamingJob = null
 
-                // 마이크 리소스 최종 해제
+                // 리소스 종료 처리
                 audioRecord?.release()
                 audioRecord = null
-
-                // 채널 및 스트림 close
                 cleanUpResources()
             } catch (e: Exception) {
                 Log.e(TAG, "오디오 중단 파이프라인 처리 중 에러", e)
@@ -201,7 +201,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     }
 
     /**
-     * 입출력 채널 및 스트림 자원 정리
+     * 채널 및 스트림 자원 정리
      */
     private suspend fun cleanUpResources() {
         try {
@@ -241,7 +241,7 @@ class WatchAudioSender(private val context: Context) : MessageClient.OnMessageRe
     }
 
     /**
-     * 메인 스레드에서 토스트 메시지 출력
+     * 메인 스레드 토스트 표시
      */
     private fun showToastOnMainThread(text: String) {
         Handler(Looper.getMainLooper()).post {

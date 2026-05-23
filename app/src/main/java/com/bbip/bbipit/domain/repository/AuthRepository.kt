@@ -1,6 +1,5 @@
 package com.bbip.bbipit.domain.repository
 
-import android.content.Context
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.domain.type.TermsType
@@ -12,25 +11,49 @@ import kotlinx.coroutines.flow.Flow
  * 로그인, 회원가입 및 사용자 인증 상태 관리를 수행합니다.
  */
 interface AuthRepository {
-    //소셜 로그인 파이어베이스 어스로 연동
+
+    /**
+     * 소셜 로그인 연동 함수
+     */
     suspend fun signInWithCustomToken(idToken: String, type: LoginType): Result<Unit>
-    // 이메일 회원가입
+
+    /**
+     * 이메일 회원가입 함수
+     */
     suspend fun signUpWithEmail(email: String, password: String, nickname: String): Result<AuthResult>
 
-    // 이메일 로그인
+    /**
+     * 이메일 로그인 함수
+     */
     suspend fun signInWithEmail(email: String, password: String): Result<AuthResult>
 
-    // 사용자 UID 조회
+    /**
+     * 현재 유저 UID 조회 함수
+     */
     fun getCurrentUserUid(): String?
 
-    // 인증 상태 흐름
+    /**
+     * 인증 상태 변경 관찰 Flow 생성 함수
+     */
     fun getAuthStateFlow(): Flow<String?>
 
-    //약관 내용 불러오기
+    /**
+     * 약관 내용 조회 함수
+     */
     suspend fun getTerms(type: TermsType): Result<String>
 
+    /**
+     * 자동 로그인 여부 확인 함수
+     */
     fun isAutoLogin() : Boolean
+
+    /**
+     * 이메일 인증 완료 여부 확인 함수
+     */
     fun isEmailVerified(): Boolean
 
+    /**
+     * 로그아웃 함수
+     */
     suspend fun signOut(type: LoginType = LoginType.EMAIL)
 }
