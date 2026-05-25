@@ -49,6 +49,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import com.bbip.bbipit.presentation.base.ConfirmDialog
 
 @Composable
 fun FriendListScreen(
@@ -249,25 +250,18 @@ fun FriendListItem(
 
     // 삭제 확인 다이얼로그
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = {
+        ConfirmDialog(
+            text = "친구 삭제",
+            semiText = "'${friend.nickname}'님을 친구 목록에서 삭제하시겠습니까?",
+            isSingleBtn = false, // 취소 버튼이 필요하므로 false
+            onDismiss = {
                 showDeleteDialog = false
-                scope.launch { dismissState.reset() } // 닫으면 카드 원위치
+                scope.launch { dismissState.reset() }
             },
-            title = { Text("친구 삭제") },
-            text = { Text("'${friend.nickname}'님을 친구 목록에서 삭제하시겠습니까?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDelete()
-                    showDeleteDialog = false
-                    scope.launch { dismissState.reset() }
-                }) { Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    scope.launch { dismissState.reset() }
-                }) { Text("취소") }
+            onConfirm = {
+                onDelete()
+                showDeleteDialog = false
+                scope.launch { dismissState.reset() }
             }
         )
     }
