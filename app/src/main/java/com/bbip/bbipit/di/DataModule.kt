@@ -3,6 +3,7 @@ package com.bbip.bbipit.data.di
 import com.bbip.bbipit.data.repository.AuthRepositoryImpl
 import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.data.repository.FriendRepositoryImpl
+import com.bbip.bbipit.data.repository.HistoryRepositoryImpl
 import com.bbip.bbipit.data.repository.LiveStatusRepositoryImpl
 import com.bbip.bbipit.data.repository.NotificationRepositoryImpl
 import com.bbip.bbipit.data.repository.UserRepositoryImpl
@@ -13,6 +14,8 @@ import com.bbip.bbipit.data.source.remote.chat.ChatRemoteDataSource
 import com.bbip.bbipit.data.source.remote.chat.ChatRemoteDataSourceImpl
 import com.bbip.bbipit.data.source.remote.friend.FriendRemoteDataSource
 import com.bbip.bbipit.data.source.remote.friend.FriendRemoteDataSourceImpl
+import com.bbip.bbipit.data.source.remote.history.HistoryRemoteDataSource
+import com.bbip.bbipit.data.source.remote.history.HistoryRemoteDataSourceImpl
 import com.bbip.bbipit.data.source.remote.live.LiveStatusRemoteDataSource
 import com.bbip.bbipit.data.source.remote.live.LiveStatusRemoteDataSourceImpl
 import com.bbip.bbipit.data.source.remote.notification.NotificationRemoteDataSource
@@ -24,6 +27,7 @@ import com.bbip.bbipit.data.source.remote.voice.VoiceRemoteDataSourceImpl
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.ChatRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
+import com.bbip.bbipit.domain.repository.HistoryRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.UserRepository
@@ -111,6 +115,12 @@ abstract class DataModule {
     // Repository Bindings
     // ==========================================
 
+    @Binds
+    @Singleton
+    abstract fun bindHistoryRepository(
+        impl: HistoryRepositoryImpl
+    ): HistoryRepository
+
     /**
      * 실시간 동기화 상태 엔티티 관리 전담 도메인 계층 리포지토리 인터페이스 및 데이터 계층 구현체 결합
      */
@@ -170,4 +180,10 @@ abstract class DataModule {
     abstract fun bindFriendRepository(
         impl: FriendRepositoryImpl
     ): FriendRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHistoryRemoteDataSource(
+        impl: HistoryRemoteDataSourceImpl
+    ): HistoryRemoteDataSource
 }
