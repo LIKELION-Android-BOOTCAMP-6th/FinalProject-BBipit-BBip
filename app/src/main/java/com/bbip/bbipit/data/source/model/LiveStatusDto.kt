@@ -18,7 +18,7 @@ data class LiveStatusDto(
     // 온라인 접속 여부
     val isOnline: Boolean = false,
 
-    // 현재 체류 중인 채팅방 식识别자
+    // 현재 체류 중인 채팅방 식별자
     val currentRoomId: String? = null,
 
     // 위도 좌표

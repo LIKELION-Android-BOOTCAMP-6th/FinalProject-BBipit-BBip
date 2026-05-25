@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.map.ui
 
+import com.bbip.bbipit.R
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,17 +9,20 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.People // 친구 목록 아이콘용 추가
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,11 +30,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,18 +46,20 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.createCustomMarkerBitmap
+import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
 import com.bbip.bbipit.presentation.map.viewmodel.MapViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.VoiceUiState
 import com.bbip.bbipit.presentation.map.viewmodel.PushToTalkViewModel
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -61,19 +69,23 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.google.maps.android.compose.CameraPositionState // 추가
-import kotlinx.coroutines.launch // CoroutineScope 제어용 추가
+import com.google.maps.android.compose.CameraPositionState
+import com.google.maps.android.compose.MapsComposeExperimentalApi
+import com.google.maps.android.compose.rememberComposeBitmapDescriptor
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     navController: NavController,
-    viewModel: MapViewModel = hiltViewModel(),
+    mapViewModel: MapViewModel = hiltViewModel(),
+    historyViewModel: HistoryViewModel = hiltViewModel(),
     pushToTalkViewModel: PushToTalkViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by mapViewModel.uiState.collectAsState()
     val voiceUiState by pushToTalkViewModel.uiState.collectAsState()
+    val historyUiState by historyViewModel.uiState.collectAsState()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
 
@@ -81,14 +93,59 @@ fun MapScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    var isHistorySheetOpen by remember { mutableStateOf(false) }
+    // 히스토리 상세 다이얼로그 제어용 상태
+    var isDetailDialogOpen by remember { mutableStateOf(false) }
+    var selectedHistory by remember { mutableStateOf<History?>(null) }
+
     val seoul = LatLng(37.5665, 126.9780)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(seoul, 15f)
     }
 
+    // 마지막 쿼리 수행 위치
+    var lastFetchedLocation by remember { mutableStateOf<LatLng?>(null) }
+
     val TAG = "MapScreen"
 
-    // 음성 전송 실패 에러 발생 시 알림 처리
+    // 두 좌표 간 거리 계산 (Haversine 공식)
+    fun calculateDistanceInMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(lat1, lng1, lat2, lng2, results)
+        return results[0]
+    }
+
+    // 이동 거리 감지 및 데이터 자동 동기화
+    val myStatus = uiState.myStatus
+    LaunchedEffect(myStatus?.latitude, myStatus?.longitude) {
+        if (myStatus != null) {
+            val currentLat = myStatus.latitude
+            val currentLng = myStatus.longitude
+
+            val lastLoc = lastFetchedLocation
+            if (lastLoc == null) {
+                // 최초 데이터 요청
+                Log.d(TAG, "🚀 최초 위치 포착으로 인한 히스토리 로드 시작")
+                historyViewModel.fetchNearbyHistory(currentLat, currentLng)
+                lastFetchedLocation = LatLng(currentLat, currentLng)
+            } else {
+                val distance = calculateDistanceInMeters(
+                    lastLoc.latitude, lastLoc.longitude,
+                    currentLat, currentLng
+                )
+                Log.d(TAG, "🏃 현재 이동 거리 체크: ${distance}m")
+
+                // 500m 이동 시 재요청
+                if (distance >= 500f) {
+                    Log.d(TAG, "🎯 500m 이상 이동 감지! 히스토리 자동 동기화 쿼리 실행")
+                    historyViewModel.fetchNearbyHistory(currentLat, currentLng)
+                    lastFetchedLocation = LatLng(currentLat, currentLng)
+                }
+            }
+        }
+    }
+
+    // 오류 메시지 팝업 출력
     LaunchedEffect(voiceUiState.error) {
         voiceUiState.error?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -105,17 +162,16 @@ fun MapScreen(
 
         if (fineLocationGranted || coarseLocationGranted || bluetoothConnectGranted) {
             Log.d(TAG, "권한 승인됨 -> BackgroundListenerService 가동")
-            val intent = Intent(context, BackgroundListenerService::class.java)
+            Intent(context, BackgroundListenerService::class.java)
         } else {
             Toast.makeText(context, "서비스 이용을 위해 위치 및 블루투스 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // 최상단을 ModalNavigationDrawer로 감싸 드로어 레이어 선언
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = false,
         drawerContent = {
-            // 이전에 분리해 둔 커스텀 드로어 컴포넌트 호출
             FriendListDrawer(
                 friends = uiState.friendsStatuses,
                 selectedFriendUid = clickedFriendUid,
@@ -125,9 +181,7 @@ fun MapScreen(
                 onFriendClick = { friend ->
                     scope.launch {
                         clickedFriendUid = friend.uid
-                        // 서랍을 부드럽게 닫고
                         drawerState.close()
-                        // 해당 친구의 실시간 위치 좌표로 카메라 이동
                         cameraPositionState.animate(
                             update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
                         )
@@ -142,34 +196,103 @@ fun MapScreen(
         ) { _ ->
             BackgroundBox {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // 지도 및 마커 레이어 노출 (cameraPositionState 패싱)
+                    // 지도 콘텐츠 레이어
                     MapContent(
                         mapUiState = uiState,
+                        histories = historyUiState.nearbyHistories,
                         cameraPositionState = cameraPositionState,
                         modifier = Modifier.fillMaxSize(),
                         onFriendClick = { friend ->
                             clickedFriendUid = friend.uid
+                        },
+                        onHistoryClick = { history ->
+                            selectedHistory = history
+                            isDetailDialogOpen = true
                         }
                     )
 
-                    // 지도 화면 우측 상단에 배치될 친구 목록 토글 버튼 (시안 스타일 반영)
+                    // 히스토리 상세 다이얼로그
+                    if (isDetailDialogOpen && selectedHistory != null) {
+                        HistoryDetailDialog(
+                            history = selectedHistory!!,
+                            currentUserId = uiState.myStatus?.uid.orEmpty(),
+                            onDismiss = { isDetailDialogOpen = false },
+                            onDelete = { history ->
+                                historyViewModel.deleteHistory(history.id)
+                                isDetailDialogOpen = false
+                            }
+                        )
+                    }
+
+                    // 친구 목록 토글 버튼
                     FriendListToggleButton(
                         onClick = {
                             scope.launch { drawerState.open() }
                         },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .statusBarsPadding() // 상태바 영역 침범 방지
-                            .padding(end = 16.dp, bottom = 200.dp)
+                            .statusBarsPadding()
+                            .padding(end = 16.dp, bottom = 220.dp)
                     )
+
+                    // 작성 페이지 전환 버튼
+                    FilledIconButton(
+                        onClick = {
+                            isHistorySheetOpen = true
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .statusBarsPadding()
+                            .padding(end = 16.dp, bottom = 280.dp)
+                            .size(50.dp)
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(14.dp),
+                                clip = false
+                            ),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color(0xFFF1F5F9),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_footprints_icon),
+                            contentDescription = "히스토리 바텀 시트 열기",
+                            modifier = Modifier.size(24.dp),
+                            tint = Color(0xFF956AFC)
+                        )
+                    }
                 }
 
-                // 선택된 친구의 최신 정보 조회
+                // 입력 폼 바텀 시트
+                HistoryWriteSheet(
+                    isOpen = isHistorySheetOpen,
+                    onDismissRequest = { isHistorySheetOpen = false },
+                    onSaveClick = { selectedCategory, placeName, contentText ->
+                        if (contentText.trim().isEmpty()) {
+                            Toast.makeText(context, "히스토리 내용을 입력해 주세요.", Toast.LENGTH_SHORT).show()
+                            return@HistoryWriteSheet
+                        }
+
+                        uiState.myStatus?.let { myStatus ->
+                            historyViewModel.createNewHistory(
+                                category = selectedCategory,
+                                placeName = placeName.ifEmpty { "알 수 없음" },
+                                content = contentText,
+                                latitude = myStatus.latitude,
+                                longitude = myStatus.longitude
+                            )
+                            isHistorySheetOpen = false
+                        }
+                    }
+                )
+
                 val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
                     uiState.friendsStatuses.find { it.uid == clickedFriendUid }
                 }
 
-                // 친구 상세 프로필 다이얼로그 표시
+                // 상세 정보 다이얼로그
                 currentClickedFriend?.let { friend ->
                     FriendProfileDialog(
                         friend = friend,
@@ -187,6 +310,7 @@ fun MapScreen(
         }
     }
 
+    // 시스템 권한 확인 및 백그라운드 서비스 제어
     LaunchedEffect(Unit) {
         val hasFineLocation = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
@@ -196,7 +320,6 @@ fun MapScreen(
             context, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
-        // 위치 권한 승인 상태에 따른 백그라운드 서비스 실행 코드
         if (hasFineLocation || hasCoarseLocation) {
             Log.d(TAG, "✅ 위치 권한 확인 완료 -> 안전하게 서비스 시작")
             val intent = Intent(context, BackgroundListenerService::class.java)
@@ -206,7 +329,6 @@ fun MapScreen(
                 context.startService(intent)
             }
         } else {
-            // 위치 권한이 없는 경우 통합 권한 요청 팝업 실행
             Log.d(TAG, "⚠️ 위치 권한 없음 -> 권한 요청 팝업 실행")
             requestMultiplePermissionsLauncher.launch(
                 arrayOf(
@@ -220,25 +342,27 @@ fun MapScreen(
     }
 }
 
+@OptIn(MapsComposeExperimentalApi::class)
 @Composable
 private fun MapContent(
     mapUiState: MapUiState,
+    histories: List<History>,
     cameraPositionState: CameraPositionState,
     modifier: Modifier = Modifier,
-    onFriendClick: (LiveStatus) -> Unit
+    onFriendClick: (LiveStatus) -> Unit,
+    onHistoryClick: (History) -> Unit
 ) {
     val context = LocalContext.current
 
-    // 내 위치 좌표 추출
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
 
     val TAG = "MapContent"
 
+    // 내 위치 포착 시 카메라 이동
     LaunchedEffect(myLat, myLng) {
         if (myLat != null && myLng != null) {
             Log.d(TAG, "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
-            // 현재 내 위치로 지도 카메라 이동
             cameraPositionState.animate(
                 update = newLatLngZoom(
                     LatLng(myLat, myLng), 16f
@@ -253,8 +377,8 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState
         ) {
+            // 내 마커 구성
             mapUiState.myStatus?.let { my ->
-                // 내 프로필 이미지 기반 커스텀 마커 생성
                 var myCustomMarkerIcon by remember(my.uid, my.profileImageUrl) {
                     mutableStateOf<BitmapDescriptor?>(null)
                 }
@@ -266,7 +390,6 @@ private fun MapContent(
                     )
                 }
 
-                // 내 마커 상태 기억 및 설정
                 val myMarkerState = remember(my.latitude, my.longitude) {
                     MarkerState(position = LatLng(my.latitude, my.longitude))
                 }
@@ -276,23 +399,21 @@ private fun MapContent(
                     icon = myCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
                         BitmapDescriptorFactory.HUE_AZURE
                     ),
+                    zIndex = 0.0f,
                     onClick = { true }
                 )
             }
 
+            // 친구 마커 구성
             mapUiState.friendsStatuses.forEach { friend ->
-
-                // 깜빡임 방지를 위해 UID 기준으로 한 번만 마커 상태 생성 및 유지
                 val friendMarkerState = remember(friend.uid) {
                     MarkerState(position = LatLng(friend.latitude, friend.longitude))
                 }
 
-                // 실시간 좌표 변경 시 마커 위치 업데이트
                 LaunchedEffect(friend.latitude, friend.longitude) {
                     friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
                 }
 
-                // 이미지 URL 또는 온라인 여부 변경 시 마커 비트맵 재생성
                 var friendCustomMarkerIcon by remember(
                     friend.uid,
                     friend.profileImageUrl,
@@ -314,6 +435,7 @@ private fun MapContent(
                     icon = friendCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
                         if (friend.isOnline) BitmapDescriptorFactory.HUE_GREEN else BitmapDescriptorFactory.HUE_RED
                     ),
+                    zIndex = 1.0f,
                     onClick = {
                         Log.d(TAG, "친구 마커 클릭됨: ${friend.nickname} (UID: ${friend.uid})")
                         onFriendClick(friend)
@@ -321,32 +443,94 @@ private fun MapContent(
                     }
                 )
             }
-        }
 
-        if (mapUiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.White.copy(alpha = 0.5f)), // 부자연스러운 화면 깜빡임 방지용 반투명 배경 설정
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+            // 히스토리 마커 구성
+            histories.forEach { history ->
+                val historyLatLng = LatLng(history.latitude, history.longitude)
+
+                val markerState = remember(history.id) {
+                    MarkerState(position = historyLatLng)
+                }
+
+                LaunchedEffect(history.latitude, history.longitude) {
+                    markerState.position = historyLatLng
+                }
+
+                val bitmapKey = remember(history.id, history.category) {
+                    "${history.id}_${history.category}"
+                }
+
+                // 카테고리별 아이콘 속성 정의
+                val (iconResId, bgColor, iconColor) = remember(history.category) {
+                    when (history.category) {
+                        "무전" -> Triple(
+                            com.bbip.bbipit.R.drawable.ic_walkie_talkie_icon,
+                            Color(0xFFFAF5FF),
+                            Color(0xFFA855F7)
+                        )
+                        "카페" -> Triple(
+                            com.bbip.bbipit.R.drawable.ic_cafe_icon,
+                            Color(0xFFFFFBEB),
+                            Color(0xFFD97706)
+                        )
+                        "음식" -> Triple(
+                            com.bbip.bbipit.R.drawable.ic_restaurant_icon,
+                            Color(0xFFFFF1F2),
+                            Color(0xFFF43F5E)
+                        )
+                        "운동" -> Triple(
+                            com.bbip.bbipit.R.drawable.ic_exercise_icon,
+                            Color(0xFFECFDF5),
+                            Color(0xFF10B981)
+                        )
+                        else -> Triple(
+                            com.bbip.bbipit.R.drawable.ic_daily_icon,
+                            Color(0xFFEEF2FF),
+                            Color(0xFF6366F1)
+                        )
+                    }
+                }
+
+                val composeMarkerBitmap = rememberComposeBitmapDescriptor(
+                    bitmapKey,
+                    bitmapKey
+                ) {
+                    HistoryIconCircle(
+                        iconResId = iconResId,
+                        iconTint = iconColor,
+                        backgroundColor = bgColor,
+                    )
+                }
+
+                Marker(
+                    state = markerState,
+                    title = "[${history.category}] ${history.placeName}",
+                    snippet = "${history.userNickname}: ${history.content}",
+                    icon = composeMarkerBitmap,
+                    alpha = 0.95f,
+                    zIndex = 2.0f,
+                    onClick = { _ ->
+                        onHistoryClick(history)
+                        true
+                    }
+                )
             }
         }
     }
 }
 
-// 우측 친구목록 버튼 컴포저블
+// 친구찾기 토글 버튼
 @Composable
 fun FriendListToggleButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val buttonShape = RoundedCornerShape(14.dp) // 모서리 둥글기 규격 통일
+    val buttonShape = RoundedCornerShape(14.dp)
 
     FilledIconButton(
         onClick = onClick,
-        modifier = modifier.size(50.dp)
+        modifier = modifier
+            .size(50.dp)
             .shadow(
                 elevation = 6.dp,
                 shape = buttonShape,
@@ -362,10 +546,12 @@ fun FriendListToggleButton(
             imageVector = Icons.Default.People,
             contentDescription = "친구 목록 열기",
             modifier = Modifier.size(24.dp),
-            tint = Color(0xFF956AFC) // 에러 원인이었던 속성 이름 수정 완료
+            tint = Color(0xFF956AFC)
         )
     }
 }
+
+// 상세 정보 다이얼로그
 @Composable
 fun FriendProfileDialog(
     friend: LiveStatus,
@@ -378,18 +564,21 @@ fun FriendProfileDialog(
     var startTime by remember { mutableStateOf(0L) }
     val recordAudioPermission = Manifest.permission.RECORD_AUDIO
 
-    // 마이크 권한 요청 런처
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (!isGranted) {
-            Toast.makeText(context, "무전 기능을 이용하려면 마이크 권한 동의가 필요합니다.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                "무전 기능을 이용하려면 마이크 권한 동의가 필요합니다.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false) // 기본 플랫폼 너비 제한 해제
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         val windowProvider = LocalView.current.parent as? DialogWindowProvider
         windowProvider?.window?.let { window ->
@@ -400,17 +589,17 @@ fun FriendProfileDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .clickable(
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) { onDismiss() },
             contentAlignment = Alignment.Center
         ) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.85f) // 화면 가로 영역의 85% 크기 지정
+                    .fillMaxWidth(0.85f)
                     .wrapContentHeight()
                     .clickable(
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {},
                 shape = RoundedCornerShape(46.dp),
@@ -448,7 +637,11 @@ fun FriendProfileDialog(
                             Box(
                                 modifier = Modifier
                                     .size(106.dp)
-                                    .shadow(elevation = 6.dp, shape = CircleShape, clip = false)
+                                    .shadow(
+                                        elevation = 6.dp,
+                                        shape = CircleShape,
+                                        clip = false
+                                    )
                                     .background(Color.White, CircleShape)
                                     .padding(4.5.dp)
                             ) {
@@ -474,7 +667,9 @@ fun FriendProfileDialog(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(
-                                            color = if (friend.isOnline) Color(0xFF00E676) else Color(
+                                            color = if (friend.isOnline) Color(
+                                                0xFF00E676
+                                            ) else Color(
                                                 0xFF9E9E9E
                                             ),
                                             shape = CircleShape
@@ -533,7 +728,9 @@ fun FriendProfileDialog(
                                     containerColor = Color.White,
                                     contentColor = Color(0xFF1E232C)
                                 ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 1.dp
+                                )
                             ) {
                                 Text(
                                     text = "채팅",
@@ -558,25 +755,31 @@ fun FriendProfileDialog(
                                         shape = RoundedCornerShape(28.dp)
                                     )
                                     .pointerInput(Unit) {
-                                        // 터치 및 홀드 감지를 통한 무전 녹음 제어
                                         detectTapGestures(
                                             onPress = {
-                                                val isGranted = ContextCompat.checkSelfPermission(
-                                                    context, recordAudioPermission
-                                                ) == PackageManager.PERMISSION_GRANTED
+                                                val isGranted =
+                                                    ContextCompat.checkSelfPermission(
+                                                        context, recordAudioPermission
+                                                    ) == PackageManager.PERMISSION_GRANTED
 
                                                 if (isGranted) {
                                                     try {
-                                                        voiceViewModel.setTargetUid(friend.uid)
-                                                        startTime = System.currentTimeMillis()
+                                                        voiceViewModel.setTargetUid(
+                                                            friend.uid
+                                                        )
+                                                        startTime =
+                                                            System.currentTimeMillis()
                                                         voiceViewModel.startRecording()
                                                         awaitRelease()
                                                     } finally {
-                                                        val endTime = System.currentTimeMillis()
+                                                        val endTime =
+                                                            System.currentTimeMillis()
                                                         val totalDuration =
                                                             ((endTime - startTime) / 1000).toInt()
                                                                 .coerceAtLeast(1)
-                                                        voiceViewModel.stopRecording(totalDuration)
+                                                        voiceViewModel.stopRecording(
+                                                            totalDuration
+                                                        )
                                                     }
                                                 } else {
                                                     audioPermissionLauncher.launch(
@@ -598,6 +801,156 @@ fun FriendProfileDialog(
                                     color = Color.White,
                                     textAlign = TextAlign.Center
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 히스토리 커스텀 마커 아이콘
+@Composable
+fun HistoryIconCircle(
+    @DrawableRes iconResId: Int,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    iconTint: Color = Color.White
+) {
+    val markerShape = RoundedCornerShape(12.dp)
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 4.dp,
+                shape = markerShape,
+                clip = false
+            )
+            .size(38.dp)
+            .background(backgroundColor, shape = markerShape)
+            .padding(7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = iconResId),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            colorFilter = ColorFilter.tint(iconTint)
+        )
+    }
+}
+
+// 히스토리 상세 다이얼로그
+@Composable
+fun HistoryDetailDialog(
+    history: History,
+    currentUserId: String,
+    onDismiss: () -> Unit,
+    onDelete: (History) -> Unit
+) {
+    val isMyHistory = remember(history.userId, currentUserId) {
+        history.userId == currentUserId && currentUserId.isNotEmpty()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .wrapContentHeight()
+                    .clickable(enabled = false) {},
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+            ) {
+                Column {
+                    AsyncImage(
+                        model = history.imageUrl,
+                        contentDescription = "History Photo",
+                        modifier = Modifier
+                            .height(140.dp)
+                            .fillMaxWidth(),
+                        contentScale = ContentScale.Crop
+                    )
+
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Color(0xFF956AFC)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = history.placeName,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 14.sp,
+                                color = Color(0xFF1E293B)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = history.content,
+                            fontSize = 13.sp,
+                            color = Color(0xFF475569),
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if(isMyHistory) {
+                                Button(
+                                    onClick = { onDelete(history) },
+                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFF1F2),
+                                        contentColor = Color(0xFFF43F5E)
+                                    ),
+                                    elevation = null
+                                ) {
+                                    Text(
+                                        "삭제",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = Color.Red
+                                    )
+                                }
+                            }
+
+                            Button(
+                                onClick = onDismiss,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF956AFC),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("확인", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                            }
+
+                            if (!isMyHistory) {
+                                Spacer(modifier = Modifier.weight(0.5f))
                             }
                         }
                     }

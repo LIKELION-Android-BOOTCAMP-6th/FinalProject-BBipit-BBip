@@ -15,7 +15,6 @@ import javax.inject.Singleton
 
 @Singleton
 class FriendRemoteDataSourceImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val auth: FirebaseAuth,
     private val db: FirebaseFirestore,
     private val firebaseFunctions: FirebaseFunctions

@@ -4,16 +4,13 @@ val properties = Properties().apply {
     load(rootProject.file("local.properties").inputStream())
 }
 plugins {
-    id("org.jetbrains.kotlin.kapt")
-
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     id("com.google.gms.google-services")
     alias(libs.plugins.hilt.android)
-    kotlin("plugin.serialization") version "2.0.21"
-
-
+    kotlin("plugin.serialization") version "2.2.10"
 }
 
 android {
@@ -84,7 +81,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     //파이어베이스 버전 관리자 bom
-    implementation (platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation (platform("com.google.firebase:firebase-bom:34.13.0"))
     implementation("com.google.firebase:firebase-analytics")
 
     //파이어베이스 인증(이메일/구글)
@@ -97,6 +94,9 @@ dependencies {
     ///파이어스토어
     implementation("com.google.firebase:firebase-firestore")
 //    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
+
+    // Geofire 라이브러리
+    implementation(libs.firebase.geofire)
 
     //fcm
     implementation("com.google.firebase:firebase-messaging")
@@ -121,7 +121,7 @@ dependencies {
 
     //hilt
     implementation(libs.hilt.android)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
