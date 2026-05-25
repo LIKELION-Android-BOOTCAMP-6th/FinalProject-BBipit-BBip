@@ -27,7 +27,6 @@ import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
-import com.bbip.bbipit.domain.usecase.SyncMyLocationUseCase
 import com.bbip.bbipit.presentation.main.MainActivity
 import com.google.android.gms.location.*
 import com.google.android.gms.tasks.Tasks
@@ -37,6 +36,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -53,7 +53,6 @@ class BackgroundListenerService : Service() {
     @Inject lateinit var voiceRepository: VoiceRepository
     @Inject lateinit var liveStatusRepository: LiveStatusRepository
     @Inject lateinit var friendRepository: FriendRepository
-    @Inject lateinit var syncMyLocationUseCase: SyncMyLocationUseCase
     @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
     @Inject lateinit var lifeCycleManager: LifeCycleManager
     @Inject lateinit var notificationRepository: NotificationRepository
@@ -593,8 +592,7 @@ class BackgroundListenerService : Service() {
         val updatedLiveStatus = currentStatus?.copy(latitude = latitude, longitude = longitude)
             ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
 
-        // 원격 서버 위치 저장소 동기화 요청
-        syncMyLocationUseCase(updatedLiveStatus)
+        liveStatusRepository.updateMyLiveStatus(updatedLiveStatus)
     }
 
     /**

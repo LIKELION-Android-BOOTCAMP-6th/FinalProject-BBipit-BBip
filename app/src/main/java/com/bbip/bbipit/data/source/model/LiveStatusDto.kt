@@ -28,7 +28,8 @@ data class LiveStatusDto(
     val longitude: Double = 0.0,
 
     // 상태 업데이트 시간
-    val updatedAt: Timestamp? = null
+    val updatedAt: Timestamp? = null,
+    val isSharing: Boolean = true
 ) {
     /**
      * 원격 저장소 업로드용 맵 변환 함수
@@ -43,7 +44,8 @@ data class LiveStatusDto(
             "current_room_id" to currentRoomId,
             "latitude" to latitude,
             "longitude" to longitude,
-            "updated_at" to (updatedAt ?: Timestamp.now())
+            "updated_at" to (updatedAt ?: Timestamp.now()),
+            "is_sharing" to isSharing
         )
     }
 }

@@ -12,11 +12,13 @@ import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,6 +41,8 @@ class LiveStatusRepositoryImpl @Inject constructor(
     // 친구들의 라이브 상태 목록 저장 및 공유용 캐시 Flow
     private val _friendsLiveStatusFlow = MutableStateFlow<List<LiveStatus>>(emptyList())
     override val friendsLiveStatusFlow: StateFlow<List<LiveStatus>> = _friendsLiveStatusFlow.asStateFlow()
+
+    private val _isLocationSharingEnabled = MutableStateFlow(true) // 기본값 true
 
     /**
      * 친구 목록을 기반으로 개별 위치를 실시간 구독하는 함수
@@ -84,11 +88,19 @@ class LiveStatusRepositoryImpl @Inject constructor(
             // 메모리 캐시 선제 갱신
             _myLiveStatusFlow.value = liveStatus
 
-            // 원격 저장소에 데이터 저장
-            liveStatusRemoteDataSource.updateMyLiveStatus(
-                uid = liveStatus.uid,
-                dto = liveStatus.toDto()
-            )
+            // 현재 위치 공유가 켜져있는지 확인
+            observeLocationSharingState().first().let { isSharingEnabled ->
+                if (isSharingEnabled) {
+                    // 원격 저장소에 데이터 저장
+                    liveStatusRemoteDataSource.updateMyLiveStatus(
+                        uid = liveStatus.uid,
+                        dto = liveStatus.toDto()
+                    )
+                } else {
+                    Log.d("관제탑 서비스", "위치 공유가 비활성화되어 백그라운드 위치를 서버에 전송하지 않습니다.")
+                }
+            }
+
 
             Result.Success(Unit)
         } catch (e: Exception) {
@@ -119,6 +131,8 @@ class LiveStatusRepositoryImpl @Inject constructor(
             // 원격 데이터 조회 및 도메인 엔티티 변환
             val dto = liveStatusRemoteDataSource.getLiveStatusByUid(targetUid)
             val domainEntity = dto.toDomain(uid = targetUid, isFromCache = false)
+
+            _isLocationSharingEnabled.value = dto.isSharing
             Result.Success(domainEntity)
         } catch (e: Exception) {
             // 조회 실패 예외 처리
@@ -145,5 +159,23 @@ class LiveStatusRepositoryImpl @Inject constructor(
                 // 구독 실패 예외 처리 및 에러 전달
                 emit(Result.Failure(AppError.Unknown(exception.message ?: "라이브 상태 구독 실패")))
             }
+    }
+
+    override fun observeLocationSharingState(): Flow<Boolean> = _isLocationSharingEnabled.asStateFlow()
+
+    override suspend fun updateLocationSharingState(isSharing: Boolean): Result<Unit> {
+        return try {
+            _isLocationSharingEnabled.value = isSharing
+
+            val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: return Result.Failure(AppError.Unknown("로그인 정보 없음"))
+
+            FirebaseFirestore.getInstance().collection("Users").document(myUid)
+                .update("is_sharing", isSharing)
+                .await()
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Failure(AppError.Unknown(e.message ?: "위치 공유 상태 업데이트 실패"))
+        }
     }
 }

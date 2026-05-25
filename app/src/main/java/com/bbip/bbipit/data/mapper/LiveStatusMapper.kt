@@ -17,7 +17,8 @@ fun LiveStatus.toDto(): LiveStatusDto {
         currentRoomId = this.currentRoomId,
         latitude = this.latitude,
         longitude = this.longitude,
-        updatedAt = Timestamp.now()
+        updatedAt = Timestamp.now(),
+        isSharing = this.isSharing
     )
 }
 
@@ -37,7 +38,8 @@ fun Map<String, Any>?.toDto(): LiveStatusDto {
         currentRoomId = this["current_room_id"] as? String,
         latitude = (this["latitude"] as? Number)?.toDouble() ?: 0.0,
         longitude = (this["longitude"] as? Number)?.toDouble() ?: 0.0,
-        updatedAt = this["updated_at"] as? Timestamp
+        updatedAt = this["updated_at"] as? Timestamp,
+        isSharing = this["is_sharing"] as? Boolean ?: true
     )
 }
 
@@ -56,6 +58,7 @@ fun LiveStatusDto.toDomain(uid: String, isFromCache: Boolean): LiveStatus {
         latitude = this.latitude,
         longitude = this.longitude,
         updatedAt = this.updatedAt?.toDate()?.time ?: 0L,
-        isFromCache = isFromCache
+        isFromCache = isFromCache,
+        isSharing = this.isSharing
     )
 }
