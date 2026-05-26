@@ -26,5 +26,7 @@ data class User(
     val loginType: String = "",
     val email: String= "",
     //현재 세션 정보(중복 로그인용)
-    val sessionId: String = ""
+    val sessionId: String = "",
+    //친구요청용 코드
+    val userCode: String = ""
 )

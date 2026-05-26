@@ -18,7 +18,8 @@ fun UserDto.toDomain(id: String): User = User(
     lastActive = lastActive?.toDate()?.time ?: 0L,
     friendUids = friendUids,
     loginType = loginType,
-    email = email
+    email = email,
+    userCode = userCode
 )
 
 /**
@@ -34,7 +35,8 @@ fun User.toDto(): UserDto = UserDto(
     lastActive = if (lastActive != 0L) Timestamp(java.util.Date(lastActive)) else null,
     friendUids = friendUids,
     loginType = loginType,
-    email = email
+    email = email,
+    userCode = userCode
 )
 
 /**
