@@ -6,7 +6,7 @@ package com.bbip.bbipit.domain.entity
 data class Friend (
     val uid: String = "",
     val nickname: String = "",
-    val profile_image_url: String = "",
+    val profileImageUrl: String = "",
     val status: String = "",
     val isOnline: Boolean = false,
     val friendshipStatus: String = ""

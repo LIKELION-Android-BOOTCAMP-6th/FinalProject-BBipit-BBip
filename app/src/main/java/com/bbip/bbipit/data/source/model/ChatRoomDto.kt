@@ -21,5 +21,9 @@ data class ChatRoomDto(
 
     // 참여자별 미독 메시지 개수 맵
     @get:PropertyName("unread_counts") @set:PropertyName("unread_counts")
-    var unreadCounts: Map<String, Int> = emptyMap()
+    var unreadCounts: Map<String, Int> = emptyMap(),
+
+    // [추가] 상대방의 온라인 상태를 필드에서 직접 받아올 경우
+    @get:PropertyName("is_online") @set:PropertyName("is_online")
+    var isOnline: Boolean = false
 )

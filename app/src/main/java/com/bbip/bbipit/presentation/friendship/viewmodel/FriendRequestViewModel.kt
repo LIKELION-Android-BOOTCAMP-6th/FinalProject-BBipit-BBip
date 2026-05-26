@@ -43,7 +43,7 @@ class FriendRequestViewModel @Inject constructor(
                     Friend(
                         uid = user.id,
                         nickname = user.nickname,
-                        profile_image_url = user.profileImageUrl,
+                        profileImageUrl = user.profileImageUrl,
                         status = user.status,
                         friendshipStatus = "requested" // 이 리스트는 무조건 요청 상태임
                     )

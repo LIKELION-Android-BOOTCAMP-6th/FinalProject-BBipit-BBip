@@ -12,8 +12,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 import com.google.firebase.firestore.FirebaseFirestore
+import com.bbip.bbipit.data.mapper.toEntity
+import com.bbip.bbipit.data.source.model.ChatRoomDto
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,7 +66,8 @@ class ChatRepositoryImpl @Inject constructor(
 
                 val chatRooms = snapshot?.documents?.mapNotNull { doc ->
                     try {
-                        doc.toObject(ChatRoom::class.java)?.copy(id = doc.id)
+                        // [해결] Dto로 변환 후 toEntity 확장함수 사용
+                        doc.toObject(ChatRoomDto::class.java)?.toEntity(doc.id)
                     } catch (e: Exception) {
                         Log.e("ChatRepository", "ChatRoom 파싱 실패: ${doc.id}", e)
                         null
@@ -109,6 +114,25 @@ class ChatRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e("ChatRepository", "메시지 내역 가져오기 실패: ${e.message}")
             Result.Failure(AppError.Unknown(e.message ?: "메시지 내역 조회 실패"))
+        }
+    }
+
+    // 채팅방 진입/퇴장 관리
+    override suspend fun updateActiveRoom(uid: String, roomId: String?) {
+        try {
+            // 'Live' 컬렉션에서 uid를 문서 ID로 사용한다고 가정할 때
+            db.collection("Live").document(uid)
+                .set(
+                    mapOf("current_room_id" to roomId),
+                    SetOptions.merge() // 기존 데이터를 유지하면서 해당 필드만 갱신
+                )
+                .await()
+        } catch (e: Exception) {
+            // 취소 예외는 무시하고, 실제 에러만 로그 남기기
+            if (e !is kotlinx.coroutines.CancellationException) {
+                android.util.Log.e("ChatRepositoryImpl", "Live 상태 업데이트 실패", e)
+            }
+            throw e
         }
     }
 }

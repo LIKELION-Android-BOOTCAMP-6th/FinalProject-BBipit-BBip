@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.repository.ChatRepository
+import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.presentation.chat.ui.ChatItem
 import com.bbip.bbipit.presentation.chat.ui.ChatListUiState
 import com.google.firebase.Firebase
@@ -20,13 +21,22 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+
+// 내부에 정보 저장용 데이터 클래스
+data class UserInfo(val name: String, val profileImageUrl: String?, val isOnline: Boolean)
+
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
-    private val chatRepository: ChatRepository
+    private val chatRepository: ChatRepository,
+    private val friendRepository: FriendRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatListUiState())
     val uiState = _uiState.asStateFlow()
+
+    // 사용자 상태
+    private val userInfos = mutableMapOf<String, UserInfo>()
+    private val userListeners = mutableMapOf<String, com.google.firebase.firestore.ListenerRegistration>()
 
     private val _navigationEvent = MutableSharedFlow<Routes>()
     val navigationEvent = _navigationEvent.asSharedFlow()
@@ -45,7 +55,46 @@ class ChatListViewModel @Inject constructor(
 
     init {
         observeChatRooms()
+        observeFriends() // 💡 친구 목록 구독 시작
     }
+
+    private fun observeFriends() {
+        viewModelScope.launch {
+            // FriendRepository에서 실시간으로 갱신되는 리스트 구독
+            friendRepository.myFriends.collect { friendsList ->
+                // friendsList가 바뀔 때마다 userInfos 맵을 갱신
+                friendsList.forEach { friend ->
+                    userInfos[friend.uid] = UserInfo(
+                        name = friend.nickname,
+                        profileImageUrl = friend.profileImageUrl,
+                        isOnline = friend.isOnline
+                    )
+                }
+                // 데이터 갱신 후 UI 리프레시
+                refreshChatList()
+            }
+        }
+    }
+
+    private fun refreshChatList() {
+        // [수정] allChatList를 아예 최신 정보로 교체합니다.
+        allChatList = allChatList.map { item ->
+            val info = userInfos[item.receiverId]
+            if (info != null) {
+                item.copy(
+                    senderName = info.name,
+                    profileImageUrl = info.profileImageUrl,
+                    isOnline = info.isOnline
+                )
+            } else {
+                item
+            }
+        }
+
+        // 검색 필터링을 다시 적용해서 uiState 반영
+        filterChatList(_searchQuery.value)
+    }
+
     fun observeChatRooms() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -70,47 +119,48 @@ class ChatListViewModel @Inject constructor(
     private suspend fun processChatRoomDetails(room: ChatRoom): ChatItem {
         val roomId = room.id
         val receiverId = room.participants.firstOrNull { it != myUid } ?: ""
-        var profileImageUrl: String? = null // 추가
 
-        // 1. unreadCounts 조회 (Firestore DMs 컬렉션)
-        var myUnreadCount = 0
-        try {
-            val dmDoc = db.collection("DMs").document(roomId).get().await()
-            if (dmDoc.exists()) {
-                val unreadCountsMap = dmDoc.get("unread_counts") as? Map<String, Number> ?: emptyMap()
-                myUnreadCount = (unreadCountsMap[myUid] as? Number)?.toInt() ?: 0
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("ChatListViewModel", "unread_counts 조회 실패: $roomId", e)
-        }
+        // 1. 이미 정보가 있다면 즉시 반환 (캐시 우선)
+        val cachedInfo = userInfos[receiverId]
 
-        // 2. 상대방 이름 조회 (Firestore users 컬렉션)
-        var partnerName = "알 수 없는 사용자"
-        if (receiverId.isNotBlank()) {
+        // 2. 정보가 없다면 최소한 이름/이미지는 확실히 가져오기 (리스너 등록과 별개로)
+        if (cachedInfo == null && receiverId.isNotBlank()) {
             try {
                 val userDoc = db.collection("Users").document(receiverId).get().await()
                 if (userDoc.exists()) {
-                    partnerName = userDoc.getString("nickname") ?: "이름 없음"
-                    profileImageUrl = userDoc.getString("profile_image_url")
+                    val name = userDoc.getString("nickname") ?: "이름 없음"
+                    val imageUrl = userDoc.getString("profile_image_url")
+                    val isOnline = userDoc.getBoolean("is_online") ?: false
+
+                    // 메모리에 저장
+                    userInfos[receiverId] = UserInfo(name, imageUrl, isOnline)
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("ChatListViewModel", "상대방 이름 조회 실패: $receiverId", e)
-            }
+            } catch (e: Exception) { }
         }
+
+        val info = userInfos[receiverId]
+
+        // unreadCounts 조회는 DMs 관련이므로 유지
+        var myUnreadCount = 0
+        try {
+            val dmDoc = db.collection("DMs").document(roomId).get().await()
+            myUnreadCount = (dmDoc.get("unread_counts") as? Map<String, Number>)?.get(myUid)?.toInt() ?: 0
+        } catch (e: Exception) { }
 
         return ChatItem(
             id = roomId,
             receiverId = receiverId,
-            senderName = partnerName,
-            profileImageUrl = profileImageUrl,
+            senderName = info?.name ?: "불러오는 중...",
+            profileImageUrl = info?.profileImageUrl,
             lastMessage = room.lastMsg,
             time = formatChatTime(room.updatedAt),
             isRead = myUnreadCount <= 0,
             unreadCount = myUnreadCount,
-            isOnline = false,
+            isOnline = info?.isOnline ?: false,
             hasImage = false
         )
     }
+
     // 검색어 변경 처리
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
