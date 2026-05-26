@@ -57,6 +57,7 @@ import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.createCustomMarkerBitmap
+import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
@@ -328,7 +329,12 @@ fun MapScreen(
                                     clickedFriendUid = friend.uid
                                     drawerState.close()
                                     cameraPositionState.animate(
-                                        update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
+                                        update = newLatLngZoom(
+                                            LatLng(
+                                                friend.latitude,
+                                                friend.longitude
+                                            ), 16f
+                                        )
                                     )
                                 }
                             },
@@ -376,9 +382,21 @@ fun MapScreen(
                     voiceViewModel = pushToTalkViewModel,
                     onDismiss = { clickedFriendUid = null },
                     onChatClick = {
-                        clickedFriendUid = null
-                        Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
-                            .show()
+                        mapViewModel.createOrGetChatRoom(
+                            targetUid = friend.uid,
+                            onSuccess = { roomId ->
+                                clickedFriendUid = null
+                                navController.navigate(
+                                    Routes.ChatRoom(
+                                        roomId = roomId,
+                                        receiverId = friend.uid
+                                    )
+                                )
+                            },
+                            onError = { errorMessage ->
+                                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
                 )
             }
