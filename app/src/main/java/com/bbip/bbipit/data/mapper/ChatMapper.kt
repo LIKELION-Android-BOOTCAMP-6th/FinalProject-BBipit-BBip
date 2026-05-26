@@ -10,7 +10,8 @@ fun ChatRoomDto.toEntity(id: String): ChatRoom = ChatRoom(
     participants = participants,
     lastMsg = lastMsg,
     updatedAt = updatedAt?.toDate()?.time ?: 0L,
-    unreadCounts = unreadCounts
+    unreadCounts = unreadCounts,
+    isOnline = isOnline
 )
 
 fun MessageDto.toEntity(id: String): ChatMessage = ChatMessage(

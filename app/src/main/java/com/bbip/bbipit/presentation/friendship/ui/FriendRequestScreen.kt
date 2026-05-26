@@ -73,7 +73,7 @@ fun FriendRequestScreen(
                 items(requestList) { friend -> // request 대신 friend 사용
                     FriendRequestItem(
                         nickname = friend.nickname,
-                        profileImageUrl = friend.profile_image_url, // 'model' 파라미터가 아니라 정의된 이름 사용
+                        profileImageUrl = friend.profileImageUrl, // 'model' 파라미터가 아니라 정의된 이름 사용
                         onAccept = { viewModel.acceptFriendRequest(friend.uid) }, // request.id -> friend.uid
                         onReject = { viewModel.rejectFriendRequest(friend.uid) }  // request.id -> friend.uid
                     )

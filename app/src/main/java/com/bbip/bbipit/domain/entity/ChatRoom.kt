@@ -9,5 +9,6 @@ data class ChatRoom(
     val lastMsg: String = "",
     val updatedAt: Long = 0L,
     val unreadCounts: Map<String, Int> = emptyMap(),
-    val lastSenderId: String = "" // 마지막 메시지 보낸 사람 ID (읽음 상태 판단용)
+    val lastSenderId: String = "", // 마지막 메시지 보낸 사람 ID (읽음 상태 판단용)
+    val isOnline: Boolean = false // [추가]
 )

@@ -31,4 +31,7 @@ interface ChatRepository {
 
     // 메시지 내역 조회
     suspend fun fetchAllMessages(roomId: String): Result<List<ChatMessage>>
+
+    // 채팅방 진입/퇴장 관리
+    suspend fun updateActiveRoom(uid: String, roomId: String?)
 }

@@ -11,13 +11,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.bbip.bbipit.domain.repository.ChatRepository
+import com.bbip.bbipit.domain.repository.FriendRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 
 @HiltViewModel // Hilt 어노테이션
 class ChatDetailViewModel @Inject constructor(
     private val chatRepository: ChatRepository, // 리포지토리 가져오기
-    private val auth: com.google.firebase.auth.FirebaseAuth
+    private val auth: com.google.firebase.auth.FirebaseAuth,
+    private val friendRepository: FriendRepository
 ) : ViewModel() {
+
+    // 현재 접속 중인 방 ID를 저장 (서버가 읽음 처리를 위해 사용)
+    private var currentRoomId: String? = null
+
+    private var roomUpdateJob: kotlinx.coroutines.Job? = null
 
     private val myUid: String
         get() = auth.currentUser?.uid ?: ""
@@ -36,32 +43,62 @@ class ChatDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            // 리포지토리의 실시간 리스너 Flow를 수집
-            chatRepository.observeMessages(roomId).collect { domainMessages ->
+            val uids = roomId.split("_")
+            val partnerUid = uids.firstOrNull { it != myUid } ?: uids.last()
 
-                // 도메인 엔티티(ChatMessage) 리스트를 UI용 모델(MessageItem) 리스트로 맵 변환
-                // 엔티티에 추가해서 사용하기
-                val uiMessageItems = domainMessages.map { chatMessage ->
-                    MessageItem(
-                        id = chatMessage.id,
-                        text = chatMessage.content,
-                        senderId = chatMessage.senderId,
-                        sentAt = chatMessage.sentAt,
-                        isRead = chatMessage.isRead,
-                        isMine = chatMessage.senderId == myUid, // 내 UID와 비교해서 판단
-                        isFailed = false
-                    )
+            // 1. 친구 정보(프로필 + 접속 상태) 실시간 구독
+            // myFriends Flow 하나만 있으면 모든 정보가 들어옵니다!
+            launch {
+                friendRepository.myFriends.collect { friendsList ->
+                    val partner = friendsList.find { it.uid == partnerUid }
+                    if (partner != null) {
+                        _uiState.update {
+                            it.copy(
+                                partnerName = partner.nickname,       // 💡 존재해야 함
+                                partnerImageUrl = partner.profileImageUrl, // 💡 존재해야 함
+                                partnerStatus = if (partner.isOnline) "온라인" else "오프라인" // 💡 존재해야 함
+                            )
+                        }
+                    }
                 }
+            }
 
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        partnerName = "상대방 ($roomId)",
-                        partnerStatus = "Active now",
-                        friendshipStatus = "ACCEPTED",
-                        messages = uiMessageItems, // 변환된 실제 실시간 메시지 리스트
-                        errorMessage = null // 성공적으로 로드 시 에러 메시지 초기화
-                    )
+            // 2. 메시지 실시간 구독
+            launch {
+                chatRepository.observeMessages(roomId).collect { domainMessages ->
+                    // 1. 도메인 메시지를 MessageItem으로 먼저 변환
+                    val allMessages = domainMessages.map { chatMessage ->
+                        MessageItem(
+                            id = chatMessage.id,
+                            text = chatMessage.content,
+                            senderId = chatMessage.senderId,
+                            sentAt = chatMessage.sentAt,
+                            isRead = chatMessage.isRead,
+                            isMine = chatMessage.senderId == myUid
+                        )
+                    }
+
+                    // 2. 변환된 아이템들을 날짜별로 그룹화
+                    val grouped = allMessages.groupBy { message ->
+                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+                        sdf.format(java.util.Date(message.sentAt))
+                    }
+
+                    // 내가 지금 이 방을 보고 있다면
+                    if (currentRoomId == roomId && domainMessages.any { !it.isRead }) {
+                        markAsRead(roomId)
+                    }
+
+                    // 3. UI 상태 업데이트
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            messages = allMessages,      // 전체 메시지 리스트도 유지 (스크롤 위치 계산용)
+                            groupedMessages = grouped,   // 💡 그룹화된 데이터 전달
+                            friendshipStatus = "ACCEPTED",
+                            errorMessage = null
+                        )
+                    }
                 }
             }
         }
@@ -136,6 +173,28 @@ class ChatDetailViewModel @Inject constructor(
         }
     }
 
+    fun updateCurrentRoom(roomId: String?) {
+        this.currentRoomId = roomId
+
+        roomUpdateJob?.cancel()
+
+        roomUpdateJob = viewModelScope.launch {
+            try {
+                // 서버 통신 수행
+                chatRepository.updateActiveRoom(myUid, roomId)
+                android.util.Log.d("ChatDetailViewModel", "현재 방 상태 업데이트: $roomId")
+            } catch (e: Exception) {
+                // 이 블록 안에서 e를 검사합니다.
+                if (e is kotlinx.coroutines.CancellationException) {
+                    // 취소된 경우: 아무것도 하지 않음 (로그를 남기지 않음)
+                } else {
+                    // 진짜 에러인 경우: 로그 출력
+                    android.util.Log.e("ChatDetailViewModel", "방 상태 업데이트 실패", e)
+                }
+            }
+        }
+    }
+
     /**
      * 💡 [추가된 함수] 채팅방 메시지 읽음 처리 기능 호출
      * @param roomId 읽음 처리할 채팅방 고유 ID
@@ -168,4 +227,5 @@ class ChatDetailViewModel @Inject constructor(
     fun clearErrorMessage() {
         _uiState.update { it.copy(errorMessage = null) }
     }
+
 }

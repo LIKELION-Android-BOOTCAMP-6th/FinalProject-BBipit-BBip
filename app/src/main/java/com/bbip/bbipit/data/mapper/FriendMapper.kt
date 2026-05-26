@@ -10,7 +10,7 @@ fun FriendshipDto.toDomain(): Friend {
     return Friend(
         uid = this.uid,
         nickname = this.nickname,
-        profile_image_url = this.profile_image_url,
+        profileImageUrl = this.profile_image_url,
         status = this.status,
         isOnline = this.is_online,
         friendshipStatus = this.friendship_status

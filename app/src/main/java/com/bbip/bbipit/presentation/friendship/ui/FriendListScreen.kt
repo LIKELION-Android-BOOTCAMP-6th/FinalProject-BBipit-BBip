@@ -313,7 +313,7 @@ fun FriendListItem(
                     // 프로필 이미지
                     Box(modifier = Modifier.size(50.dp)) {
                         AsyncImage(
-                            model = friend.profile_image_url,
+                            model = friend.profileImageUrl,
                             contentDescription = "프로필 이미지",
                             modifier = Modifier
                                 .size(50.dp)

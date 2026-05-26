@@ -318,7 +318,7 @@ class BackgroundListenerService : Service() {
                     "messageId" to messageId,
                     "voiceUrl" to voiceUrl,
                     "senderName" to (senderFriend?.nickname ?: "알 수 없음"),
-                    "senderProfileImage" to (senderFriend?.profile_image_url ?: "")
+                    "senderProfileImage" to (senderFriend?.profileImageUrl ?: "")
                 )
 
                 // 데이터 직렬화 후 모든 워치 기기로 송신
