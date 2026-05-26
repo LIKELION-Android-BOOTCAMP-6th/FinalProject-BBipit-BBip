@@ -36,5 +36,4 @@ interface ChatRepository {
     // 채팅방 진입/퇴장 관리
     suspend fun updateActiveRoom(uid: String, roomId: String?)
     suspend fun createOrGetChatRoom(targetUid: String): Result<ChatRoomResult>
-    fun joinChatRoom(roomId: String, receiverId: String, navController: NavController)
 }
