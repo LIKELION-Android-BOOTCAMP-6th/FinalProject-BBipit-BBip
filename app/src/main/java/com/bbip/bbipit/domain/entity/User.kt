@@ -23,5 +23,8 @@ data class User(
     // 등록된 친구 목록(사용자 식별자 리스트)
     val friendUids: List<String> = emptyList(),
     // 로그인 타입(EMAIL, GOOGLE, KAKAO)
-    val loginType: String = ""
+    val loginType: String = "",
+    val email: String= "",
+    //현재 세션 정보(중복 로그인용)
+    val sessionId: String = ""
 )

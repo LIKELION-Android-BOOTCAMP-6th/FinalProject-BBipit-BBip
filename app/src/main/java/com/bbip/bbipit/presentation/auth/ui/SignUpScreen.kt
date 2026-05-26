@@ -55,6 +55,7 @@ import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignUpEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignUpViewModel
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 
 
@@ -214,12 +215,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
         )
     }
     if (uiState.isLoading) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = Color.LightGray)
-        }
+        LoadingBox()
     }
 
     if (uiState.isNotiShown){

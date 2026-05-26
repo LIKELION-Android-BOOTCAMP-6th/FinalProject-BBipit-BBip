@@ -38,6 +38,7 @@ import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.google.firebase.auth.FirebaseAuth
 
@@ -54,22 +55,9 @@ fun MyPageScreen(
     // 뷰모델의 UI 상태 구독
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // 컴포저블 토스트를 제어할 임시 문자열 상태 변수
-    var toastMessage by remember { mutableStateOf<String?>(null) }
-
-    // 뷰모델에서 토스트 이벤트가 날아오는지 대기 및 수집
-    LaunchedEffect(Unit) {
-        viewModel.toastEvent.collect { message ->
-            toastMessage = message
-        }
-    }
-
     // 화면이 그려지자마자 내 데이터를 서버에서 가져옴
     LaunchedEffect(Unit) {
-        val myUid = FirebaseAuth.getInstance().currentUser?.uid
-        if (myUid != null) {
-            viewModel.fetchUserProfile(myUid)
-        }
+        viewModel.fetchUserProfile()
     }
     LaunchedEffect(Unit) {
         viewModel.event.collect { event ->
@@ -83,9 +71,9 @@ fun MyPageScreen(
     }
 
     // 상태 변수에 값이 채워지는 순간, ShowToast 공통 컴포저블 호출
-    toastMessage?.let { message ->
+    uiState.toast?.let { message ->
         ShowToast(message = message)
-        toastMessage = null // 띄운 직후 다시 null로 비워주어야 다음 클릭 때 또 반응합니다.
+        viewModel.onUpdateToast(null) // 띄운 직후 다시 null로 비워주어야 다음 클릭 때 또 반응합니다.
     }
 
     Scaffold(
@@ -291,15 +279,9 @@ fun MyPageScreen(
             }
         }
     }
-    if (uiState.isLoading) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = Color.LightGray)
-        }
-    }
-    if (uiState.isNotiDialogShown){
+    if (uiState.isLoading) { LoadingBox() }
+
+    if (uiState.isSignOutDialogShown){
         ConfirmDialog(text = "로그아웃 하시겠습니까?",
             onDismiss = {viewModel.onChangeSignOutDialog(false)},
             onConfirm = {
