@@ -36,7 +36,9 @@ fun BBipItNavigation(
     val start = if (!(isLogin && isEmailVerified)) Routes.SignIn
     else when (notificationIntent?.getStringExtra("notification_type")) {
         "DM" -> notificationIntent.getStringExtra("notification_room_id")
-            ?.takeIf { it.isNotEmpty() }?.let { Routes.ChatRoom(it) } ?: Routes.Map
+            ?.takeIf { it.isNotEmpty() }?.let { roomId ->
+                Routes.ChatRoom(roomId = roomId, receiverId = "UNKNOWN")
+            } ?: Routes.Map
         "REQ" -> Routes.FriendRequestList
         else -> Routes.Map
     }

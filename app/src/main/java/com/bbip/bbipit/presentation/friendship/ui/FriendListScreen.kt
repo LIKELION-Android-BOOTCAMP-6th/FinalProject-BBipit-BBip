@@ -138,8 +138,15 @@ fun FriendListScreen(
                         onMessageClick = {
                             viewModel.createOrGetChatRoom(
                                 targetUid = friend.uid,
-                                onSuccess = { roomId: String -> // 타입 명시
-                                    navController.navigate(Routes.ChatRoom(roomId))
+                                onSuccess = { roomId: String ->
+                                    // 여기서 receiverId를 함께 넘겨줍니다.
+                                    // ChatRoom 객체가 (roomId: String, receiverId: String)을 받도록 변경되어 있어야 합니다.
+                                    navController.navigate(
+                                        Routes.ChatRoom(
+                                            roomId = roomId,
+                                            receiverId = friend.uid
+                                        )
+                                    )
                                 },
                                 onError = { errorMessage: String -> // 타입 명시
                                     showToastMessage = errorMessage

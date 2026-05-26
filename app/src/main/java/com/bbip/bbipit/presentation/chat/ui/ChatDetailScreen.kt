@@ -92,8 +92,9 @@ fun ChatDetailScreen(
 //    val roomId = route?.roomId ?: ""
     // 테스트 후 주석 제거 필요
 
-    val roomId = "Wy102dzyw4buC0V6YJuqxjtf6qA2_lNkEvTubtfZJ7WbdZQMw5l5knAc2"
-    val receiverId = "lNkEvTubtfZJ7WbdZQMw5l5knAc2"
+    val route = navController.currentBackStackEntry?.toRoute<Routes.ChatRoom>()
+    val roomId = route?.roomId ?: ""
+    val receiverId = route?.receiverId ?: ""
 
     val focusManager = LocalFocusManager.current // 포커스 매니저 가져오기
     // UI 상태 구독
