@@ -105,7 +105,7 @@ fun FriendListDrawer(
                 items = friends,
                 key = { friend -> friend.uid }
             ) { friend ->
-                val isSelected = friend.uid == selectedFriendUid
+                val isSelected = friend.uid == selectedFriendUid && friend.isSharing
 
                 FriendDrawerItem(
                     friend = friend,
@@ -147,19 +147,24 @@ fun FriendDrawerItem(
     // 선택되었을 때는 보라색 테두리, 아닐 때는 은은한 그림자 경계선 역할을 할 수 있도록 회색 선 부여
     val borderColor = if (isSelected) mainColor.copy(alpha = 0.2f) else Color(0xFFF1F5F9)
 
+    val indicatorColor = when {
+        !friend.isSharing -> Color(0xFFF3F3F3)
+        friend.isOnline -> Color(0xFFFFFFFF)
+        else -> Color(0xFFF3F3F3)
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            // ★★★ [입체감의 핵심] 은은한 그림자(shadow)를 부여합니다. ★★★
             .shadow(
-                elevation = 4.dp,
+                elevation =4.dp,
                 shape = RoundedCornerShape(24.dp),
                 clip = false
             )
             .clip(RoundedCornerShape(24.dp))
-            .background(Color.White) // 카드는 완전한 순백색
-            .border(1.5.dp, borderColor, RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick)
+            .background(indicatorColor) // 카드는 완전한 순백색
+            .border(1.5.dp, indicatorColor, RoundedCornerShape(24.dp))
+            .clickable(enabled = friend.isSharing, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -180,12 +185,9 @@ fun FriendDrawerItem(
 
             Box(
                 modifier = Modifier
-                    .size(11.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
                     .padding(1.5.dp)
                     .clip(CircleShape)
-                    .background(if (friend.isOnline) Color(0xFF10B981) else Color(0xFFCBD5E1))
+                    .background(Color.White)
             )
         }
 
@@ -204,11 +206,22 @@ fun FriendDrawerItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
+            val subText = when {
+                !friend.isSharing -> "위치 공유 거부 중"
+                !friend.isOnline -> "오프라인"
+                else -> "위치 파악 완료" }
+
+            val subTextColor = when {
+                !friend.isSharing -> Color(0xFF64748B)
+                !friend.isOnline -> Color(0xFF64748B)
+                else -> mainColor }
+
             Text(
-                text =  "위치 파악 중",
+                text =  subText,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isSelected) mainColor else Color(0xFF64748B),
+                color = subTextColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp)
