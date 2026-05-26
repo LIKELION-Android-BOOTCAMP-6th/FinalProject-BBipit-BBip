@@ -3,9 +3,12 @@ package com.bbip.bbipit.presentation.mypage
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.type.LoginType
@@ -31,7 +34,11 @@ data class MyPageUiState(
     val uniqueId: String = "",
     val isLoading: Boolean = true, // 로딩 중
     val errorMessage: String? = null, // 에러
-    val isNotiDialogShown: Boolean = false,
+    val isSignOutDialogShown: Boolean = false,
+    val isSettingShown: Boolean = false,
+    val email: String = "",
+    val loginType: String  = "",
+    val toast: String? = null
 )
 
 sealed class MyPageEvent{
@@ -56,17 +63,13 @@ class MyPageViewmodel @Inject constructor(
      * 1. 텍스트 복사 로직 (클립보드 연동)
      */
     // 토스트 메시지를 전달할 단발성 이벤트 단자
-    private val _toastEvent = MutableSharedFlow<String>()
-    val toastEvent: SharedFlow<String> = _toastEvent.asSharedFlow()
 
     fun copyToClipboard(text: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("BBIP_ID", text)
         clipboard.setPrimaryClip(clip)
 
-        viewModelScope.launch {
-            _toastEvent.emit("ID가 클립보드에 복사되었습니다.")
-        }
+        onUpdateToast("ID가 클립보드에 복사되었습니다.")
     }
 
     /**
@@ -85,40 +88,52 @@ class MyPageViewmodel @Inject constructor(
      */
     fun shareToKakao(id: String) {
         // TODO: 카카오 SDK 메시지 공유 API 호출부
-        Toast.makeText(context, "카카오톡으로 ID를 공유합니다.", Toast.LENGTH_SHORT).show()
+
+        onUpdateToast("카카오톡으로 ID를 공유합니다.")
     }
 
     /**
      * Firestore에서 내 프로필 정보를 실시간으로 가져오는 함수
      */
-    fun fetchUserProfile(uid: String) {
+    fun fetchUserProfile() {
         _uiState.update { it.copy(isLoading = true) } // 로딩 시작
+        val uid = authRepository.getCurrentUserUid()
 
-        firestore.collection("Users").document(uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "데이터를 불러올 수 없습니다.") }
-                    return@addSnapshotListener
-                }
-
-                if (snapshot != null && snapshot.exists()) {
-                    val nickname = snapshot.getString("nickname") ?: "익명"
-                    val status = snapshot.getString("status") ?: ""
-                    val profileImageUrl = snapshot.getString("profile_image_url") ?: ""
-
-                    _uiState.update {
-                        it.copy(
-                            nickname = nickname,
-                            status = status,
-                            profileImageUrl = profileImageUrl,
-                            isLoading = false // 로딩 완료
-                        )
+        Log.d("유아이디", uid.toString())
+        if (uid == null){
+            _uiState.update { it.copy(isLoading = false, toast = "정보를 불러올 수 없습니다.") }
+        }
+        uid?.let {
+            viewModelScope.launch {
+                //직접 디비와 통신하는 게 아닌 유저 레포지토리에 선언되어 있는 함수를 통해서 정보 가져오기
+                userRepository.getMyProfile(it)
+                    .onSuccess {  user ->
+                        Log.d("프로필 받아오기 성공", user.toString())
+                        _uiState.update { state ->
+                            state.copy(
+                                nickname = user.nickname,
+                                status = user.status,
+                                profileImageUrl = user.profileImageUrl,
+                                email = user.email,
+                                loginType = user.loginType,
+                                isLoading = false
+                            )
+                        }
                     }
-                }
+                    .onFailure { exception ->
+                        Log.e("프로필 받아오기 실패", exception.message.toString())
+                        _uiState.update { state ->
+                            state.copy(
+                                isLoading = false,
+                                toast = exception.message
+                            )
+                        }
+                    }
             }
+        }
     }
 
-    fun onChangeSignOutDialog(value: Boolean) = _uiState.update { it.copy(isNotiDialogShown = value) }
+    fun onChangeSignOutDialog(value: Boolean) = _uiState.update { it.copy(isSignOutDialogShown = value) }
     fun signOut(){
         _uiState.update { it.copy(isLoading = true) }
         //유저 정보 받아오는 거 리팩토링 후 수정 예정
@@ -127,8 +142,8 @@ class MyPageViewmodel @Inject constructor(
             authRepository.signOut(loginType)
             _uiState.update { it.copy(isLoading = false) }
             _event.send(MyPageEvent.NavigateToSignIn)
-
         }
-
     }
+
+    fun onUpdateToast(value: String?) = _uiState.update { it.copy(toast = value) }
 }

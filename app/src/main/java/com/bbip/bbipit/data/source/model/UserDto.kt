@@ -41,5 +41,11 @@ data class UserDto(
 
     // 로그인 플랫폼 종류
     @get:PropertyName("login_type") @set:PropertyName("login_type")
-    var loginType: String = ""
+    var loginType: String = "",
+
+    @get:PropertyName("email") @set:PropertyName("email")
+    var email: String = "",
+
+    @get:PropertyName("current_session_id") @set:PropertyName("current_session_id")
+    var sessionId: String = ""
 )

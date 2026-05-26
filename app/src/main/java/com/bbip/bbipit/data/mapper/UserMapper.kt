@@ -17,7 +17,8 @@ fun UserDto.toDomain(id: String): User = User(
     fcmToken = fcmToken,
     lastActive = lastActive?.toDate()?.time ?: 0L,
     friendUids = friendUids,
-    loginType = loginType
+    loginType = loginType,
+    email = email
 )
 
 /**
@@ -32,7 +33,8 @@ fun User.toDto(): UserDto = UserDto(
     fcmToken = fcmToken,
     lastActive = if (lastActive != 0L) Timestamp(java.util.Date(lastActive)) else null,
     friendUids = friendUids,
-    loginType = loginType
+    loginType = loginType,
+    email = email
 )
 
 /**
