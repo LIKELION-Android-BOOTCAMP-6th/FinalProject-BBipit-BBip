@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -187,7 +189,15 @@ fun MapScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { _ ->
         BackgroundBox {
-            Box(modifier = Modifier.fillMaxSize()) {
+            if (uiState.myStatus == null) {
+                // 내 위치 정보가 도착할 때까지 깔끔한 로딩 뷰로 세계지도 깜빡임 완벽 차단
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF956AFC))
+                }
+            } else {
                 // 지도 콘텐츠 레이어
                 MapContent(
                     mapUiState = uiState,
@@ -450,18 +460,28 @@ private fun MapContent(
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
 
+    var isCameraInitialized by remember { mutableStateOf(false) }
+
     val TAG = "MapContent"
 
     // 내 위치 포착 시 카메라 이동
     LaunchedEffect(myLat, myLng) {
         if (myLat != null && myLng != null) {
-            Log.d(TAG, "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
-            cameraPositionState.animate(
-                update = newLatLngZoom(
-                    LatLng(myLat, myLng), 16f
-                ),
-                durationMs = 500
-            )
+            if (!isCameraInitialized) {
+                Log.d(TAG, "🎯 최초 위치 즉시 조준 (Snap) -> $myLat, $myLng")
+                cameraPositionState.move(
+                    update = newLatLngZoom(LatLng(myLat, myLng), 16f)
+                )
+                isCameraInitialized = true
+            }
+            else {
+                Log.d(TAG, "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
+                cameraPositionState.animate(
+                    update = newLatLngZoom(
+                        LatLng(myLat, myLng), 16f),
+                    durationMs = 500
+                )
+            }
         }
     }
 
@@ -494,14 +514,14 @@ private fun MapContent(
                     myMarkerState.position = LatLng(my.latitude, my.longitude)
                 }
 
-                Marker(
-                    state = myMarkerState,
-                    icon = myCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
-                        BitmapDescriptorFactory.HUE_AZURE
-                    ),
-                    zIndex = 0.0f,
-                    onClick = { true }
-                )
+                if (myCustomMarkerIcon != null) {
+                    Marker(
+                        state = myMarkerState,
+                        icon = myCustomMarkerIcon,
+                        zIndex = 0.0f,
+                        onClick = { true }
+                    )
+                }
             }
 
             // 친구 마커 구성
@@ -525,18 +545,18 @@ private fun MapContent(
                     )
                 }
 
-                Marker(
-                    state = friendMarkerState,
-                    icon = friendCustomMarkerIcon ?: BitmapDescriptorFactory.defaultMarker(
-                        if (friend.isOnline) BitmapDescriptorFactory.HUE_GREEN else BitmapDescriptorFactory.HUE_RED
-                    ),
-                    zIndex = 1.0f,
-                    onClick = {
-                        Log.d(TAG, "친구 마커 클릭됨: ${friend.nickname} (UID: ${friend.uid})")
-                        onFriendClick(friend)
-                        true
-                    }
-                )
+                if (friendCustomMarkerIcon != null) {
+                    Marker(
+                        state = friendMarkerState,
+                        icon = friendCustomMarkerIcon,
+                        zIndex = 1.0f,
+                        onClick = {
+                            Log.d(TAG, "친구 마커 클릭됨: ${friend.nickname} (UID: ${friend.uid})")
+                            onFriendClick(friend)
+                            true
+                        }
+                    )
+                }
             }
 
             // 히스토리 마커 구성
