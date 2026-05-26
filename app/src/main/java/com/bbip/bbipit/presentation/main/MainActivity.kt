@@ -59,7 +59,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
+        setIntent(intent)
+        pendingNotificationIntent = intent
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
