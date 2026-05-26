@@ -47,5 +47,8 @@ data class UserDto(
     var email: String = "",
 
     @get:PropertyName("current_session_id") @set:PropertyName("current_session_id")
-    var sessionId: String = ""
+    var sessionId: String = "",
+
+    @get:PropertyName("user_code") @set:PropertyName("user_code")
+    var userCode: String = "",
 )

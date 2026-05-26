@@ -6,6 +6,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -16,7 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -35,6 +40,7 @@ import com.bbip.bbipit.core.base.AppLifecycleObserver
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -43,6 +49,7 @@ import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val bottomBarViewModel: BottomBarViewModel by viewModels()
     @Inject
     lateinit var authRepository: AuthRepository
     @Inject
@@ -78,10 +85,12 @@ class MainActivity : ComponentActivity() {
         pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
 
         setContent {
+
             val voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
             val chatListViewModel: ChatListViewModel = hiltViewModel()
             val notificationViewModel: NotificationViewModel = hiltViewModel()
 
+            val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
             BbipitTheme(dynamicColor = false) {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -92,16 +101,26 @@ class MainActivity : ComponentActivity() {
                 val hasUnreadChat = chatUiState.chatList.any { it.unreadCount > 0 }
 
                 // 바텀바 노출 여부 설정
-                val showBottomBar = navBackStackEntry?.destination?.let { destination ->
+                val isMainRoute = navBackStackEntry?.destination?.let { destination ->
                     destination.hasRoute<Routes.Map>() ||
                             destination.hasRoute<Routes.ChatList>() || destination.hasRoute<Routes.FriendList>() ||
                             destination.hasRoute<Routes.MyPage>() || destination.hasRoute<Routes.Notification>()
 
                 } ?: false
 
+                val showBottomBar = isMainRoute && !isShownDrawer
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    bottomBar = { if (showBottomBar) BottomBar(navController, hasUnreadChat = hasUnreadChat) }
+                    bottomBar = {
+//                        if (showBottomBar) BottomBar(navController, hasUnreadChat = hasUnreadChat)
+                        AnimatedVisibility(
+                            visible = showBottomBar,
+                            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                            exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+                        ) {
+                            BottomBar(navController, hasUnreadChat = hasUnreadChat)
+                        }
+                    }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier

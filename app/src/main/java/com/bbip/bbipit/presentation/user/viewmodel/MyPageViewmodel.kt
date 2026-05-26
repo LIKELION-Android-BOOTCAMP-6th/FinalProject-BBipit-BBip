@@ -35,7 +35,6 @@ data class MyPageUiState(
     val isLoading: Boolean = true, // 로딩 중
     val errorMessage: String? = null, // 에러
     val isSignOutDialogShown: Boolean = false,
-    val isSettingShown: Boolean = false,
     val email: String = "",
     val loginType: String  = "",
     val toast: String? = null
