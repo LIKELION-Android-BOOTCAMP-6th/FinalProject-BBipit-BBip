@@ -51,7 +51,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     // 사용자 채팅방 목록 관찰
     override fun observeChatRooms(myUid: String): Flow<List<ChatRoom>> = callbackFlow {
-        val listener = db.collection("rooms")
+        val listener = db.collection("DMs")
             .whereArrayContains("participants", myUid)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {

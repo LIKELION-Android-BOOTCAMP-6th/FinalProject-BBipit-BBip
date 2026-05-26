@@ -154,7 +154,7 @@ fun NotificationScreen(
                             onClick = {
                                 if (item.type == "DM") {
                                     viewModel.markAsRead(item.id)
-                                    navController.navigate(Routes.ChatRoom(roomId = item.roomId))
+                                    navController.navigate(Routes.ChatRoom(roomId = item.roomId, receiverId = item.senderId ?: "")) // 알림 sender id = dm의 receiver id
                                 }
                                 else if (item.type == "WALKIE") {
                                     val alreadyExpired = item.isRead || item.isExpired || expiredVoiceIds.contains(item.id)

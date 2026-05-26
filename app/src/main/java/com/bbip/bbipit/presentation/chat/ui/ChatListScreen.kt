@@ -32,7 +32,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
+import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
@@ -43,6 +45,7 @@ import com.bbip.bbipit.core.ui.theme.primary
  */
 data class ChatItem(
     val id: String,
+    val receiverId: String,
     val senderName: String,
     val lastMessage: String,
     val time: String,
@@ -105,7 +108,7 @@ fun ChatListScreen(
                     items(uiState.chatList, key = { it.id }) { chatItem ->
                         ChatItemRow( // 이름을 Row로 변경
                             chatItem = chatItem,
-                            onClick = { viewModel.onChatItemClicked(chatItem.id) }
+                            onClick = { viewModel.onChatItemClicked(chatItem) }
                         )
                         // 아이템 사이의 얇은 구분선 추가
                         HorizontalDivider(
@@ -226,17 +229,23 @@ fun ChatItemRow(
                 modifier = Modifier.size(56.dp), // 리스트형에 맞춰 살짝 키움
                 shape = CircleShape,
                 color = Color(0xFFE1BEE7)
-            ) { /* TODO: Coil */ }
-
-            if (chatItem.isOnline) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .background(Color(0xFF4CAF50), CircleShape)
-                        .border(2.dp, Color.White, CircleShape)
-                        .align(Alignment.BottomEnd)
-                )
+            ) { AsyncImage(
+                model = chatItem.profileImageUrl,
+                contentDescription = "프로필 이미지",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop)
             }
+
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .background(
+                        color = if (chatItem.isOnline) Color(0xFF4CAF50) else Color.Gray,
+                        shape = CircleShape
+                    )
+                    .border(2.dp, Color.White, CircleShape)
+                    .align(Alignment.BottomEnd)
+            )
         }
 
         Spacer(modifier = Modifier.width(16.dp))

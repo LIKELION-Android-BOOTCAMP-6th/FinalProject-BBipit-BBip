@@ -70,6 +70,7 @@ class ChatListViewModel @Inject constructor(
     private suspend fun processChatRoomDetails(room: ChatRoom): ChatItem {
         val roomId = room.id
         val receiverId = room.participants.firstOrNull { it != myUid } ?: ""
+        var profileImageUrl: String? = null // 추가
 
         // 1. unreadCounts 조회 (Firestore DMs 컬렉션)
         var myUnreadCount = 0
@@ -87,9 +88,10 @@ class ChatListViewModel @Inject constructor(
         var partnerName = "알 수 없는 사용자"
         if (receiverId.isNotBlank()) {
             try {
-                val userDoc = db.collection("users").document(receiverId).get().await()
+                val userDoc = db.collection("Users").document(receiverId).get().await()
                 if (userDoc.exists()) {
-                    partnerName = userDoc.getString("name") ?: "이름 없음"
+                    partnerName = userDoc.getString("nickname") ?: "이름 없음"
+                    profileImageUrl = userDoc.getString("profile_image_url")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ChatListViewModel", "상대방 이름 조회 실패: $receiverId", e)
@@ -98,7 +100,9 @@ class ChatListViewModel @Inject constructor(
 
         return ChatItem(
             id = roomId,
+            receiverId = receiverId,
             senderName = partnerName,
+            profileImageUrl = profileImageUrl,
             lastMessage = room.lastMsg,
             time = formatChatTime(room.updatedAt),
             isRead = myUnreadCount <= 0,
@@ -127,9 +131,14 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
-    fun onChatItemClicked(chatId: String) {
+    fun onChatItemClicked(chatItem: ChatItem) {
         viewModelScope.launch {
-            _navigationEvent.emit(Routes.ChatRoom(roomId = chatId))
+            _navigationEvent.emit(
+                Routes.ChatRoom(
+                    roomId = chatItem.id,
+                    receiverId = chatItem.receiverId
+                )
+            )
         }
     }
 
