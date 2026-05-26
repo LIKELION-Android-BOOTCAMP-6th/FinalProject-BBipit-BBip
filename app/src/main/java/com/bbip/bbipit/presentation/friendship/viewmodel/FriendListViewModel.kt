@@ -92,28 +92,20 @@ class FriendListViewModel @Inject constructor(
     // 친구 요청 발송 함수
     fun sendFriendRequest(targetCode: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            try {
-                // 파이어베이스 Callable 함수 호출
-//                val data = hashMapOf("targetUid" to targetUid)
-//
-//                val result = functions
-//                    .getHttpsCallable("requestFriend")
-//                    .call(data)
-//                    .await()
+            // 비즈니스 로직 실행
+            val result = friendRepository.sendFriendRequest(targetCode)
 
-                friendRepository.sendFriendRequest(targetCode)
-
-                // 성공 시 UI에 알림 및 리스트 새로고침
-                onSuccess()
-
-            } catch (e: Exception) {
-                // 에러 처리 (서버에서 던진 HttpsError 메시지 추출)
-                val errorMessage = e.message ?: "요청 중 오류가 발생했습니다."
-                onError(errorMessage)
+            // 결과 처리
+            when (result) {
+                is Result.Success -> {
+                    onSuccess()
+                }
+                is Result.Failure -> {
+                    // AppError 타입에 따라 사용자에게 보여줄 메시지를 세분화할 수 있습니다.
+                    onError(result.error.message ?: "알 수 없는 오류가 발생했습니다.")
+                }
             }
         }
-
-
     }
 
     // 친구 삭제
