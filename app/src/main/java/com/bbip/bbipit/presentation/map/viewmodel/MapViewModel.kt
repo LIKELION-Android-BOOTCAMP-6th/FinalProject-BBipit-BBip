@@ -54,6 +54,17 @@ class MapViewModel @Inject constructor(
         private const val DEFAULT_LONGITUDE = 126.9780
     }
 
+    fun fetchLiveStatusAndRefreshCache() {
+        viewModelScope.launch {
+
+            liveStatusRepository.refreshMyLiveStatusCache().onSuccess {
+                Log.d(TAG, it)
+            }.onFailure {
+                Log.d(TAG, "${it.message}")
+            }
+        }
+    }
+
     /**
      * 🌟 Repository 관찰 흐름을 BaseViewModel의 상태 구조와 통합
      */
@@ -68,7 +79,6 @@ class MapViewModel @Inject constructor(
                 val currentMyStatus = myStatus ?: cacheStatus
                 Triple(currentMyStatus, friendsStatuses, isSharingEnabled)
             }.collectLatest { (currentMyStatus, friendsStatuses, isSharingEnabled) ->
-                // BaseViewModel의 내장 함수를 활용해 안전하게 상태 업데이트
                 updateState {
                     copy(
                         myStatus = currentMyStatus,
@@ -98,7 +108,7 @@ class MapViewModel @Inject constructor(
     }
 
     /**
-     * 🌟 위치 공유를 켤 때 최신 좌표를 강제로 긁어와 서버에 즉시 전송하는 헬퍼 함수
+     * 위치 공유를 켤 때 최신 좌표를 강제로 긁어와 서버에 즉시 전송하는 헬퍼 함수
      */
     @SuppressLint("MissingPermission")
     fun refreshCurrentLocationAndSync() {
@@ -114,15 +124,17 @@ class MapViewModel @Inject constructor(
                     .addOnSuccessListener { location ->
                         if (location != null) {
                             viewModelScope.launch {
-                                // Dto 변환용 도메인 엔티티 모델 빌드 (isSharing을 true로 명시)
-                                val freshStatus = LiveStatus(
-                                    uid = uid,
-                                    latitude = location.latitude,
-                                    longitude = location.longitude,
-                                    isSharing = true
-                                )
-                                // Repository를 통해 파이어베이스 Live 컬렉션 즉시 업데이트
-                                liveStatusRepository.updateMyLiveStatus(freshStatus)
+                                val currentCache = liveStatusRepository.getCachedMyLiveStatus()
+                                if(currentCache != null) {
+                                    val freshStatus = currentCache.copy(
+                                        latitude = location.latitude,
+                                        longitude = location.longitude,
+                                        isSharing = true
+                                    )
+
+                                    // Live 컬렉션 업데이트
+                                    liveStatusRepository.updateMyLiveStatus(freshStatus)
+                                }
                                 Log.d(TAG, "⚡ 위치 공유 On 활성화에 따른 현재 위치 즉시 동기화 완료")
                             }
                         }
