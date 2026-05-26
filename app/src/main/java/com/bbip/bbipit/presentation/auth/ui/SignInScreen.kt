@@ -52,6 +52,7 @@ import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInViewModel
+import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 
 @Composable
@@ -160,12 +161,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
     }
 
     if (uiState.isLoading) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator(color = Color.LightGray)
-        }
+        LoadingBox()
     }
     uiState.error?.let {
         ShowToast(it)

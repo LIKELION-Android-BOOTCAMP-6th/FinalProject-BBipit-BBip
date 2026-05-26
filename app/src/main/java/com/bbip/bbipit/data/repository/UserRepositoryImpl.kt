@@ -118,9 +118,11 @@ class UserRepositoryImpl @Inject constructor(
             val success = response?.get("success") as? Boolean ?: false
             val profileMap = response?.get("profile") as? Map<String, Any>
 
+            Log.d("UserRepository", "디비 데이터: $response")
+            Log.d("UserRepository", "profileMap: $profileMap")
             // 검증 성공 시 도메인 엔티티로 변환하여 반환
-            if (success && profileMap != null) {
-                Result.Success(profileMap.toDomain())
+            if (response != null) {
+                Result.Success(response.toDomain())
             } else {
                 Result.Failure(AppError.Unknown("내 정보를 찾을 수 없습니다."))
             }

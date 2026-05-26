@@ -84,7 +84,7 @@ class UserRemoteDataSourceImpl @Inject constructor(
     override suspend fun getMyProfile(uid: String): Map<String, Any>? {
         return try {
             // 원격 저장소 user 컬렉션 문서 단발성 조회
-            val documentSnapshot = firestore.collection("users")
+            val documentSnapshot = firestore.collection("Users")
                 .document(uid)
                 .get()
                 .await()
