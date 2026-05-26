@@ -1,6 +1,10 @@
 package com.bbip.bbipit.data.repository
 
 import android.util.Log
+import androidx.navigation.NavController
+import com.bbip.bbipit.core.base.AppLifecycleObserver
+import com.bbip.bbipit.core.base.LifeCycleManager
+import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.source.remote.chat.ChatRemoteDataSource
 import com.bbip.bbipit.domain.entity.ChatRoom
@@ -14,9 +18,8 @@ import kotlinx.coroutines.flow.callbackFlow
 import com.google.firebase.firestore.FirebaseFirestore
 import com.bbip.bbipit.data.mapper.toEntity
 import com.bbip.bbipit.data.source.model.ChatRoomDto
-import com.google.firebase.firestore.QuerySnapshot
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,8 +31,39 @@ import javax.inject.Singleton
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
     private val chatRemoteDataSource: ChatRemoteDataSource,
-    private val db: FirebaseFirestore
+    private val db: FirebaseFirestore,
+    private val lifeCycleManager: LifeCycleManager,
 ) : ChatRepository {
+    // 채팅방이 없으면 생성하고 이미 있는 경우 해당 채팅방을 반환
+    override suspend fun createOrGetChatRoom(targetUid: String): Result<ChatRoomResult> {
+        // 일단 채팅방 개설을 시도
+        return try {
+            val result = chatRemoteDataSource.createChatRoom(targetUid)
+            Result.Success(result)
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "채팅방 개설 실패: ${e.message}")
+
+            // 반환되는 예외로 분기처리
+            val targetException = if (e is FirebaseFunctionsException) e else e.cause
+            if (targetException is FirebaseFunctionsException) {
+                if (targetException.code == FirebaseFunctionsException.Code.ALREADY_EXISTS) {
+                    val details = targetException.details as? Map<*, *>
+                    val existingRoomId = details?.get("roomId") as? String
+                    if (existingRoomId != null) {
+                        // 기존 방이 있을 경우
+                        return Result.Success(
+                            ChatRoomResult(
+                                success = true,
+                                roomId = existingRoomId,
+                                message = "이미 존재하는 채팅방입니다."
+                            )
+                        )
+                    }
+                }
+            }
+            Result.Failure(AppError.Unknown(e.message ?: "채팅방 반환 오류 발생"))
+        }
+    }
 
     // 채팅방 생성 요청
     override suspend fun createChatRoom(targetUid: String): Result<ChatRoomResult> {
