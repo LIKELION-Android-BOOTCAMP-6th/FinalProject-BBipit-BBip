@@ -34,7 +34,7 @@ class LiveStatusRemoteDataSourceImpl @Inject constructor(
     override fun updateMyLiveStatus(uid: String, dto: LiveStatusDto) {
         firestore.collection("Live")
             .document(uid)
-            .set(dto.toMap())
+            .update(dto.toMapLifeCycle())
     }
 
     /**
