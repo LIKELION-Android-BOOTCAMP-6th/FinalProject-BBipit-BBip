@@ -34,7 +34,6 @@ fun HistoryWriteSheet(
     isOpen: Boolean,
     onDismissRequest: () -> Unit,
     onSaveClick: (category: String, placeName: String, content: String) -> Unit,
-    initialPlaceName: String = "서울시청 광장 주변"
 ) {
     if (!isOpen) return
 
@@ -42,7 +41,7 @@ fun HistoryWriteSheet(
 
     // 입력 폼 상태 관리
     var selectedCategory by remember { mutableStateOf("🎙️ 무전") }
-    var placeName by remember { mutableStateOf(initialPlaceName) }
+    var placeName by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
 
     // 카테고리 목록 정의
