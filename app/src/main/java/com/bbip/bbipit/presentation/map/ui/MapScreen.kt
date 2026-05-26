@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -178,185 +180,207 @@ fun MapScreen(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = false,
-        drawerContent = {
-            FriendListDrawer(
-                friends = uiState.friendsStatuses,
-                selectedFriendUid = clickedFriendUid,
-                onCloseClick = {
-                    scope.launch { drawerState.close() }
-                },
-                onFriendClick = { friend ->
-                    scope.launch {
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+    ) { _ ->
+        BackgroundBox {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 지도 콘텐츠 레이어
+                MapContent(
+                    mapUiState = uiState,
+                    histories = historyUiState.nearbyHistories,
+                    cameraPositionState = cameraPositionState,
+                    modifier = Modifier.fillMaxSize(),
+                    onFriendClick = { friend ->
                         clickedFriendUid = friend.uid
-                        drawerState.close()
-                        cameraPositionState.animate(
-                            update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
-                        )
-                    }
-                }
-            )
-        }
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            contentWindowInsets = WindowInsets(0, 0, 0, 0)
-        ) { _ ->
-            BackgroundBox {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // 지도 콘텐츠 레이어
-                    MapContent(
-                        mapUiState = uiState,
-                        histories = historyUiState.nearbyHistories,
-                        cameraPositionState = cameraPositionState,
-                        modifier = Modifier.fillMaxSize(),
-                        onFriendClick = { friend ->
-                            clickedFriendUid = friend.uid
-                        },
-                        onHistoryClick = { history ->
-                            selectedHistory = history
-                            isDetailDialogOpen = true
-                        }
-                    )
-
-                    // 실시간 위치 공유 토글 버튼
-                    LocationSharingToggleButton(
-                        isSharingEnabled = uiState.isLocationSharing,
-                        onToggleClick = { isEnabled ->
-                            mapViewModel.toggleLocationSharing(isEnabled)
-                        },
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .statusBarsPadding()
-                            .padding(top = 16.dp)
-                    )
-
-                    // 히스토리 상세 다이얼로그
-                    if (isDetailDialogOpen && selectedHistory != null) {
-                        HistoryDetailDialog(
-                            history = selectedHistory!!,
-                            currentUserId = uiState.myStatus?.uid.orEmpty(),
-                            onDismiss = { isDetailDialogOpen = false },
-                            onDelete = { history ->
-                                historyViewModel.deleteHistory(history.id)
-                                isDetailDialogOpen = false
-                            }
-                        )
-                    }
-
-                    // 친구 목록 토글 버튼
-                    FriendListToggleButton(
-                        onClick = {
-                            scope.launch { drawerState.open() }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .statusBarsPadding()
-                            .padding(end = 16.dp, bottom = 220.dp)
-                    )
-
-                    // 작성 페이지 전환 버튼
-                    FilledIconButton(
-                        onClick = {
-                            isHistorySheetOpen = true
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .statusBarsPadding()
-                            .padding(end = 16.dp, bottom = 280.dp)
-                            .size(50.dp)
-                            .shadow(
-                                elevation = 6.dp,
-                                shape = RoundedCornerShape(14.dp),
-                                clip = false
-                            ),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color(0xFFF1F5F9),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_footprints_icon),
-                            contentDescription = "히스토리 바텀 시트 열기",
-                            modifier = Modifier.size(24.dp),
-                            tint = Color(0xFF956AFC)
-                        )
-                    }
-
-                    // 위치 업데이트 버튼
-                    FilledIconButton(
-                        onClick = {
-                            mapViewModel.refreshCurrentLocationAndSync()
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .statusBarsPadding()
-                            .padding(end = 16.dp, bottom = 160.dp)
-                            .size(50.dp)
-                            .shadow(
-                                elevation = 6.dp,
-                                shape = RoundedCornerShape(14.dp),
-                                clip = false
-                            ),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Color(0xFFF1F5F9),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Autorenew,
-                            contentDescription = "위치 업데이트",
-                            modifier = Modifier.size(24.dp),
-                            tint = Color(0xFF956AFC)
-                        )
-                    }
-                }
-
-                // 입력 폼 바텀 시트
-                HistoryWriteSheet(
-                    isOpen = isHistorySheetOpen,
-                    onDismissRequest = { isHistorySheetOpen = false },
-                    onSaveClick = { selectedCategory, placeName, contentText ->
-                        if (contentText.trim().isEmpty()) {
-                            Toast.makeText(context, "히스토리 내용을 입력해 주세요.", Toast.LENGTH_SHORT).show()
-                            return@HistoryWriteSheet
-                        }
-
-                        uiState.myStatus?.let { myStatus ->
-                            historyViewModel.createNewHistory(
-                                category = selectedCategory,
-                                placeName = placeName.ifEmpty { "알 수 없음" },
-                                content = contentText,
-                                latitude = myStatus.latitude,
-                                longitude = myStatus.longitude
-                            )
-                            isHistorySheetOpen = false
-                        }
+                    },
+                    onHistoryClick = { history ->
+                        selectedHistory = history
+                        isDetailDialogOpen = true
                     }
                 )
 
-                val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
-                    uiState.friendsStatuses.find { it.uid == clickedFriendUid }
-                }
+                // 실시간 위치 공유 토글 버튼
+                LocationSharingToggleButton(
+                    isSharingEnabled = uiState.isLocationSharing,
+                    onToggleClick = { isEnabled ->
+                        mapViewModel.toggleLocationSharing(isEnabled)
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 16.dp)
+                )
 
-                // 상세 정보 다이얼로그
-                currentClickedFriend?.let { friend ->
-                    FriendProfileDialog(
-                        friend = friend,
-                        voiceUiState = voiceUiState,
-                        voiceViewModel = pushToTalkViewModel,
-                        onDismiss = { clickedFriendUid = null },
-                        onChatClick = {
-                            clickedFriendUid = null
-                            Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
-                                .show()
+                // 히스토리 상세 다이얼로그
+                if (isDetailDialogOpen && selectedHistory != null) {
+                    HistoryDetailDialog(
+                        history = selectedHistory!!,
+                        currentUserId = uiState.myStatus?.uid.orEmpty(),
+                        onDismiss = { isDetailDialogOpen = false },
+                        onDelete = { history ->
+                            historyViewModel.deleteHistory(history.id)
+                            isDetailDialogOpen = false
                         }
                     )
                 }
+
+                // 친구 목록 토글 버튼
+                FriendListToggleButton(
+                    onClick = {
+                        scope.launch { drawerState.open() }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 220.dp)
+                )
+
+                // 작성 페이지 전환 버튼
+                FilledIconButton(
+                    onClick = {
+                        isHistorySheetOpen = true
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 280.dp)
+                        .size(50.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color(0xFFF1F5F9),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_footprints_icon),
+                        contentDescription = "히스토리 바텀 시트 열기",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF956AFC)
+                    )
+                }
+
+                // 위치 업데이트 버튼
+                FilledIconButton(
+                    onClick = {
+                        mapViewModel.refreshCurrentLocationAndSync()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 160.dp)
+                        .size(50.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color(0xFFF1F5F9),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Autorenew,
+                        contentDescription = "위치 업데이트",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF956AFC)
+                    )
+                }
+            }
+
+            if (drawerState.isOpen) {
+                Popup(
+                    alignment = Alignment.TopStart,
+                    onDismissRequest = {
+                        scope.launch { drawerState.close() }
+                    },
+                    properties = PopupProperties(
+                        focusable = true,            // 뒤로가기 키 이벤트를 Popup이 수신할 수 있도록 설정
+                        dismissOnBackPress = true,    // 뒤로가기 누르면 닫히도록 설정
+                        dismissOnClickOutside = true, // 바깥 터치 시 닫히도록 설정
+                        // ★ 에러 해결 핵심: clippedToWindow 대신 현재 라이브러리 규격에 맞는 clippingEnabled 사용
+                        clippingEnabled = false
+                    )
+                ) {
+                    // 투명한 전체 화면 배경을 만들어 상태바와 네비게이션 바를 덮습니다.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize() // 상/하단 영역을 포함한 전체 화면 크기 확보
+                            .background(Color.Transparent)
+                    ) {
+                        FriendListDrawer(
+                            friends = uiState.friendsStatuses,
+                            selectedFriendUid = clickedFriendUid,
+                            onCloseClick = {
+                                scope.launch { drawerState.close() }
+                            },
+                            onFriendClick = { friend ->
+                                scope.launch {
+                                    clickedFriendUid = friend.uid
+                                    drawerState.close()
+                                    cameraPositionState.animate(
+                                        update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
+                                    )
+                                }
+                            },
+                            // ★ 중요: FriendListDrawer 내부에 전체 화면 높이를 강제 전달하기 위해 modifier 확장
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(280.dp)
+                        )
+                    }
+                }
+            }
+
+            // 입력 폼 바텀 시트
+            HistoryWriteSheet(
+                isOpen = isHistorySheetOpen,
+                onDismissRequest = { isHistorySheetOpen = false },
+                onSaveClick = { selectedCategory, placeName, contentText ->
+                    if (contentText.trim().isEmpty()) {
+                        Toast.makeText(context, "히스토리 내용을 입력해 주세요.", Toast.LENGTH_SHORT).show()
+                        return@HistoryWriteSheet
+                    }
+
+                    uiState.myStatus?.let { myStatus ->
+                        historyViewModel.createNewHistory(
+                            category = selectedCategory,
+                            placeName = placeName.ifEmpty { "알 수 없음" },
+                            content = contentText,
+                            latitude = myStatus.latitude,
+                            longitude = myStatus.longitude
+                        )
+                        isHistorySheetOpen = false
+                    }
+                }
+            )
+
+            val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
+                uiState.friendsStatuses.find { it.uid == clickedFriendUid }
+            }
+
+            // 상세 정보 다이얼로그
+            currentClickedFriend?.let { friend ->
+                FriendProfileDialog(
+                    friend = friend,
+                    voiceUiState = voiceUiState,
+                    voiceViewModel = pushToTalkViewModel,
+                    onDismiss = { clickedFriendUid = null },
+                    onChatClick = {
+                        clickedFriendUid = null
+                        Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
+                            .show()
+                    }
+                )
             }
         }
     }
@@ -521,21 +545,25 @@ private fun MapContent(
                             Color(0xFFFAF5FF),
                             Color(0xFFA855F7)
                         )
+
                         "카페" -> Triple(
                             com.bbip.bbipit.R.drawable.ic_cafe_icon,
                             Color(0xFFFFFBEB),
                             Color(0xFFD97706)
                         )
+
                         "음식" -> Triple(
                             com.bbip.bbipit.R.drawable.ic_restaurant_icon,
                             Color(0xFFFFF1F2),
                             Color(0xFFF43F5E)
                         )
+
                         "운동" -> Triple(
                             com.bbip.bbipit.R.drawable.ic_exercise_icon,
                             Color(0xFFECFDF5),
                             Color(0xFF10B981)
                         )
+
                         else -> Triple(
                             com.bbip.bbipit.R.drawable.ic_daily_icon,
                             Color(0xFFEEF2FF),
@@ -970,10 +998,12 @@ fun HistoryDetailDialog(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            if(isMyHistory) {
+                            if (isMyHistory) {
                                 Button(
                                     onClick = { onDelete(history) },
-                                    modifier = Modifier.weight(1f).height(48.dp),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp),
                                     shape = RoundedCornerShape(16.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFFFF1F2),
@@ -992,14 +1022,21 @@ fun HistoryDetailDialog(
 
                             Button(
                                 onClick = onDismiss,
-                                modifier = Modifier.weight(1f).height(48.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF956AFC),
                                     contentColor = Color.White
                                 )
                             ) {
-                                Text("확인", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                                Text(
+                                    "확인",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color.White
+                                )
                             }
 
                             if (!isMyHistory) {
