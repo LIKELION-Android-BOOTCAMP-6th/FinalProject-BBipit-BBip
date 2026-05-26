@@ -40,9 +40,28 @@ class LiveStatusRepositoryImpl @Inject constructor(
 
     // 친구들의 라이브 상태 목록 저장 및 공유용 캐시 Flow
     private val _friendsLiveStatusFlow = MutableStateFlow<List<LiveStatus>>(emptyList())
-    override val friendsLiveStatusFlow: StateFlow<List<LiveStatus>> = _friendsLiveStatusFlow.asStateFlow()
+    override val friendsLiveStatusFlow: StateFlow<List<LiveStatus>> =
+        _friendsLiveStatusFlow.asStateFlow()
 
     private val _isLocationSharingEnabled = MutableStateFlow(true) // 기본값 true
+
+    override suspend fun refreshMyLiveStatusCache(): Result<String> {
+        return try {
+            val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+            // 원격 데이터 조회 및 도메인 엔티티 변환 (기존 원본 로직)
+            val dto = liveStatusRemoteDataSource.getLiveStatusByUid(myUid)
+            val domainEntity = dto.toDomain(uid = myUid, isFromCache = false)
+
+            _isLocationSharingEnabled.value = dto.isSharing
+
+            _myLiveStatusFlow.value = domainEntity
+
+            Result.Success("라이브 캐시 갱신 완료")
+        } catch (e: Exception) {
+            Result.Failure(AppError.Unknown(e.message ?: "라이브 캐시 갱신 실패"))
+        }
+    }
 
     /**
      * 친구 목록을 기반으로 개별 위치를 실시간 구독하는 함수

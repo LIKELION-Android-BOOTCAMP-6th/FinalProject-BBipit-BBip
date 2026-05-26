@@ -50,6 +50,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
@@ -110,6 +111,9 @@ fun MapScreen(
 
     val TAG = "MapScreen"
 
+    // 이동 거리 감지 및 데이터 자동 동기화
+    val myStatus = uiState.myStatus
+
     // 두 좌표 간 거리 계산 (Haversine 공식)
     fun calculateDistanceInMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
         val results = FloatArray(1)
@@ -117,8 +121,12 @@ fun MapScreen(
         return results[0]
     }
 
-    // 이동 거리 감지 및 데이터 자동 동기화
-    val myStatus = uiState.myStatus
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        Log.d("MapScreen", "🗺️ 지도 화면 복귀")
+
+        mapViewModel.fetchLiveStatusAndRefreshCache()
+    }
+
     LaunchedEffect(myStatus?.latitude, myStatus?.longitude) {
         if (myStatus != null) {
             val currentLat = myStatus.latitude
@@ -422,19 +430,26 @@ private fun MapContent(
         ) {
             // 내 마커 구성
             mapUiState.myStatus?.let { my ->
-                var myCustomMarkerIcon by remember(my.uid, my.profileImageUrl) {
-                    mutableStateOf<BitmapDescriptor?>(null)
-                }
-                LaunchedEffect(my.profileImageUrl) {
+
+                var myCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
+                val myProfileUrl = mapUiState.myStatus.profileImageUrl
+
+                // 프로필 URL이 실제로 바뀔 때만 비트맵을 딱 한 번 생성
+                LaunchedEffect(myProfileUrl) {
                     myCustomMarkerIcon = createCustomMarkerBitmap(
                         context = context,
-                        imageUrl = my.profileImageUrl,
+                        imageUrl = myProfileUrl,
                         isOnline = true
                     )
                 }
 
-                val myMarkerState = remember(my.latitude, my.longitude) {
+                val myMarkerState = remember(my.uid) {
                     MarkerState(position = LatLng(my.latitude, my.longitude))
+                }
+
+                // 좌표 업데이트
+                LaunchedEffect(my.latitude, my.longitude) {
+                    myMarkerState.position = LatLng(my.latitude, my.longitude)
                 }
 
                 Marker(
@@ -458,13 +473,7 @@ private fun MapContent(
                     friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
                 }
 
-                var friendCustomMarkerIcon by remember(
-                    friend.uid,
-                    friend.profileImageUrl,
-                    friend.isOnline
-                ) {
-                    mutableStateOf<BitmapDescriptor?>(null)
-                }
+                var friendCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
 
                 LaunchedEffect(friend.profileImageUrl, friend.isOnline) {
                     friendCustomMarkerIcon = createCustomMarkerBitmap(

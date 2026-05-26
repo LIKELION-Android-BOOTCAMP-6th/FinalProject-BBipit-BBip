@@ -47,4 +47,5 @@ interface LiveStatusRepository {
     suspend fun updateLifeCycle(currentRoomId: String?): Result<Unit>
     suspend fun updateLocationSharingState(isSharing: Boolean): Result<Unit>
     fun observeLocationSharingState(): Flow<Boolean>
+    suspend fun refreshMyLiveStatusCache(): Result<String>
 }
