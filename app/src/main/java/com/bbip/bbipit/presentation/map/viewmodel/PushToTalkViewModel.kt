@@ -105,7 +105,7 @@ class PushToTalkViewModel @Inject constructor(
 
                 // 상대방에게 무전 메시지 전송
                 val sendResult =
-                    voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, correctedDuration)
+                    voiceRepository.sendVoiceMessage( targetUid, url, correctedDuration)
 
                 sendResult.onSuccess {
                     updateState { copy(isUploading = false, recordedFileUri = null) }

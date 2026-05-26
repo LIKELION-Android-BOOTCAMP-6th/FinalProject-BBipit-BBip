@@ -27,7 +27,7 @@ interface VoiceRemoteDataSource {
     /**
      * 음성 메시지를 상대방에게 직접 전송하는 함수
      */
-    suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int)
+//    suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int)
 
     /**
      * 음성 메시지를 읽음 상태로 업데이트하는 함수

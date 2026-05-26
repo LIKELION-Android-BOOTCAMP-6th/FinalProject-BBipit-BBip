@@ -497,7 +497,7 @@ class BackgroundListenerService : Service() {
             // 파일 업로드 성공 후 음성 메시지 최종 전송
             voiceRepository.uploadVoiceFile(fileUri)
                 .onSuccess { url ->
-                    voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, duration)
+                    voiceRepository.sendVoiceMessage( targetUid, url, duration)
                 }
                 .onFailure { Log.e(TAG, "파일 전송 실패") }
         }
