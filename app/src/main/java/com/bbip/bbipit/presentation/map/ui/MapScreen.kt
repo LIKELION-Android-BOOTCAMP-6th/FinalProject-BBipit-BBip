@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
@@ -211,6 +213,18 @@ fun MapScreen(
                         }
                     )
 
+                    // 실시간 위치 공유 토글 버튼
+                    LocationSharingToggleButton(
+                        isSharingEnabled = uiState.isLocationSharing,
+                        onToggleClick = { isEnabled ->
+                            mapViewModel.toggleLocationSharing(isEnabled)
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(top = 16.dp)
+                    )
+
                     // 히스토리 상세 다이얼로그
                     if (isDetailDialogOpen && selectedHistory != null) {
                         HistoryDetailDialog(
@@ -259,6 +273,35 @@ fun MapScreen(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_footprints_icon),
                             contentDescription = "히스토리 바텀 시트 열기",
+                            modifier = Modifier.size(24.dp),
+                            tint = Color(0xFF956AFC)
+                        )
+                    }
+
+                    // 위치 업데이트 버튼
+                    FilledIconButton(
+                        onClick = {
+                            mapViewModel.refreshCurrentLocationAndSync()
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .statusBarsPadding()
+                            .padding(end = 16.dp, bottom = 160.dp)
+                            .size(50.dp)
+                            .shadow(
+                                elevation = 6.dp,
+                                shape = RoundedCornerShape(14.dp),
+                                clip = false
+                            ),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color(0xFFF1F5F9),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Autorenew,
+                            contentDescription = "위치 업데이트",
                             modifier = Modifier.size(24.dp),
                             tint = Color(0xFF956AFC)
                         )
@@ -406,6 +449,7 @@ private fun MapContent(
 
             // 친구 마커 구성
             mapUiState.friendsStatuses.forEach { friend ->
+                if (!friend.isSharing) return@forEach
                 val friendMarkerState = remember(friend.uid) {
                     MarkerState(position = LatLng(friend.latitude, friend.longitude))
                 }
@@ -956,6 +1000,59 @@ fun HistoryDetailDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 실시간 위치 공유 상태를 토글하는 알약 모양의 커스텀 버튼
+ *
+ * @param isSharingEnabled 현재 위치 공유 활성화 여부
+ * @param onToggleClick 클릭 시 상태 반전을 전달할 콜백 함수
+ * @param modifier 외부 레이아웃 배치를 위한 modifier
+ */
+@Composable
+fun LocationSharingToggleButton(
+    isSharingEnabled: Boolean,
+    onToggleClick: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // 상태 변경 시 부드러운 색상 전환 효과 애니메이션
+    val indicatorColor by animateColorAsState(
+        targetValue = if (isSharingEnabled) Color(0xFF00E676) else Color(0xFF94A3B8),
+        label = "IndicatorColor"
+    )
+
+    Box(
+        modifier = modifier
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(50),
+                clip = false
+            )
+            .background(Color.White, shape = RoundedCornerShape(50))
+            .clickable { onToggleClick(!isSharingEnabled) } // 현재 상태를 반전하여 이벤트 전달
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 1. 상태 인디케이터 점 (On: 초록색, Off: 회색)
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(color = indicatorColor, shape = CircleShape)
+            )
+
+            // 2. 상태 텍스트
+            Text(
+                text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSharingEnabled) Color(0xFF1E232C) else Color(0xFF6C727F),
+                letterSpacing = (-0.3).sp
+            )
         }
     }
 }

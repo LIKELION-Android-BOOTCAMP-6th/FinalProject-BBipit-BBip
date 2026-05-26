@@ -15,5 +15,6 @@ data class LiveStatus(
     // 상태 업데이트 시간
     val updatedAt: Long = 0L,
     // 캐시 데이터 사용 여부
-    val isFromCache: Boolean = false
+    val isFromCache: Boolean = false,
+    val isSharing: Boolean = true
 )

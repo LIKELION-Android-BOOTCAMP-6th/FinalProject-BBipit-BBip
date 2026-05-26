@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.base.BaseViewModel
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.google.android.gms.location.CurrentLocationRequest
@@ -12,13 +15,10 @@ import com.google.android.gms.location.Priority
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -29,14 +29,15 @@ import kotlin.coroutines.resumeWithException
 data class MapUiState(
     val myStatus: LiveStatus? = null,
     val friendsStatuses: List<LiveStatus> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isLocationSharing: Boolean = true,
 )
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
     private val fusedLocationClient: FusedLocationProviderClient
-): ViewModel() {
+): BaseViewModel<MapUiState>(MapUiState()) {
 
     // 서버 데이터 공급 전 로컬 캐시 레이어 즉시 파싱용 백업용 Flow
     private val cacheMyStatus = MutableStateFlow<LiveStatus?>(null)
@@ -45,6 +46,7 @@ class MapViewModel @Inject constructor(
     init {
         // 인스턴스 초기화 즉시 기기 캐시 기반 마지막 동선 확보 가동
         fetchLastKnownLocation()
+        observeLiveStatusStreams()
     }
 
     companion object {
@@ -53,28 +55,83 @@ class MapViewModel @Inject constructor(
     }
 
     /**
-     * 리포지토리 실시간 Flow 및 기기 내부 캐시 상태 유기적 조합(Combine) 반응형 파이프라인 변수
+     * 🌟 Repository 관찰 흐름을 BaseViewModel의 상태 구조와 통합
      */
-    val uiState: StateFlow<MapUiState> = combine(
-        liveStatusRepository.myLiveStatusFlow,
-        liveStatusRepository.friendsLiveStatusFlow,
-        cacheMyStatus
-    ) { myStatus, friendsStatuses, cacheStatus ->
+    private fun observeLiveStatusStreams() {
+        viewModelScope.launch {
+            combine(
+                liveStatusRepository.myLiveStatusFlow,
+                liveStatusRepository.friendsLiveStatusFlow,
+                liveStatusRepository.observeLocationSharingState(),
+                cacheMyStatus
+            ) { myStatus, friendsStatuses, isSharingEnabled, cacheStatus ->
+                val currentMyStatus = myStatus ?: cacheStatus
+                Triple(currentMyStatus, friendsStatuses, isSharingEnabled)
+            }.collectLatest { (currentMyStatus, friendsStatuses, isSharingEnabled) ->
+                // BaseViewModel의 내장 함수를 활용해 안전하게 상태 업데이트
+                updateState {
+                    copy(
+                        myStatus = currentMyStatus,
+                        friendsStatuses = friendsStatuses,
+                        isLoading = currentMyStatus == null,
+                        isLocationSharing = isSharingEnabled
+                    )
+                }
+            }
+        }
+    }
 
-        // 원격 서버 데이터 지연 시 유저 경험 방어 목적의 즉각적 로컬 캐시 값 대체 처리
-        val currentMyStatus = myStatus ?: cacheStatus
+    // 토글 버튼 클릭 시 호출할 함수
+    fun toggleLocationSharing(isEnabled: Boolean) {
+        viewModelScope.launch {
+            liveStatusRepository.updateLocationSharingState(isEnabled)
+                .onSuccess {
+                    Log.d(TAG, "위치 공유 상태 변경 성공: $isEnabled")
+                    if (isEnabled) {
+                        refreshCurrentLocationAndSync()
+                    }
+                }
+                .onFailure {
+                    Log.e(TAG, "위치 공유 상태 변경 실패")
+                }
+        }
+    }
 
-        MapUiState(
-            myStatus = currentMyStatus,
-            friendsStatuses = friendsStatuses,
-            // 로컬 및 서버 데이터 실체성 확보 시점 기준 로딩 프로그래스 중단 처리
-            isLoading = currentMyStatus == null
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = MapUiState()
-    )
+    /**
+     * 🌟 위치 공유를 켤 때 최신 좌표를 강제로 긁어와 서버에 즉시 전송하는 헬퍼 함수
+     */
+    @SuppressLint("MissingPermission")
+    fun refreshCurrentLocationAndSync() {
+        viewModelScope.launch {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            try {
+                val locationRequest = CurrentLocationRequest.Builder()
+                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                    .build()
+
+                // 단발성으로 현재 장소의 정확한 좌표를 즉시 측정
+                fusedLocationClient.getCurrentLocation(locationRequest, null)
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            viewModelScope.launch {
+                                // Dto 변환용 도메인 엔티티 모델 빌드 (isSharing을 true로 명시)
+                                val freshStatus = LiveStatus(
+                                    uid = uid,
+                                    latitude = location.latitude,
+                                    longitude = location.longitude,
+                                    isSharing = true
+                                )
+                                // Repository를 통해 파이어베이스 Live 컬렉션 즉시 업데이트
+                                liveStatusRepository.updateMyLiveStatus(freshStatus)
+                                Log.d(TAG, "⚡ 위치 공유 On 활성화에 따른 현재 위치 즉시 동기화 완료")
+                            }
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "현재 위치 즉시 갱신 실패: ${e.message}")
+            }
+        }
+    }
 
     /**
      * Google Fused Location 서비스 인프라 활용 기반 원격 데이터 수신 지연 현상 방어 최적화 함수
