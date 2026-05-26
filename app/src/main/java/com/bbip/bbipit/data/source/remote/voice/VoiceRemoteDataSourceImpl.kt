@@ -40,23 +40,31 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     /**
      * 수신된 음성 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
      */
-    override fun observeIncomingVoice(myUid: String): Flow<Pair<String, VoiceMessageDto>> = callbackFlow {
+    override fun observeIncomingVoice(myUid: String): Flow<Triple<String, VoiceMessageDto, Boolean>> = callbackFlow {
         val query = firestore.collection("VoiceMessages")
             .document(myUid)
             .collection("Messages")
             .orderBy("sent_at", Query.Direction.ASCENDING)
+
+        // 첫 번째 Snapshot Callback 여부를 추적하는 로컬 상태값
+        var isInitialCallback = true
 
         val subscription = query.addSnapshotListener { snapshot, e ->
             if (e != null) {
                 close(e)
                 return@addSnapshotListener
             }
+
+            // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
+            val isCurrentInitial = isInitialCallback
+            isInitialCallback = false
+
             // 새로 추가된 문서만 필터링하여 전달
             snapshot?.documentChanges?.forEach { dc ->
                 if (dc.type == DocumentChange.Type.ADDED) {
                     val dto = dc.document.toObject(VoiceMessageDto::class.java)
                     if (dto != null && dto.voiceUrl.isNotEmpty()) {
-                        trySend(Pair(dc.document.id, dto))
+                        trySend(Triple(dc.document.id, dto, isCurrentInitial))
                     }
                 }
             }

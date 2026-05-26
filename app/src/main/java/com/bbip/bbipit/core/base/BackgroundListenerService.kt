@@ -37,6 +37,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -292,7 +293,7 @@ class BackgroundListenerService : Service() {
                         val url = voiceMessage.voiceUrl
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
-                        if (url.isNotEmpty() && !voiceMessage.isRead) {
+                        if (url.isNotEmpty() && !voiceMessage.isRead && !voiceMessage.isInitial) {
                             if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
                                 sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                             } else {
