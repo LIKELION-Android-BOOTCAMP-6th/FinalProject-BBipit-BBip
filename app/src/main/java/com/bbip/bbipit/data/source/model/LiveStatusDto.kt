@@ -48,4 +48,13 @@ data class LiveStatusDto(
             "is_sharing" to isSharing
         )
     }
+
+    fun toMapLifeCycle(): Map<String, Any?> {
+        // 프로퍼티 키값 매핑 및 데이터 직렬화
+        return mapOf(
+            "latitude" to latitude,
+            "longitude" to longitude,
+            "updated_at" to (updatedAt ?: Timestamp.now()),
+        )
+    }
 }
