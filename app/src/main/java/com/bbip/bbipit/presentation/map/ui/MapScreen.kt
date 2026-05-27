@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
@@ -63,6 +65,7 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
+import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
 import com.bbip.bbipit.presentation.map.viewmodel.MapViewModel
@@ -89,6 +92,8 @@ fun MapScreen(
     mapViewModel: MapViewModel = hiltViewModel(),
     historyViewModel: HistoryViewModel = hiltViewModel(),
     pushToTalkViewModel: PushToTalkViewModel = hiltViewModel(),
+    bottomBarViewModel: BottomBarViewModel =
+        hiltViewModel(viewModelStoreOwner = (LocalActivity.current as ComponentActivity)),
 ) {
     val context = LocalContext.current
     val uiState by mapViewModel.uiState.collectAsState()
@@ -130,6 +135,10 @@ fun MapScreen(
         Log.d("MapScreen", "🗺️ 지도 화면 복귀")
 
         mapViewModel.fetchLiveStatusAndRefreshCache()
+    }
+
+    LaunchedEffect(drawerState.isOpen) {
+        bottomBarViewModel.onUpdateDrawerShown(drawerState.isOpen)
     }
 
     LaunchedEffect(myStatus?.latitude, myStatus?.longitude) {
@@ -315,18 +324,23 @@ fun MapScreen(
                         scope.launch { drawerState.close() }
                     },
                     properties = PopupProperties(
-                        focusable = true,            // 뒤로가기 키 이벤트를 Popup이 수신할 수 있도록 설정
-                        dismissOnBackPress = true,    // 뒤로가기 누르면 닫히도록 설정
-                        dismissOnClickOutside = true, // 바깥 터치 시 닫히도록 설정
-                        // ★ 에러 해결 핵심: clippedToWindow 대신 현재 라이브러리 규격에 맞는 clippingEnabled 사용
+                        focusable = true,
+                        dismissOnBackPress = true,
+                        dismissOnClickOutside = true,
                         clippingEnabled = false
                     )
                 ) {
                     // 투명한 전체 화면 배경을 만들어 상태바와 네비게이션 바를 덮습니다.
                     Box(
                         modifier = Modifier
-                            .fillMaxSize() // 상/하단 영역을 포함한 전체 화면 크기 확보
+                            .fillMaxSize()
                             .background(Color.Transparent)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                scope.launch { drawerState.close() }
+                            }
                     ) {
                         FriendListDrawer(
                             friends = uiState.friendsStatuses,

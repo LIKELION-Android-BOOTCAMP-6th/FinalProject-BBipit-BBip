@@ -31,4 +31,5 @@ interface NotificationRepository {
 
     // 알림 삭제
     suspend fun deleteNotifications(userId: String, notificationId: String?): Result<Unit>
+    suspend fun markVoiceNotiAsPlayed(notificationId: String): Boolean
 }
