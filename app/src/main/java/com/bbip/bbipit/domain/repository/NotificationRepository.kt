@@ -34,4 +34,10 @@ interface NotificationRepository {
 
     // 알림 삭제
     suspend fun deleteNotifications(userId: String, notificationId: String?): Result<Unit>
+
+    // 무전 알림 → VoiceMessage 재생 처리
+    suspend fun playWalkieNotification(notification: Notification, receiverId: String)
+
+    // Intent에서 추출한 데이터로 무전 즉시 재생
+    fun playWalkie(intent: android.content.Intent, receiverId: String)
 }

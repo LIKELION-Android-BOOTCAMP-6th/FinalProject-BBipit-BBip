@@ -18,6 +18,8 @@ data class NotificationDto(
     // 알림 본문 내용
     val content: String = "",
 
+    val voice_id: String = "",
+
     // 음성 파일 주소
     val voice_url: String? = null,
 
