@@ -189,15 +189,7 @@ fun MapScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { _ ->
         BackgroundBox {
-            if (uiState.myStatus == null) {
-                // 내 위치 정보가 도착할 때까지 깔끔한 로딩 뷰로 세계지도 깜빡임 완벽 차단
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = Color(0xFF956AFC))
-                }
-            } else {
+            Box(modifier = Modifier.fillMaxSize()) {
                 // 지도 콘텐츠 레이어
                 MapContent(
                     mapUiState = uiState,
@@ -339,12 +331,7 @@ fun MapScreen(
                                     clickedFriendUid = friend.uid
                                     drawerState.close()
                                     cameraPositionState.animate(
-                                        update = newLatLngZoom(
-                                            LatLng(
-                                                friend.latitude,
-                                                friend.longitude
-                                            ), 16f
-                                        )
+                                        update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
                                     )
                                 }
                             },
@@ -392,21 +379,9 @@ fun MapScreen(
                     voiceViewModel = pushToTalkViewModel,
                     onDismiss = { clickedFriendUid = null },
                     onChatClick = {
-                        mapViewModel.createOrGetChatRoom(
-                            targetUid = friend.uid,
-                            onSuccess = { roomId ->
-                                clickedFriendUid = null
-                                navController.navigate(
-                                    Routes.ChatRoom(
-                                        roomId = roomId,
-                                        receiverId = friend.uid
-                                    )
-                                )
-                            },
-                            onError = { errorMessage ->
-                                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
-                            }
-                        )
+                        clickedFriendUid = null
+                        Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
+                            .show()
                     }
                 )
             }
