@@ -12,6 +12,7 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.type.LoginType
+import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -47,7 +48,6 @@ sealed class MyPageEvent{
 @HiltViewModel
 class MyPageViewmodel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val firestore: FirebaseFirestore,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository
 ) : ViewModel() {
@@ -55,6 +55,9 @@ class MyPageViewmodel @Inject constructor(
     // UI 상태를 관리하는 StateFlow
     private val _uiState = MutableStateFlow(MyPageUiState())
     val uiState: StateFlow<MyPageUiState> = _uiState.asStateFlow()
+
+    private val _terms = MutableStateFlow("")
+    val terms: StateFlow<String> = _terms.asStateFlow()
 
     private val _event = Channel<MyPageEvent>(Channel.BUFFERED)
     val event = _event.receiveAsFlow()
@@ -144,5 +147,25 @@ class MyPageViewmodel @Inject constructor(
         }
     }
 
+    fun onUpdateLoading(value: Boolean) = _uiState.update { it.copy(isLoading = value) }
     fun onUpdateToast(value: String?) = _uiState.update { it.copy(toast = value) }
+
+    fun getTerms(currentType : TermsType){
+        viewModelScope.launch {
+            onUpdateLoading(true)
+            authRepository.getTerms(currentType)
+                .onSuccess {
+                    onUpdateLoading(false)
+                    _terms.value = it
+                    Log.d("약관 내용", it)
+
+                }
+                .onFailure {
+                    onUpdateLoading(false)
+                    _terms.value = "<h2>오류</h2><p>약관을 불러오지 못했습니다. 네트워크를 확인해 주세요.</p>"
+                }
+
+        }
+
+    }
 }
