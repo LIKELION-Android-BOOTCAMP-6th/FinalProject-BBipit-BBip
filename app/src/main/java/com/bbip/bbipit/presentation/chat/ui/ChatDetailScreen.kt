@@ -43,10 +43,12 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextAlign
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.fontDefault
+import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
 
 /**
@@ -72,9 +74,12 @@ data class MessageItem(
 
 data class ChatDetailUiState(
     val isLoading: Boolean = false,
+    val partnerImageUrl: String? = null,
     val partnerName: String = "",
     val partnerStatus: String = "",
     val messages: List<MessageItem> = emptyList(),
+    // 💡 날짜별로 묶인 메시지 맵을 추가 (String은 날짜 키, List는 그 날짜의 메시지)
+    val groupedMessages: Map<String, List<MessageItem>> = emptyMap(),
     val friendshipStatus: String = "NONE", // "ACCEPTED", "PENDING", "NONE"
     val errorMessage: String? = null       // 서버 에러(500 등) 발생 시 안내 문구용
 )
@@ -113,7 +118,16 @@ fun ChatDetailScreen(
         }
     }
 
-    // roomId가 바뀔 때마다(혹은 화면 진입 시) 데이터 로드
+    // 방 진입/퇴장 자동 처리
+    DisposableEffect(roomId) {
+        viewModel.updateCurrentRoom(roomId) // 방 진입
+
+        onDispose {
+            viewModel.updateCurrentRoom(null) // 방 나갈 때 null
+        }
+    }
+
+    // 데이터 로드
     LaunchedEffect(roomId) {
         viewModel.loadChatRoomData(roomId)
         viewModel.markAsRead(roomId)
@@ -160,24 +174,29 @@ fun ChatDetailScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    item { DateHeader("TODAY") }
-                    items(uiState.messages) { message ->
-                        MessageBubble(
-                            message = message,
-                            onRetrySend = { failedMessage ->
-                                // 1. 기존 실패했던 임시 메시지는 화면에서 깔끔하게 지우기
-                                viewModel.removeFailedMessage(failedMessage.id)
-                                // 2. 똑같은 텍스트로 다시 짱짱하게 전송 요청 날리기
-                                viewModel.sendMessage(
-                                    roomId = roomId,
-                                    receiverId = receiverId,
-                                    text = failedMessage.text
-                                )
-                            },
-                            onDeleteClick = { failedMessage ->
-                                viewModel.removeFailedMessage(failedMessage.id)
-                            }
-                        )
+                    uiState.groupedMessages.forEach { (dateKey, messagesInDate) ->
+
+                        // 1. 날짜 헤더 (포맷팅 함수 사용)
+                        item(key = "header_$dateKey") {
+                            DateHeader(formatDateHeader(dateKey))
+                        }
+
+                        // 2. 해당 날짜에 속한 메시지들만 표시
+                        items(
+                            items = messagesInDate,
+                            key = { it.id }
+                        ) { message ->
+                            MessageBubble(
+                                message = message,
+                                onRetrySend = { failedMessage ->
+                                    viewModel.removeFailedMessage(failedMessage.id)
+                                    viewModel.sendMessage(roomId, receiverId, failedMessage.text)
+                                },
+                                onDeleteClick = { failedMessage ->
+                                    viewModel.removeFailedMessage(failedMessage.id)
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -221,9 +240,8 @@ fun ChatDetailScreen(
 }
 
 @Composable
-fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
-    // 임시로 온라인 상태라고 가정 (나중에 UiState에 추가)
-    val isOnline = true
+fun ChatDetailHeader(navController: NavController, uiState: ChatDetailUiState) {
+    val isOnline = (uiState.partnerStatus == "온라인")
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -255,13 +273,20 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
                         modifier = Modifier.size(42.dp),
                         shape = CircleShape,
                         color = primary
-                    ) { /* Coil */ }
+                    ) { // Coil 라이브러리 사용
+                        coil.compose.AsyncImage(
+                            model = uiState.partnerImageUrl, // 여기서 받은 이미지 URL 적용
+                            contentDescription = "프로필 사진",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    }
 
                     Box(
                         modifier = Modifier
                             .size(12.dp)
                             .background(
-                                color = if (isOnline) Color(0xFF4CAF50) else Color.LightGray,
+                                // 💡 이제 isOnline 변수를 여기에서 사용합니다.
+                                color = if (isOnline) online else Color.LightGray,
                                 shape = CircleShape
                             )
                             .border(2.dp, Color.White, CircleShape)
@@ -272,14 +297,15 @@ fun ChatDetailHeader(navController: NavController, state: ChatDetailUiState) {
 
                 Column {
                     Text(
-                        text = state.partnerName,
+                        text = uiState.partnerName,
                         style = Typography.bodyLarge,
                         fontSize = 20.sp,
                         color = fontDefault,
                     )
                     Text(
-                        text = state.partnerStatus,
+                        text = uiState.partnerStatus,
                         style = Typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
                         color = Color.Gray
                     )
                 }
@@ -486,53 +512,53 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                 minLines = 1,         // 최소 1줄 시작
                 maxLines = 4,         // 최대 4줄까지 늘어나고 그 이상은 스크롤
 
-                leadingIcon = {
-                    Box {
-                        IconButton(onClick = { expanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "추가",
-                                tint = Color.Gray
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.background(Color.White)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("카메라", style = Typography.bodyMedium) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(20.dp))
-                                },
-                                onClick = {
-                                    /* TODO: 카메라 촬영 로직 호출 */
-                                    expanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("앨범", style = Typography.bodyMedium) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(20.dp))
-                                },
-                                onClick = {
-                                    /* TODO: 앨범 선택 로직 호출 */
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                },
-                trailingIcon = {
-                    IconButton(onClick = { /* 음성 인식 로직 */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Mic,
-                            contentDescription = "음성",
-                            tint = Color.Gray
-                        )
-                    }
-                },
+//                leadingIcon = {
+//                    Box {
+//                        IconButton(onClick = { expanded = true }) {
+//                            Icon(
+//                                imageVector = Icons.Default.Add,
+//                                contentDescription = "추가",
+//                                tint = Color.Gray
+//                            )
+//                        }
+//
+//                        DropdownMenu(
+//                            expanded = expanded,
+//                            onDismissRequest = { expanded = false },
+//                            modifier = Modifier.background(Color.White)
+//                        ) {
+//                            DropdownMenuItem(
+//                                text = { Text("카메라", style = Typography.bodyMedium) },
+//                                leadingIcon = {
+//                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(20.dp))
+//                                },
+//                                onClick = {
+//                                    /* TODO: 카메라 촬영 로직 호출 */
+//                                    expanded = false
+//                                }
+//                            )
+//                            DropdownMenuItem(
+//                                text = { Text("앨범", style = Typography.bodyMedium) },
+//                                leadingIcon = {
+//                                    Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(20.dp))
+//                                },
+//                                onClick = {
+//                                    /* TODO: 앨범 선택 로직 호출 */
+//                                    expanded = false
+//                                }
+//                            )
+//                        }
+//                    }
+//                },
+//                trailingIcon = {
+//                    IconButton(onClick = { /* 음성 인식 로직 */ }) {
+//                        Icon(
+//                            imageVector = Icons.Default.Mic,
+//                            contentDescription = "음성",
+//                            tint = Color.Gray
+//                        )
+//                    }
+//                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White.copy(alpha = 0.9f),
                     unfocusedContainerColor = Color.White.copy(alpha = 0.9f),
@@ -584,6 +610,28 @@ fun DateHeader(date: String) {
                 style = Typography.bodySmall,
                 color = Color.Gray
             )
+        }
+    }
+}
+
+private fun formatDateHeader(dateString: String): String {
+    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+    val targetDate = sdf.parse(dateString) ?: return dateString
+
+    val calendar = java.util.Calendar.getInstance()
+    val today = calendar.time
+    calendar.add(java.util.Calendar.DATE, -1)
+    val yesterday = calendar.time
+
+    // 오늘/어제 여부 확인
+    val fmt = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.KOREA)
+    return when {
+        fmt.format(targetDate) == fmt.format(today) -> "오늘"
+        fmt.format(targetDate) == fmt.format(yesterday) -> "어제"
+        else -> {
+            // 그 외 날짜는 원하는 형식으로 (예: 5월 20일)
+            val monthDayFormat = java.text.SimpleDateFormat("M월 d일", java.util.Locale.KOREA)
+            monthDayFormat.format(targetDate)
         }
     }
 }

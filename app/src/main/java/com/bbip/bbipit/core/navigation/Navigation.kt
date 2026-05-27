@@ -18,6 +18,7 @@ import com.bbip.bbipit.presentation.mypage.EditProfileScreen
 import com.bbip.bbipit.presentation.mypage.MyPageScreen
 import com.bbip.bbipit.presentation.notification.ui.NotificationScreen
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun BBipItNavigation(
@@ -25,7 +26,7 @@ fun BBipItNavigation(
     authRepository: AuthRepository,
     notificationViewModel: NotificationViewModel,
     notificationIntent: Intent? = null
-){
+) {
 
     val isLogin = authRepository.isAutoLogin()
 
@@ -33,13 +34,13 @@ fun BBipItNavigation(
     val isEmailVerified = authRepository.isEmailVerified()
 
     // 두 조건이 모두 만족해야만 홈 화면(Map)으로 바로 진입합니다.
-    val start = if (!(isLogin && isEmailVerified)) Routes.SignIn
-    else when (notificationIntent?.getStringExtra("notification_type")) {
-        "DM" -> notificationIntent.getStringExtra("notification_room_id")
-            ?.takeIf { it.isNotEmpty() }?.let { roomId ->
-                Routes.ChatRoom(roomId = roomId, receiverId = "UNKNOWN")
-            } ?: Routes.Map
-        "REQ" -> Routes.FriendRequestList
+    val notificationType = notificationIntent?.getStringExtra("notification_type")
+
+    val start = when {
+        !(isLogin && isEmailVerified) -> Routes.SignIn
+
+        notificationType != null -> Routes.Notification
+
         else -> Routes.Map
     }
 
@@ -65,5 +66,39 @@ fun BBipItNavigation(
         composable<Routes.EditProfile> { EditProfileScreen(navController) }
         composable<Routes.FriendList> { FriendListScreen(navController) }
         composable<Routes.FriendRequestList> { FriendRequestScreen(navController) }
+    }
+
+    LaunchedEffect(notificationIntent) {
+        if (!(isLogin && isEmailVerified)) return@LaunchedEffect
+        val type = notificationIntent?.getStringExtra("notification_type") ?: return@LaunchedEffect
+
+        val notificationId = notificationIntent.getStringExtra("notification_id") ?: ""
+        val roomId = notificationIntent.getStringExtra("notification_room_id") ?: ""
+
+        if (notificationId.isNotEmpty()) {
+            notificationViewModel.markAsRead(notificationId)
+        }
+
+        when (type) {
+            "DM" -> {
+                if (roomId.isNotEmpty()) {
+                    val receiverId =
+                        notificationIntent.getStringExtra("notification_receiver_id") ?: ""
+                    navController.navigate(
+                        Routes.ChatRoom(
+                            roomId = roomId,
+                            receiverId = receiverId
+                        )
+                    )
+                }
+            }
+            "WALKIE" -> {
+                notificationViewModel.playWalkie(notificationIntent)
+                navController.navigate(Routes.Notification)
+            }
+            "REQ" -> {
+                navController.navigate(Routes.FriendRequestList)
+            }
+        }
     }
 }

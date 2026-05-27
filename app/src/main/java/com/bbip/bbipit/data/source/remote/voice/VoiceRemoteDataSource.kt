@@ -17,7 +17,7 @@ interface VoiceRemoteDataSource {
     /**
      * 수신된 음성 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
      */
-    fun observeIncomingVoice(myUid: String): Flow<Pair<String, VoiceMessageDto>>
+    fun observeIncomingVoice(myUid: String): Flow<Triple<String, VoiceMessageDto, Boolean>>
 
     /**
      * 음성 파일을 스토리지에 업로드하는 함수
@@ -27,7 +27,7 @@ interface VoiceRemoteDataSource {
     /**
      * 음성 메시지를 상대방에게 직접 전송하는 함수
      */
-    suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int)
+//    suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int)
 
     /**
      * 음성 메시지를 읽음 상태로 업데이트하는 함수

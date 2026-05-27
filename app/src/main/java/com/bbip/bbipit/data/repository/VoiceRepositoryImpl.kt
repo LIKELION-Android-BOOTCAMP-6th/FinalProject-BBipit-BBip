@@ -8,7 +8,10 @@ import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,7 +59,7 @@ class VoiceRepositoryImpl @Inject constructor(
      */
     override fun observeIncomingVoice(myUid: String): Flow<VoiceMessage> {
         // 데이터 수신 후 도메인 엔티티로 변환
-        return voiceRemoteDataSource.observeIncomingVoice(myUid).map { (id, dto) ->
+        return voiceRemoteDataSource.observeIncomingVoice(myUid).map { (id, dto, isInitial) ->
             VoiceMessage(
                 id = id,
                 senderId = dto.senderId,
@@ -64,7 +67,8 @@ class VoiceRepositoryImpl @Inject constructor(
                 voiceUrl = dto.voiceUrl,
                 duration = dto.duration,
                 isRead = dto.isRead,
-                createdAt = dto.createdAt?.toDate()?.time ?: 0L
+                createdAt = dto.createdAt?.toDate()?.time ?: 0L,
+                isInitial = isInitial
             )
         }
     }
@@ -87,22 +91,22 @@ class VoiceRepositoryImpl @Inject constructor(
     /**
      * 음성 메시지를 상대방에게 직접 전송하는 함수
      */
-    override suspend fun sendVoiceMessageDirect(
-        senderId: String,
-        receiverId: String,
-        voiceUrl: String,
-        duration: Int
-    ): Result<Boolean> {
-        return try {
-            // 서버 기능을 통해 메시지 직접 전송
-            voiceRemoteDataSource.sendVoiceMessageDirect(senderId, receiverId, voiceUrl, duration)
-            Result.Success(true)
-        } catch (e: Exception) {
-            // 전송 실패 예외 처리
-            Log.e("VoiceRepository", "음성 메시지 직접 전송 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "Direct 메시지 전송 중 오류 발생"))
-        }
-    }
+//    override suspend fun sendVoiceMessageDirect(
+//        senderId: String,
+//        receiverId: String,
+//        voiceUrl: String,
+//        duration: Int
+//    ): Result<Boolean> {
+//        return try {
+//            // 서버 기능을 통해 메시지 직접 전송
+//            voiceRemoteDataSource.sendVoiceMessageDirect(senderId, receiverId, voiceUrl, duration)
+//            Result.Success(true)
+//        } catch (e: Exception) {
+//            // 전송 실패 예외 처리
+//            Log.e("VoiceRepository", "음성 메시지 직접 전송 실패: ${e.message}")
+//            Result.Failure(AppError.Unknown(e.message ?: "Direct 메시지 전송 중 오류 발생"))
+//        }
+//    }
 
     /**
      * 음성 메시지를 읽음 상태로 업데이트하는 함수

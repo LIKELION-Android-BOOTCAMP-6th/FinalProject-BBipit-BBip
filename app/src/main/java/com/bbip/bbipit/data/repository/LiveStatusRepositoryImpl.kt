@@ -64,16 +64,27 @@ class LiveStatusRepositoryImpl @Inject constructor(
     }
 
     /**
-     * 친구 목록을 기반으로 개별 위치를 실시간 구독하는 함수
+     * 친구 목록과 내 위치 공유 상태를 기반으로 개별 위치를 실시간 구독하는 함수
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeFriendsLiveStatus(myUid: String) {
-        friendRepository.myFriends
-            .flatMapLatest { friends ->
-                // 수락 완료된 친구 필터링 및 ID 추출
-                val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
-                val friendUids = acceptedFriends.map { it.uid }
+        // 1. 친구 목록 Flow와 내 위치 공유 상태 Flow를 combine으로 결합합니다.
+        combine(
+            friendRepository.myFriends,
+            observeLocationSharingState()
+        ) { friends, isLocationSharingEnabled ->
+            // 2. 만약 내가 위치 공유를 비활성화했다면 빈 리스트를 반환하여 구독 프로세스를 건너뜁니다.
+            if (!isLocationSharingEnabled) {
+                Log.d("관제탑 서비스", "🚫 내 위치 공유가 꺼져 있어 친구들의 위치를 추적하지 않습니다.")
+                return@combine emptyList<String>()
+            }
 
+            // 3. 내가 위치 공유 중일 때만 수락된 친구들의 UID 리스트를 추출합니다.
+            val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
+            acceptedFriends.map { it.uid }
+        }
+            .flatMapLatest { friendUids ->
+                // 4. 위에서 빈 리스트(공유 꺼짐 포함)가 내려오면 빈 Flow를 반환하여 갱신을 멈춥니다.
                 if (friendUids.isEmpty()) {
                     flowOf(emptyList<LiveStatus>())
                 } else {
@@ -92,7 +103,7 @@ class LiveStatusRepositoryImpl @Inject constructor(
                 }
             }
             .onEach { updatedList ->
-                // 캐시 Flow 갱신
+                // 캐시 Flow 갱신 (위치 공유가 꺼지면 여기서 자연스럽게 emptyList()로 밀어내어 화면에서 사라집니다)
                 _friendsLiveStatusFlow.value = updatedList
                 Log.d("관제탑 서비스", "🔄 [친구 위치 동기화됨] 현재 위치 추적 친구: ${updatedList.size}명")
             }

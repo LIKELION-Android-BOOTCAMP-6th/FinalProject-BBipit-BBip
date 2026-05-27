@@ -11,5 +11,8 @@ interface NotificationRemoteDataSource {
         onNew: (String, NotificationDto) -> Unit
     ): ListenerRegistration
 
+    // 단건 알림 읽음 처리
+    suspend fun markAsRead(notificationId: String)
+
     suspend fun deleteNotification(userId: String, id: String?)
 }

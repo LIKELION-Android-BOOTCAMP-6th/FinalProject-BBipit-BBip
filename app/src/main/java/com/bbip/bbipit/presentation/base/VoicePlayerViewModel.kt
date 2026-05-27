@@ -2,26 +2,18 @@ package com.bbip.bbipit.presentation.base
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.util.AudioPlayer
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.entity.VoiceMessage
-import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -61,7 +53,7 @@ class VoicePlayerViewModel @Inject constructor(
         viewModelScope.launch {
             // 음성 메시지 이벤트 구독
             voiceRepository.voiceMessageEvent.collect { voiceMessage ->
-                val url = voiceMessage.voiceUrl ?: return@collect
+                val url = voiceMessage.voiceUrl
 
                 // 발신자 프로필 조회
                 val senderResult = userRepository.getUserProfile(voiceMessage.senderId)

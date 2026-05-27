@@ -37,6 +37,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -49,13 +50,26 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 class BackgroundListenerService : Service() {
-    @Inject lateinit var authRepository: AuthRepository
-    @Inject lateinit var voiceRepository: VoiceRepository
-    @Inject lateinit var liveStatusRepository: LiveStatusRepository
-    @Inject lateinit var friendRepository: FriendRepository
-    @Inject lateinit var appLifecycleObserver: AppLifecycleObserver
-    @Inject lateinit var lifeCycleManager: LifeCycleManager
-    @Inject lateinit var notificationRepository: NotificationRepository
+    @Inject
+    lateinit var authRepository: AuthRepository
+
+    @Inject
+    lateinit var voiceRepository: VoiceRepository
+
+    @Inject
+    lateinit var liveStatusRepository: LiveStatusRepository
+
+    @Inject
+    lateinit var friendRepository: FriendRepository
+
+    @Inject
+    lateinit var appLifecycleObserver: AppLifecycleObserver
+
+    @Inject
+    lateinit var lifeCycleManager: LifeCycleManager
+
+    @Inject
+    lateinit var notificationRepository: NotificationRepository
 
     // 백그라운드 작업 관리용 코루틴 식별자
     private val serviceJob = SupervisorJob()
@@ -253,7 +267,8 @@ class BackgroundListenerService : Service() {
                 // 모든 워치 노드에 상태 확인 메시지 송신
                 val nodes = nodeClient.connectedNodes.await()
                 for (node in nodes) {
-                    messageClient.sendMessage(node.id, PATH_REQUEST_WATCH_STATUS, byteArrayOf()).await()
+                    messageClient.sendMessage(node.id, PATH_REQUEST_WATCH_STATUS, byteArrayOf())
+                        .await()
                 }
             }.onFailure { e -> Log.e(TAG, "❌ 워치 상태 요청 실패", e) }
         }
@@ -292,7 +307,7 @@ class BackgroundListenerService : Service() {
                         val url = voiceMessage.voiceUrl
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
-                        if (url.isNotEmpty() && !voiceMessage.isRead) {
+                        if (url.isNotEmpty() && !voiceMessage.isRead && !voiceMessage.isInitial) {
                             if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
                                 sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                             } else {
@@ -318,7 +333,7 @@ class BackgroundListenerService : Service() {
                     "messageId" to messageId,
                     "voiceUrl" to voiceUrl,
                     "senderName" to (senderFriend?.nickname ?: "알 수 없음"),
-                    "senderProfileImage" to (senderFriend?.profile_image_url ?: "")
+                    "senderProfileImage" to (senderFriend?.profileImageUrl ?: "")
                 )
 
                 // 데이터 직렬화 후 모든 워치 기기로 송신
@@ -341,11 +356,16 @@ class BackgroundListenerService : Service() {
         val bitRate = 64000
         val timeoutUs = 10000L
 
-        val format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels).apply {
-            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-            setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
-            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 8192)
-        }
+        val format =
+            MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channels)
+                .apply {
+                    setInteger(
+                        MediaFormat.KEY_AAC_PROFILE,
+                        MediaCodecInfo.CodecProfileLevel.AACObjectLC
+                    )
+                    setInteger(MediaFormat.KEY_BIT_RATE, bitRate)
+                    setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 8192)
+                }
 
         var codec: MediaCodec? = null
         var muxer: MediaMuxer? = null
@@ -380,10 +400,22 @@ class BackgroundListenerService : Service() {
                             val bytesRead = fis.read(readBuffer)
                             if (bytesRead == -1) {
                                 isPcmEOS = true
-                                codec.queueInputBuffer(inputBufferIndex, 0, 0, presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                codec.queueInputBuffer(
+                                    inputBufferIndex,
+                                    0,
+                                    0,
+                                    presentationTimeUs,
+                                    MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                                )
                             } else {
                                 inputBuffer.put(readBuffer, 0, bytesRead)
-                                codec.queueInputBuffer(inputBufferIndex, 0, bytesRead, presentationTimeUs, 0)
+                                codec.queueInputBuffer(
+                                    inputBufferIndex,
+                                    0,
+                                    bytesRead,
+                                    presentationTimeUs,
+                                    0
+                                )
                                 presentationTimeUs += (bytesRead * 1_000_000L) / (sampleRate * channels * 2)
                             }
                         }
@@ -476,7 +508,10 @@ class BackgroundListenerService : Service() {
                     channelClient.close(channel).await()
                     if (pcmFile.exists() && pcmFile.length() > 0) {
                         encodePcmToM4a(pcmFile, m4aFile)
-                        val duration = (((System.currentTimeMillis() - startTime) / 1000).toInt()).coerceAtLeast(1)
+                        val duration =
+                            (((System.currentTimeMillis() - startTime) / 1000).toInt()).coerceAtLeast(
+                                1
+                            )
                         if (m4aFile.exists() && m4aFile.length() > 0) {
                             sendWatchAudioToServer(targetUid, Uri.fromFile(m4aFile), duration)
                         }
@@ -497,7 +532,7 @@ class BackgroundListenerService : Service() {
             // 파일 업로드 성공 후 음성 메시지 최종 전송
             voiceRepository.uploadVoiceFile(fileUri)
                 .onSuccess { url ->
-                    voiceRepository.sendVoiceMessageDirect(senderUid, targetUid, url, duration)
+                    voiceRepository.sendVoiceMessage( targetUid, url, duration)
                 }
                 .onFailure { Log.e(TAG, "파일 전송 실패") }
         }
@@ -532,7 +567,8 @@ class BackgroundListenerService : Service() {
                 val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
                 val nodes = nodeClient.connectedNodes.await()
                 for (node in nodes) {
-                    messageClient.sendMessage(node.id, PATH_RESPONSE_FRIENDS_LOCATION, byteArray).await()
+                    messageClient.sendMessage(node.id, PATH_RESPONSE_FRIENDS_LOCATION, byteArray)
+                        .await()
                 }
             }.onFailure { e -> Log.e(TAG, "❌ 워치 위치 푸시 에러", e) }
         }
@@ -602,7 +638,11 @@ class BackgroundListenerService : Service() {
     private fun startLocationUpdates(request: LocationRequest) {
         // 시스템 내부 위치 관리 인터페이스에 콜백 가동 등록
         runCatching {
-            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+            fusedLocationClient.requestLocationUpdates(
+                request,
+                locationCallback,
+                Looper.getMainLooper()
+            )
         }.onFailure { Log.e(TAG, "위치 추적 시작 실패: ${it.message}") }
     }
 
@@ -614,7 +654,8 @@ class BackgroundListenerService : Service() {
 
         // 오레오 버전 전제 알림 채널 빌드
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "워치 무전 수신", NotificationManager.IMPORTANCE_LOW)
+            val channel =
+                NotificationChannel(channelId, "워치 무전 수신", NotificationManager.IMPORTANCE_LOW)
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
@@ -678,21 +719,17 @@ class BackgroundListenerService : Service() {
                         !notifiedIds.contains(notification.id) &&
                         notification.createdAt > serviceStartTime
                     ) {
-                        if (notification.type == "WALKIE" && appLifecycleObserver.isAppInForeground) {
-                            return@forEach
-                        }
-
                         // 즉시 처리 완료 목록에 추가하여 동일 문서의 후속 수정으로 인한 재발 방지
                         notifiedIds.add(notification.id)
                         Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id}")
 
                         // 시스템 알림 표출
                         showSystemNotification(notification)
+                        }
                     }
                 }
             }
         }
-    }
 
     /**
      * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
@@ -700,6 +737,7 @@ class BackgroundListenerService : Service() {
      */
     private fun showSystemNotification(notification: com.bbip.bbipit.domain.entity.Notification) {
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
+        Log.d(TAG, "🔔 roomId: ${notification.roomId}, type: ${notification.type}")
         val channelId = "phone_alert_channel"
         val notificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -718,16 +756,28 @@ class BackgroundListenerService : Service() {
             else -> notification.content
         }
 
-        //배너 클릭 시 Intent
+        // 배너 클릭 시 Intent
         val intent = when (notification.type) {
             "DM" -> Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra("notification_type", "DM")
+                putExtra("notification_id", notification.id)
+
                 putExtra("notification_room_id", notification.roomId)
+                putExtra("notification_receiver_id", notification.senderId)
             }
             "REQ" -> Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra("notification_type", "REQ")
+            }
+            "WALKIE" -> Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("notification_type", "WALKIE")
+                putExtra("notification_id", notification.id)
+                putExtra("notification_audio_url", notification.audioUrl)
+                putExtra("notification_audio_id", notification.audioId)
+                putExtra("notification_sender_id", notification.senderId)
+                putExtra("notification_created_at", notification.createdAt)
             }
             else -> Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -741,7 +791,6 @@ class BackgroundListenerService : Service() {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
         // 시스템 알림 빌더 구동 및 인텐트 파라미터 기반 시각적 요소 구성
         val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(com.bbip.bbipit.R.drawable.baseline_notifications_24)
@@ -751,9 +800,8 @@ class BackgroundListenerService : Service() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        // 고유 ID 기반 시스템 서비스 알림 발행 (중복 방지를 위해 문서 ID의 해시값 사용)
+        // 고유 ID 기반 시스템 서비스 알림 발행
         val notificationId = notification.id.hashCode()
-        Log.d(TAG, "🔔 알림 발행 시도: id=$notificationId")
         notificationManager.notify(notificationId, builder.build())
-        Log.d(TAG, "🔔 알림 발행 완료: id=$notificationId")    }
+    }
 }

@@ -1,10 +1,12 @@
 package com.bbip.bbipit.data.source.remote.notification
 
+import android.util.Log
 import com.bbip.bbipit.data.source.model.NotificationDto
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,7 +16,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class NotificationRemoteDataSourceImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val firebaseFunctions: FirebaseFunctions
 ) : NotificationRemoteDataSource {
 
     /**
@@ -60,6 +63,26 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
                     }
                 }
             }
+    }
+
+    /**
+     * 단건 알림 읽음 처리 함수
+     */
+    override suspend fun markAsRead(notificationId: String) {
+        val data = hashMapOf(
+            "type" to "single",
+            "notificationId" to notificationId
+        )
+        Log.d("NotificationRemote", "markAsRead 호출: $notificationId")
+        try {
+            val result = firebaseFunctions
+                .getHttpsCallable("markNotificationsAsRead")
+                .call(data)
+                .await()
+            Log.d("NotificationRemote", "markAsRead 결과: ${result.data}")
+        } catch (e: Exception) {
+            Log.e("NotificationRemote", "markAsRead 실패: ${e.message}")
+        }
     }
 
     /**

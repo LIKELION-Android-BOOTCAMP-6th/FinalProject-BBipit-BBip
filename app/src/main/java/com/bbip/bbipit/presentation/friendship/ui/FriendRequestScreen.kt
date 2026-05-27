@@ -27,6 +27,7 @@ import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendRequestViewModel
 
 
@@ -35,7 +36,21 @@ fun FriendRequestScreen(
     navController: NavController,
     viewModel: FriendRequestViewModel = hiltViewModel()
 ) {
+
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+
     val requestList by viewModel.requestList.collectAsStateWithLifecycle()
+
+    // 에러 메시지가 있을 때 토스트 띄우기
+    errorMessage?.let { msg ->
+        ShowToast(msg)
+
+        // 중요: 토스트를 띄운 직후, ViewModel의 상태를 다시 null로 돌려놔야
+        // 화면이 재구성되어도 중복 호출되지 않음
+        LaunchedEffect(Unit) {
+            viewModel.clearErrorMessage() // ViewModel에 만든 초기화 함수
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -63,7 +78,7 @@ fun FriendRequestScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "받은 친구 요청이 없습니다.",
+                    text = "친구 요청이 없습니다.",
                     fontSize = 16.sp,
                     color = Color.Gray
                 )
@@ -73,7 +88,7 @@ fun FriendRequestScreen(
                 items(requestList) { friend -> // request 대신 friend 사용
                     FriendRequestItem(
                         nickname = friend.nickname,
-                        profileImageUrl = friend.profile_image_url, // 'model' 파라미터가 아니라 정의된 이름 사용
+                        profileImageUrl = friend.profileImageUrl, // 'model' 파라미터가 아니라 정의된 이름 사용
                         onAccept = { viewModel.acceptFriendRequest(friend.uid) }, // request.id -> friend.uid
                         onReject = { viewModel.rejectFriendRequest(friend.uid) }  // request.id -> friend.uid
                     )

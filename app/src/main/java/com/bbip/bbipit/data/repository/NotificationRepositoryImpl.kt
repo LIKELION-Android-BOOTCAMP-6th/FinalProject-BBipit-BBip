@@ -6,8 +6,10 @@ import com.bbip.bbipit.data.mapper.toEntity
 import com.bbip.bbipit.data.source.model.NotificationDto
 import com.bbip.bbipit.data.source.remote.notification.NotificationRemoteDataSource
 import com.bbip.bbipit.domain.entity.Notification
+import com.bbip.bbipit.domain.entity.VoiceMessage
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.NotificationRepository
+import com.bbip.bbipit.domain.repository.VoiceRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
@@ -18,6 +20,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,6 +33,7 @@ import javax.inject.Singleton
 class NotificationRepositoryImpl @Inject constructor(
     private val dataSource: NotificationRemoteDataSource,
     private val firebaseFunctions: FirebaseFunctions,
+    private val voiceRepository: VoiceRepository,
 ) : NotificationRepository {
 
     private val firestore = FirebaseFirestore.getInstance()
@@ -40,14 +44,13 @@ class NotificationRepositoryImpl @Inject constructor(
     private val _uiReadIds = MutableStateFlow<Set<String>>(emptySet())
     override val uiReadIds: StateFlow<Set<String>> = _uiReadIds.asStateFlow()
 
-    // 메모리 캐시: 삭제된 ID 보관
-    private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
-
     // Firestore 실시간 리스너 등록 객체 (중복 구독 방지용)
     private var listenerRegistration: ListenerRegistration? = null
 
     // 현재 구독 중인 userId (중복 호출 방지용)
     private var observingUserId: String? = null
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * 앱 수명 스코프로 Firestore 구독 시작 (로그인 직후 1회 호출)
@@ -63,7 +66,6 @@ class NotificationRepositoryImpl @Inject constructor(
 
         // 기존 리스너 제거 후 새로 등록
         stopObserving()
-        clearCache()
         observingUserId = userId
 
         val query = firestore
@@ -79,26 +81,34 @@ class NotificationRepositoryImpl @Inject constructor(
             }
 
             if (snapshot != null) {
-                Log.d("NotificationRepo", "Firestore 스냅샷 수신! 변경된 문서 수: ${snapshot.documentChanges.size}")
-                snapshot.documentChanges.forEach { change ->
-                    Log.d("NotificationRepo", "변경 타입: ${change.type}, 데이터: ${change.document.data}")
-                }
+                Log.d("NotificationRepo", "Firestore 스냅샷 수신! 변경된 문서 수: ${snapshot.documentChanges.size}"
+                )
 
                 // 전체 문서를 엔티티로 변환
                 val items = snapshot.documents.mapNotNull { doc ->
                     try {
                         val dto = doc.toObject(NotificationDto::class.java)
-                        dto?.toEntity(doc.id)
+                        val realIsReadFromServer = doc.getBoolean("is_read") ?: false
+
+                        dto?.toEntity(doc.id)?.copy(isRead = realIsReadFromServer)
                     } catch (e: Exception) {
-                        Log.e("NotificationRepo", "데이터 변환 실패: ${doc.id}, 에러: ${e.message}, 데이터: ${doc.data}")
+                        Log.e("NotificationRepo", "데이터 변환 실패: ${doc.id}, 에러: ${e.message}")
                         null
                     }
                 }
 
-                // 삭제된 ID 제외 후 캐시 갱신
-                val safeItems = items.filter { it.id !in _deletedIds.value }
-                _notifications.value = safeItems
-                Log.d("NotificationRepo", "캐시 갱신됨: ${safeItems.size}건")
+                val mergedItems = items.map { newItem ->
+                    val cachedItem = _notifications.value.find { it.id == newItem.id }
+
+                    val finalIsRead = newItem.isRead ||
+                            (cachedItem?.isRead == true) ||
+                            _uiReadIds.value.contains(newItem.id)
+
+                    newItem.copy(isRead = finalIsRead)
+                }
+
+                _notifications.value = mergedItems
+                Log.d("NotificationRepo", "🔄 실시간 동기화 완료: ${mergedItems.size}건 갱신됨")
             }
         }
     }
@@ -112,6 +122,7 @@ class NotificationRepositoryImpl @Inject constructor(
         observingUserId = null
         Log.d("NotificationRepo", "Firestore 알림 구독 중단 및 캐시 초기화")
     }
+
     // 알림 목록 조회
     override suspend fun getNotificationList(userId: String): Result<List<Notification>> {
         return try {
@@ -143,7 +154,7 @@ class NotificationRepositoryImpl @Inject constructor(
             if (notificationId != null) {
                 _uiReadIds.value += notificationId
             } else if (type == "all") {
-                _uiReadIds.value = _notifications.value.map { it.id }.toSet()
+                _notifications.value = _notifications.value.map { it.copy(isRead = true) }
             }
             
             Result.Success(res?.get("success") as? Boolean ?: true)
@@ -153,25 +164,33 @@ class NotificationRepositoryImpl @Inject constructor(
         }
     }
 
-    // 실시간 구독
-    override suspend fun deleteNotifications(
-        userId: String,
-        id: String?
-    ): Result<Unit> {
-        if (id != null) {
-            // 현재 리스트에서 해당 ID만 제외한 새 리스트 생성
-            val currentList = _notifications.value
-            _notifications.value = currentList.filter { it.id != id }
+    // 단건 알림 읽음 처리
+    override suspend fun markAsRead(notificationId: String): Result<Unit> {
+        return try {
+            dataSource.markAsRead(notificationId)
 
-            // 삭제된 ID 저장
-            _deletedIds.value += id
-            Log.d("NotificationRepo", "삭제 ID 기록 및 캐시 갱신: $id")
+            val updatedList = _notifications.value.map { notification ->
+                if (notification.id == notificationId) notification.copy(isRead = true)
+                else notification
+            }
+            _notifications.value = updatedList
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e("NotificationRepo", "단건 읽음 처리 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "읽음 처리 실패"))
+        }
+    }
+
+    // 실시간 구독
+    override suspend fun deleteNotifications(userId: String, id: String?): Result<Unit> {
+        if (id != null) {
+            // 로컬 캐시에서 즉시 제거
+            _notifications.value = _notifications.value.filter { it.id != id }
         } else {
-            // 전체 삭제인 경우
             _notifications.value = emptyList()
         }
 
-        // 서버(Cloud Functions)에 삭제 요청 전송
         val data = hashMapOf(
             "type" to if (id == null) "all" else "single",
             "notificationId" to id
@@ -188,9 +207,45 @@ class NotificationRepositoryImpl @Inject constructor(
             Result.Failure(AppError.Unknown(e.message ?: "삭제 실패"))
         }
     }
+
     override fun clearCache() {
         _notifications.value = emptyList()
         _uiReadIds.value = emptySet()
         Log.d("NotificationRepo", "캐시 완전 초기화 (로그아웃)")
+    }
+
+    // 무전 알림 → VoiceMessage 재생 처리
+    override suspend fun playWalkieNotification(notification: Notification, receiverId: String) {
+        val voiceMessage = VoiceMessage(
+            id = notification.id,
+            senderId = notification.senderId,
+            receiverId = receiverId,
+            voiceUrl = notification.audioUrl,
+            duration = 0,
+            isRead = false,
+            createdAt = notification.createdAt
+        )
+        voiceRepository.emitMobileVoiceEvent(voiceMessage)
+    }
+
+    // 무전 즉시 재생
+    override fun playWalkie(intent: android.content.Intent, receiverId: String) {
+        val audioId = intent.getStringExtra("notification_audio_id") ?: ""
+        val audioUrl = intent.getStringExtra("notification_audio_url") ?: return
+        val senderId = intent.getStringExtra("notification_sender_id") ?: ""
+        val createdAt = intent.getLongExtra("notification_created_at", 0L)
+
+        val voiceMessage = VoiceMessage(
+            id = audioId,
+            senderId = senderId,
+            receiverId = receiverId,
+            voiceUrl = audioUrl,
+            duration = 0,
+            isRead = false,
+            createdAt = createdAt
+        )
+        appScope.launch {
+            voiceRepository.emitMobileVoiceEvent(voiceMessage)
+        }
     }
 }

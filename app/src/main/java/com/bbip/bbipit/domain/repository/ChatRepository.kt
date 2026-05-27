@@ -1,5 +1,6 @@
 package com.bbip.bbipit.domain.repository
 
+import androidx.navigation.NavController
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.entity.ChatRoomResult
@@ -31,4 +32,8 @@ interface ChatRepository {
 
     // 메시지 내역 조회
     suspend fun fetchAllMessages(roomId: String): Result<List<ChatMessage>>
+
+    // 채팅방 진입/퇴장 관리
+    suspend fun updateActiveRoom(uid: String, roomId: String?)
+    suspend fun createOrGetChatRoom(targetUid: String): Result<ChatRoomResult>
 }

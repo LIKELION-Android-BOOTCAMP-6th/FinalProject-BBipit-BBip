@@ -2,11 +2,12 @@ package com.bbip.bbipit.presentation.map.viewmodel
 
 import android.annotation.SuppressLint
 import android.util.Log
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
 import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.google.android.gms.location.CurrentLocationRequest
@@ -36,7 +37,8 @@ data class MapUiState(
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
-    private val fusedLocationClient: FusedLocationProviderClient
+    private val fusedLocationClient: FusedLocationProviderClient,
+    private val chatRepository: ChatRepositoryImpl
 ): BaseViewModel<MapUiState>(MapUiState()) {
 
     // 서버 데이터 공급 전 로컬 캐시 레이어 즉시 파싱용 백업용 Flow
@@ -52,6 +54,29 @@ class MapViewModel @Inject constructor(
     companion object {
         private const val DEFAULT_LATITUDE = 37.5665
         private const val DEFAULT_LONGITUDE = 126.9780
+    }
+
+    /**
+     * 친구와의 1:1 채팅방 생성 또는 기존 방 ID 가져오기
+     */
+    fun createOrGetChatRoom(
+        targetUid: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            chatRepository.createOrGetChatRoom(targetUid)
+                .onSuccess { result ->
+                    if (result.success && result.roomId != null) {
+                        onSuccess(result.roomId)
+                    } else {
+                        onError(result.message.ifEmpty { "채팅방 ID를 가져올 수 없습니다." })
+                    }
+                }
+                .onFailure { error ->
+                    onError(error.message ?: "채팅방 생성 중 오류가 발생했습니다.")
+                }
+        }
     }
 
     fun fetchLiveStatusAndRefreshCache() {

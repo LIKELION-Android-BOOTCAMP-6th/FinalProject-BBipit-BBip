@@ -52,13 +52,12 @@ fun NotificationScreen(
 
     val expiredVoiceIds by viewModel.expiredVoiceIds.collectAsState()
     val isReadAllClicked by viewModel.readAllClicked.collectAsState()
-    val readIds by viewModel.readIds.collectAsState()
 
     val filteredList by remember(notification, selectedFilter) {
         derivedStateOf {
             val baseList = if (selectedFilter == "전체") notification
             else notification.filter { mapFilterToType(selectedFilter, it.type) }
-            baseList.sortedByDescending { it.createdAt }
+            baseList.sortedWith(compareBy<Notification> { it.isRead }.thenByDescending { it.createdAt })
         }
     }
 
@@ -87,10 +86,9 @@ fun NotificationScreen(
             val listState = rememberLazyListState()
 
             LaunchedEffect(filteredList.size) {
-                if (filteredList.isNotEmpty()) {
                     listState.animateScrollToItem(0)
                 }
-            }
+
 
             LazyColumn(
                 state = listState,
@@ -150,22 +148,17 @@ fun NotificationScreen(
                             currentTime = currentTime,
                             readAllClicked = isReadAllClicked,
                             isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
-                            isLocalRead = readIds.contains(item.id),
                             onClick = {
                                 if (item.type == "DM") {
                                     viewModel.markAsRead(item.id)
                                     navController.navigate(Routes.ChatRoom(roomId = item.roomId, receiverId = item.senderId ?: "")) // 알림 sender id = dm의 receiver id
                                 }
                                 else if (item.type == "WALKIE") {
-                                    val alreadyExpired = item.isRead || item.isExpired || expiredVoiceIds.contains(item.id)
+                                    val alreadyExpired = item.isExpired || expiredVoiceIds.contains(item.id)
                                     if (!alreadyExpired) {
                                         viewModel.markAsRead(item.id)
                                         viewModel.setVoiceExpired(item.id)
-                                        Toast.makeText(
-                                            navController.context,
-                                            "무전을 확인합니다.",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        viewModel.playWalkieFromNotification(item)
                                     }
                                 }
                                 else if (item.type == "REQ") {
@@ -190,7 +183,7 @@ fun NotificationCard(
     isVoiceExpiredInUi: Boolean = false,
     isLocalRead: Boolean = false
 ) {
-    val isWalkieExpired = item.type == "WALKIE" && (item.isRead || item.isExpired || isVoiceExpiredInUi)
+    val isWalkieExpired = item.type == "WALKIE" && (item.isExpired || isVoiceExpiredInUi)
 
     Card(
         modifier = Modifier
@@ -210,7 +203,7 @@ fun NotificationCard(
                 modifier = Modifier.size(14.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                val showDot = !item.isRead && !isWalkieExpired && !isLocalRead
+                val showDot = !item.isRead && !isWalkieExpired
                 if (showDot) {
                     Box(
                         modifier = Modifier

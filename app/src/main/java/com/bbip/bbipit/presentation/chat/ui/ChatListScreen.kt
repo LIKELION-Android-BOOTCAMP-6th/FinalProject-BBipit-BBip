@@ -38,6 +38,7 @@ import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
+import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
 
 /**
@@ -240,7 +241,7 @@ fun ChatItemRow(
                 modifier = Modifier
                     .size(14.dp)
                     .background(
-                        color = if (chatItem.isOnline) Color(0xFF4CAF50) else Color.Gray,
+                        color = if (chatItem.isOnline) online else Color.Gray,
                         shape = CircleShape
                     )
                     .border(2.dp, Color.White, CircleShape)
@@ -264,8 +265,8 @@ fun ChatItemRow(
                 // DB의 last_message 연결
                 text = if (chatItem.hasImage) "📷 사진을 보냈습니다" else chatItem.lastMessage,
                 style = Typography.bodySmall,
-                color = if (chatItem.isRead) Color.Black else Color.Gray,
-                fontWeight = if (chatItem.isRead) FontWeight.Bold else FontWeight.Normal,
+                color = if (chatItem.isRead) Color.Gray else Color.Black,
+                fontWeight = if (chatItem.isRead) FontWeight.Normal else FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
