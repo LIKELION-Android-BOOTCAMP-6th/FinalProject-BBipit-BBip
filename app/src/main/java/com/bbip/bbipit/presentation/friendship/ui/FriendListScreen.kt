@@ -128,6 +128,7 @@ fun FriendListScreen(
             ) {
                 Text(
                     text = "친구가 없습니다.\n친구 추가를 해보세요!",
+                    style = Typography.bodyMedium,
                     fontSize = 16.sp,
                     color = Color.Gray,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -218,7 +219,7 @@ fun FriendRequestCard(count: Int, onClick: () -> Unit) {
         ) {
             Icon(Icons.Default.PersonAdd, contentDescription = null, tint = primary)
             Spacer(modifier = Modifier.width(12.dp))
-            Text("친구 요청", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("친구 요청", style = Typography.bodyMedium,fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.weight(1f))
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -227,6 +228,7 @@ fun FriendRequestCard(count: Int, onClick: () -> Unit) {
                 Text(
                     text = if (count > 0) "$count 명의 새로운 요청" else "친구 요청 없음",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = Typography.bodyMedium,
                     fontSize = 12.sp,
                     color = if (count > 0) primary else Color.Gray // 0일 땐 회색 글씨
                 )
@@ -390,7 +392,7 @@ fun AddFriendDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 아이콘 박스
-                Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(Color(0xFFEDE9FE))) {
+                Box(modifier = Modifier.size(60.dp).clip(CircleShape).background(background)) {
                     Icon(Icons.Default.PersonAdd, contentDescription = null, tint = primary, modifier = Modifier.align(Alignment.Center))
                 }
 
@@ -404,7 +406,7 @@ fun AddFriendDialog(
                 OutlinedTextField(
                     value = uid,
                     onValueChange = { uid = it },
-                    placeholder = { Text("UID 입력 (예: 12345678)", style = Typography.bodySmall, fontWeight = FontWeight.Bold) },
+                    placeholder = { Text("UID 입력 (예: 12345678)", style = Typography.bodyMedium, fontWeight = FontWeight.Bold) },
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
