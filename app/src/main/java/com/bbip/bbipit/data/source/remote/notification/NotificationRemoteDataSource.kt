@@ -12,4 +12,5 @@ interface NotificationRemoteDataSource {
     ): ListenerRegistration
 
     suspend fun deleteNotification(userId: String, id: String?)
+    suspend fun markVoiceNotificationAsPlayed(notificationId: String): Boolean
 }

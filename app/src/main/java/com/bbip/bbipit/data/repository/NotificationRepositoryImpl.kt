@@ -49,6 +49,13 @@ class NotificationRepositoryImpl @Inject constructor(
     // 현재 구독 중인 userId (중복 호출 방지용)
     private var observingUserId: String? = null
 
+    override suspend fun markVoiceNotiAsPlayed(notificationId: String): Boolean {
+        // 비즈니스 로직 예시: 필요한 경우 데이터 가공이나 유효성 검증을 거친 후 데이터 소스 호출
+        if (notificationId.isBlank()) return false
+
+        return dataSource.markVoiceNotificationAsPlayed(notificationId)
+    }
+
     /**
      * 앱 수명 스코프로 Firestore 구독 시작 (로그인 직후 1회 호출)
      * 구독 즉시 전체 문서를 수신하여 캐시에 보관
