@@ -85,6 +85,7 @@ fun FriendListScreen(
             .fillMaxSize()
             .background(background)
             .padding(16.dp)
+            .navigationBarsPadding().padding(bottom = 88.dp)
             .blur(if (showDialog) 10.dp else 0.dp)
     ) {
         // 타이틀 영역
