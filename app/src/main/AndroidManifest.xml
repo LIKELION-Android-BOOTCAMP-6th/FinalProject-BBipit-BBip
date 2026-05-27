@@ -67,6 +67,7 @@
             android:name=".presentation.main.MainActivity"
             android:windowSoftInputMode="adjustResize"
             android:exported="true"
+            android:launchMode="singleTop"
             android:label="@string/app_name"
             android:theme="@style/Theme.Bbipit">
             <intent-filter>

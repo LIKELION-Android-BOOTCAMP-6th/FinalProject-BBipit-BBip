@@ -153,6 +153,24 @@ class NotificationRepositoryImpl @Inject constructor(
         }
     }
 
+    // 단건 알림 읽음 처리
+    override suspend fun markAsRead(notificationId: String): Result<Unit> {
+        return try {
+            dataSource.markAsRead(notificationId)
+
+            val updatedList = _notifications.value.map { notification ->
+                if (notification.id == notificationId) notification.copy(isRead = true)
+                else notification
+            }
+            _notifications.value = updatedList
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e("NotificationRepo", "단건 읽음 처리 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "읽음 처리 실패"))
+        }
+    }
+
     // 실시간 구독
     override suspend fun deleteNotifications(
         userId: String,

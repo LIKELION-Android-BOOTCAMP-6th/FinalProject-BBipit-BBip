@@ -29,6 +29,9 @@ interface NotificationRepository {
     // 알림 읽음 처리
     suspend fun markNotificationsAsRead(type: String, notificationId: String?): Result<Boolean>
 
+    // 단건 알림 읽음 처리
+    suspend fun markAsRead(notificationId: String): Result<Unit>
+
     // 알림 삭제
     suspend fun deleteNotifications(userId: String, notificationId: String?): Result<Unit>
 }
