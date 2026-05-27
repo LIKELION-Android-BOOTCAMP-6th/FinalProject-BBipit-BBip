@@ -55,6 +55,7 @@ fun Map<String, Any>.toDomain(): User {
         lastActive = (this["last_active"] as? Number)?.toLong() ?: 0L,
         friendUids = emptyList(),
         loginType = this["login_type"] as? String ?: "",
-        email = this["email"] as? String ?: ""
+        email = this["email"] as? String ?: "",
+        userCode = this["user_code"] as? String ?: ""
     )
 }
