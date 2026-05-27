@@ -21,6 +21,8 @@ class FriendRequestViewModel @Inject constructor(
     private val friendRepository: FriendRepository
 ) : ViewModel() {
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage = _errorMessage.asStateFlow()
     private val _requestList = MutableStateFlow<List<Friend>>(emptyList())
     val requestList = _requestList.asStateFlow()
 
@@ -66,6 +68,7 @@ class FriendRequestViewModel @Inject constructor(
 
     // 친구 요청 수락
     fun acceptFriendRequest(targetUid: String) {
+        val previousList = _requestList.value // 기존 리스트 보관
         _requestList.value = _requestList.value.filter { it.uid != targetUid }
 
         viewModelScope.launch {
@@ -75,9 +78,13 @@ class FriendRequestViewModel @Inject constructor(
 
             result.onSuccess {
                 android.util.Log.d("FriendRequestViewModel", "수락 성공: $targetUid")
+                _errorMessage.value = "친구 요청을 수락했습니다."
 
             }.onFailure { appError ->
                 android.util.Log.e("FriendRequestViewModel", "수락 실패: ${appError.message}")
+                // 1. 상태 복구
+                _requestList.value = previousList
+                _errorMessage.value = "요청 처리에 실패했습니다."
             }
 
             _isLoading.value = false
@@ -86,6 +93,7 @@ class FriendRequestViewModel @Inject constructor(
 
     // 친구 요청 거절
     fun rejectFriendRequest(targetUid: String) {
+        val previousList = _requestList.value // 기존 리스트 보관
         _requestList.value = _requestList.value.filter { it.uid != targetUid }
 
         viewModelScope.launch {
@@ -95,12 +103,20 @@ class FriendRequestViewModel @Inject constructor(
 
             result.onSuccess {
                 android.util.Log.d("FriendRequestViewModel", "거절 성공: $targetUid")
+                _errorMessage.value = "친구 요청을 거절했습니다."
 
             }.onFailure { appError ->
                 android.util.Log.e("FriendRequestViewModel", "거절 실패: ${appError.message}")
+                _requestList.value = previousList
+                _errorMessage.value = "요청 처리에 실패했습니다."
+
             }
 
             _isLoading.value = false
         }
+    }
+
+    fun clearErrorMessage() {
+        _errorMessage.value = null
     }
 }

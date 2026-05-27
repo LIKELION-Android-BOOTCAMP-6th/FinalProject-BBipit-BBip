@@ -512,53 +512,53 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                 minLines = 1,         // 최소 1줄 시작
                 maxLines = 4,         // 최대 4줄까지 늘어나고 그 이상은 스크롤
 
-                leadingIcon = {
-                    Box {
-                        IconButton(onClick = { expanded = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "추가",
-                                tint = Color.Gray
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.background(Color.White)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("카메라", style = Typography.bodyMedium) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(20.dp))
-                                },
-                                onClick = {
-                                    /* TODO: 카메라 촬영 로직 호출 */
-                                    expanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("앨범", style = Typography.bodyMedium) },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(20.dp))
-                                },
-                                onClick = {
-                                    /* TODO: 앨범 선택 로직 호출 */
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                },
-                trailingIcon = {
-                    IconButton(onClick = { /* 음성 인식 로직 */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Mic,
-                            contentDescription = "음성",
-                            tint = Color.Gray
-                        )
-                    }
-                },
+//                leadingIcon = {
+//                    Box {
+//                        IconButton(onClick = { expanded = true }) {
+//                            Icon(
+//                                imageVector = Icons.Default.Add,
+//                                contentDescription = "추가",
+//                                tint = Color.Gray
+//                            )
+//                        }
+//
+//                        DropdownMenu(
+//                            expanded = expanded,
+//                            onDismissRequest = { expanded = false },
+//                            modifier = Modifier.background(Color.White)
+//                        ) {
+//                            DropdownMenuItem(
+//                                text = { Text("카메라", style = Typography.bodyMedium) },
+//                                leadingIcon = {
+//                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(20.dp))
+//                                },
+//                                onClick = {
+//                                    /* TODO: 카메라 촬영 로직 호출 */
+//                                    expanded = false
+//                                }
+//                            )
+//                            DropdownMenuItem(
+//                                text = { Text("앨범", style = Typography.bodyMedium) },
+//                                leadingIcon = {
+//                                    Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(20.dp))
+//                                },
+//                                onClick = {
+//                                    /* TODO: 앨범 선택 로직 호출 */
+//                                    expanded = false
+//                                }
+//                            )
+//                        }
+//                    }
+//                },
+//                trailingIcon = {
+//                    IconButton(onClick = { /* 음성 인식 로직 */ }) {
+//                        Icon(
+//                            imageVector = Icons.Default.Mic,
+//                            contentDescription = "음성",
+//                            tint = Color.Gray
+//                        )
+//                    }
+//                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White.copy(alpha = 0.9f),
                     unfocusedContainerColor = Color.White.copy(alpha = 0.9f),
