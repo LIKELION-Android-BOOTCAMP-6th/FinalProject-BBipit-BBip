@@ -8,6 +8,8 @@ import android.widget.Toast
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
@@ -32,7 +34,11 @@ class NotificationViewModel @Inject constructor(
     private val _notification = MutableStateFlow<List<Notification>>(emptyList())
     val notification: StateFlow<List<Notification>> = _notification.asStateFlow()
 
-    private val _expiredVoiceIds = MutableStateFlow<Set<String>>(emptySet())
+    private val prefs = context.getSharedPreferences("notification_prefs", Context.MODE_PRIVATE)
+
+    private val _expiredVoiceIds = MutableStateFlow<Set<String>>(
+        prefs.getStringSet("expired_voice_ids", emptySet()) ?: emptySet()
+    )
     val expiredVoiceIds: StateFlow<Set<String>> = _expiredVoiceIds.asStateFlow()
 
     private val _readAllClicked = MutableStateFlow(false)
@@ -40,7 +46,6 @@ class NotificationViewModel @Inject constructor(
 
     private val currentUserId: String = authRepository.getCurrentUserUid() ?: ""
 
-    private val prefs = context.getSharedPreferences("notification_prefs", Context.MODE_PRIVATE)
     private val _readIds = MutableStateFlow<Set<String>>(
         prefs.getStringSet("read_ids", emptySet()) ?: emptySet()
     )
@@ -92,7 +97,9 @@ class NotificationViewModel @Inject constructor(
     }
 
     fun setVoiceExpired(id: String) {
-        _expiredVoiceIds.value += id
+        val updated = _expiredVoiceIds.value + id
+        _expiredVoiceIds.value = updated
+        prefs.edit { putStringSet("expired_voice_ids", updated) }
     }
 
     // 리스트에서 완전히 삭제 (스와이프 시)
@@ -107,30 +114,18 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    // 항목 클릭 시: SharedPreferences 저장 + Firestore is_read=true
+    // 단건 읽음 처리: Repository → RemoteDataSource → Cloud Functions
     fun markAsRead(id: String) {
         if (currentUserId.isEmpty()) return
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
 
-        // SharedPreferences에 영구 저장
-        saveReadId(id)
-
         viewModelScope.launch {
-            try {
-                FirebaseFirestore.getInstance()
-                    .collection("Notifications")
-                    .document(currentUserId)
-                    .collection("Notification")
-                    .document(id)
-                    .update("is_read", true)
-                    .addOnSuccessListener {
-                        Log.d("NotificationVM", "✅ Firestore 읽음 처리 성공: $id")
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("NotificationVM", "❌ Firestore 읽음 처리 실패: $id, ${e.message}")
-                    }
-            } catch (e: Exception) {
-                Log.e("NotificationVM", "코루틴 에러: ${e.message}")
+            val result = notificationRepository.markAsRead(id)
+            result.onSuccess {
+                Log.d("NotificationVM", "✅ 읽음 처리 성공: $id")
+            }
+            result.onFailure {
+                Log.e("NotificationVM", "❌ 읽음 처리 실패: $id")
             }
         }
     }

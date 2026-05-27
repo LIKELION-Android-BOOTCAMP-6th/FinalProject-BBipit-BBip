@@ -5,6 +5,7 @@ import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -14,7 +15,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class NotificationRemoteDataSourceImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val firebaseFunctions: FirebaseFunctions
 ) : NotificationRemoteDataSource {
 
     /**
@@ -61,6 +63,21 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
                 }
             }
     }
+
+    /**
+     * 단건 알림 읽음 처리 함수
+     */
+    override suspend fun markAsRead(notificationId: String) {
+        val data = hashMapOf(
+            "type" to "single",
+            "notificationId" to notificationId
+        )
+        firebaseFunctions
+            .getHttpsCallable("markNotificationsAsRead")
+            .call(data)
+            .await()
+    }
+
 
     /**
      * 지정 특정 알림 고유 문서 식별자 데이터 대상 파이어스토어 데이터베이스 상 영구 삭제 제거 함수
