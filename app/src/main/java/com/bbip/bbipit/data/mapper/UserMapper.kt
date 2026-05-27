@@ -54,6 +54,7 @@ fun Map<String, Any>.toDomain(): User {
         fcmToken = "",
         lastActive = (this["last_active"] as? Number)?.toLong() ?: 0L,
         friendUids = emptyList(),
-        loginType = ""
+        loginType = this["login_type"] as? String ?: "",
+        email = this["email"] as? String ?: ""
     )
 }

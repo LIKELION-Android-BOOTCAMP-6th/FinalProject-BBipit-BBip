@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.mypage
 
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
@@ -82,7 +83,6 @@ fun MyPageScreen(
             }
         }
     }
-    // 1. 뷰모델의 상태(isShownDrawer)가 변경되면 실제 드로어 UI(drawerState)를 조작
     LaunchedEffect(isShownDrawer) {
         if (isShownDrawer) {
             drawerState.open()
@@ -91,28 +91,12 @@ fun MyPageScreen(
         }
     }
 
-    // 2. 🌟 중요: 사용자가 손가락으로 쓸어서 닫거나, 드로어 외부를 눌러서 닫았을 때(UI 변경)
-    // 그 상태를 뷰모델에 역으로 동기화해 주는 로직
     LaunchedEffect(drawerState.currentValue) {
         val isDrawerUiOpen = drawerState.isOpen
-        // 실제 드로어 UI 상태와 뷰모델의 상태가 다를 때만 뷰모델을 찔러줍니다 (무한루프 방지)
         if (isDrawerUiOpen != isShownDrawer) {
             bottomBarViewModel.onUpdateDrawerShown(isDrawerUiOpen)
         }
     }
-//    LaunchedEffect(isShownDrawer) {
-//        if (isShownDrawer){
-//            drawerState.open()
-//        }else{
-//            bottomBarViewModel.onUpdateDrawerShown(false)
-//            drawerState.close()
-//        }
-//    }
-//    LaunchedEffect(drawerState.currentValue) {
-//        if (drawerState.isClosed && isShownDrawer){
-//            bottomBarViewModel.onUpdateDrawerShown(false)
-//        }
-//    }
 
     // 상태 변수에 값이 채워지는 순간, ShowToast 공통 컴포저블 호출
     uiState.toast?.let { message ->
@@ -124,12 +108,15 @@ fun MyPageScreen(
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
+                Log.d("마이페이지", "${uiState.email}, ${uiState.loginType}")
                 SettingsDrawer(
                     email = uiState.email,
-                    LoginType = uiState.loginType,
+                    loginType = uiState.loginType,
                     modifier = Modifier.fillMaxWidth(0.7f).fillMaxHeight(),
-                    onClose = {bottomBarViewModel.onUpdateDrawerShown(false)}
+                    onClose = { bottomBarViewModel.onUpdateDrawerShown(false) },
+                    viewModel = viewModel
                 )
+
             }
         ) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -327,10 +314,6 @@ fun MyPageScreen(
                                             textAlign = TextAlign.Center
                                         )
                                     }
-                                }
-
-                                IconButton(onClick = {viewModel.onChangeSignOutDialog(true)}) {
-                                    Icon(imageVector = Icons.AutoMirrored.Filled.Logout, tint = Color.LightGray, contentDescription = "로그아웃")
                                 }
                             }
                         }
