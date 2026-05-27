@@ -719,21 +719,17 @@ class BackgroundListenerService : Service() {
                         !notifiedIds.contains(notification.id) &&
                         notification.createdAt > serviceStartTime
                     ) {
-                        if (notification.type == "WALKIE" && appLifecycleObserver.isAppInForeground) {
-                            return@forEach
-                        }
-
                         // 즉시 처리 완료 목록에 추가하여 동일 문서의 후속 수정으로 인한 재발 방지
                         notifiedIds.add(notification.id)
                         Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id}")
 
                         // 시스템 알림 표출
                         showSystemNotification(notification)
+                        }
                     }
                 }
             }
         }
-    }
 
     /**
      * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
@@ -765,12 +761,23 @@ class BackgroundListenerService : Service() {
             "DM" -> Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra("notification_type", "DM")
+                putExtra("notification_id", notification.id)
+
                 putExtra("notification_room_id", notification.roomId)
                 putExtra("notification_receiver_id", notification.senderId)
             }
             "REQ" -> Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 putExtra("notification_type", "REQ")
+            }
+            "WALKIE" -> Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                putExtra("notification_type", "WALKIE")
+                putExtra("notification_id", notification.id)
+                putExtra("notification_audio_url", notification.audioUrl)
+                putExtra("notification_audio_id", notification.audioId)
+                putExtra("notification_sender_id", notification.senderId)
+                putExtra("notification_created_at", notification.createdAt)
             }
             else -> Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

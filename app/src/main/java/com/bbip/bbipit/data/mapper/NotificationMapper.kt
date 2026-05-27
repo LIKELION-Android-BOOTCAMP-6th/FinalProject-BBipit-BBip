@@ -15,6 +15,7 @@ fun NotificationDto.toEntity(id: String): Notification {
                 senderId = sender_id,
                 senderName = sender_name,
                 content = content,
+                audioId = voice_id,
                 audioUrl = voice_url ?: "",
                 roomId = room_id ?: "",
                 isRead = is_read,

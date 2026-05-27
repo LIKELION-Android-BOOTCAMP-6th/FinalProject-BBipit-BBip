@@ -69,22 +69,36 @@ fun BBipItNavigation(
     }
 
     LaunchedEffect(notificationIntent) {
+        if (!(isLogin && isEmailVerified)) return@LaunchedEffect
         val type = notificationIntent?.getStringExtra("notification_type") ?: return@LaunchedEffect
-        val roomId = notificationIntent.getStringExtra("notification_room_id") ?: ""
-        val receiverId = notificationIntent.getStringExtra("notification_receiver_id") ?: ""
 
-        while (navController.currentBackStackEntry?.destination?.route?.contains("Notification") != true) {
-           delay(50)
+        val notificationId = notificationIntent.getStringExtra("notification_id") ?: ""
+        val roomId = notificationIntent.getStringExtra("notification_room_id") ?: ""
+
+        if (notificationId.isNotEmpty()) {
+            notificationViewModel.markAsRead(notificationId)
         }
 
         when (type) {
-            "DM" -> if (roomId.isNotEmpty()) navController.navigate(
-                Routes.ChatRoom(
-                    roomId = roomId,
-                    receiverId = receiverId
-                )
-            )
-            "REQ" -> navController.navigate(Routes.FriendRequestList)
+            "DM" -> {
+                if (roomId.isNotEmpty()) {
+                    val receiverId =
+                        notificationIntent.getStringExtra("notification_receiver_id") ?: ""
+                    navController.navigate(
+                        Routes.ChatRoom(
+                            roomId = roomId,
+                            receiverId = receiverId
+                        )
+                    )
+                }
+            }
+            "WALKIE" -> {
+                notificationViewModel.playWalkie(notificationIntent)
+                navController.navigate(Routes.Notification)
+            }
+            "REQ" -> {
+                navController.navigate(Routes.FriendRequestList)
+            }
         }
     }
 }

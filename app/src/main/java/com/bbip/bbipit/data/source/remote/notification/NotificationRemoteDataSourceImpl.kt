@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.source.remote.notification
 
+import android.util.Log
 import com.bbip.bbipit.data.source.model.NotificationDto
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
@@ -72,12 +73,17 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
             "type" to "single",
             "notificationId" to notificationId
         )
-        firebaseFunctions
-            .getHttpsCallable("markNotificationsAsRead")
-            .call(data)
-            .await()
+        Log.d("NotificationRemote", "markAsRead 호출: $notificationId")
+        try {
+            val result = firebaseFunctions
+                .getHttpsCallable("markNotificationsAsRead")
+                .call(data)
+                .await()
+            Log.d("NotificationRemote", "markAsRead 결과: ${result.data}")
+        } catch (e: Exception) {
+            Log.e("NotificationRemote", "markAsRead 실패: ${e.message}")
+        }
     }
-
 
     /**
      * 지정 특정 알림 고유 문서 식별자 데이터 대상 파이어스토어 데이터베이스 상 영구 삭제 제거 함수

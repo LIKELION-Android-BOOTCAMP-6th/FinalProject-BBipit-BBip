@@ -9,6 +9,7 @@ data class Notification(
     val senderId: String = "",
     val senderName: String = "",
     val content: String = "",
+    val audioId: String = "",
     val audioUrl: String = "",
     val createdAt: Long = 0L,
     val roomId: String = "",

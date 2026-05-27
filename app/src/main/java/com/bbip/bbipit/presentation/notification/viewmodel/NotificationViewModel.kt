@@ -13,6 +13,7 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Notification
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
+import com.bbip.bbipit.domain.repository.VoiceRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +29,7 @@ import javax.inject.Inject
 class NotificationViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
 ) : ViewModel() {
 
     private val _notification = MutableStateFlow<List<Notification>>(emptyList())
@@ -46,35 +47,23 @@ class NotificationViewModel @Inject constructor(
 
     private val currentUserId: String = authRepository.getCurrentUserUid() ?: ""
 
-    private val _readIds = MutableStateFlow<Set<String>>(
-        prefs.getStringSet("read_ids", emptySet()) ?: emptySet()
-    )
-    val readIds: StateFlow<Set<String>> = _readIds.asStateFlow()
-
-    private val _deletedIds = MutableStateFlow<Set<String>>(emptySet())
-
     init {
         viewModelScope.launch {
-            // Repository 캐시 구독 → UI 갱신만 담당
             notificationRepository.notifications.collect { liveNotifications ->
-                // is_read 상태 로그
                 liveNotifications.forEach {
                     Log.d("NotificationVM", "id: ${it.id}, isRead: ${it.isRead}, type: ${it.type}")
                 }
+                if (liveNotifications.size > _notification.value.size) {
+                    _readAllClicked.value = false
+                }
                 // 데이터 정렬
                 _notification.value = liveNotifications
-                    .sortedByDescending { it.createdAt }
+                    .sortedWith(compareBy<Notification> { it.isRead }.thenByDescending { it.createdAt })
                     .toList()
             }
         }
     }
 
-    // readIds에 저장 + SharedPreferences 영구 저장
-    private fun saveReadId(id: String) {
-        val updated = _readIds.value + id
-        _readIds.value = updated
-        prefs.edit { putStringSet("read_ids", updated) }
-    }
 
 
     // 현재 기기의 네트워크 연결 상태를 체크하는 함수
@@ -119,13 +108,20 @@ class NotificationViewModel @Inject constructor(
         if (currentUserId.isEmpty()) return
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
 
+        // 로컬 UI 상태 반영
+        _notification.value = _notification.value.map { notification ->
+            if (notification.id == id) notification.copy(isRead = true)
+            else notification
+        }
+
         viewModelScope.launch {
-            val result = notificationRepository.markAsRead(id)
+            Log.d("NotificationVM", "📱 서버에 단건 읽음 요청 전송 시작: $id")
+            val result = notificationRepository.markNotificationsAsRead(type = "single", notificationId = id)
+
             result.onSuccess {
-                Log.d("NotificationVM", "✅ 읽음 처리 성공: $id")
-            }
-            result.onFailure {
-                Log.e("NotificationVM", "❌ 읽음 처리 실패: $id")
+                Log.d("NotificationVM", "✅ 서버 단건 읽음 처리 완료: $id")
+            }.onFailure { e ->
+                Log.e("NotificationVM", "❌ 서버 단건 읽음 처리 실패: ${e.message}")
             }
         }
     }
@@ -134,20 +130,45 @@ class NotificationViewModel @Inject constructor(
     fun onReadAllClick() {
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
 
-        val unreadIds = _notification.value.filter { !it.isRead }.map { it.id }.toSet()
-        val updated = _readIds.value + unreadIds
-        _readIds.value = updated
-        prefs.edit { putStringSet("read_ids", updated) }
+        // 로컬 UI 상태 즉시 전체 true 변환
+        _notification.value = _notification.value.map { it.copy(isRead = true) }
         _readAllClicked.value = true
 
         viewModelScope.launch {
-            try {
-                notificationRepository.markNotificationsAsRead(type = "all", notificationId = null)
-                Log.d("NotificationVM", "✅ 서버 전체 읽음 처리 API 호출 완료")
-            } catch (e: Exception) {
-                Log.e("NotificationVM", "❌ 전체 읽음 처리 실패: ${e.message}")
+            Log.d("NotificationVM", "📱 서버에 전체 읽음 요청 전송 시작")
+            val result = notificationRepository.markNotificationsAsRead(type = "all", notificationId = null)
+
+            result.onSuccess { success ->
+                if (success) {
+                    Log.d("NotificationVM", "✅ 서버 전체 읽음 처리 완료 API 호출 성공")
+                } else {
+                    Log.e("NotificationVM", "❌ 서버 전체 읽음 처리 API 가 false를 반환함")
+                }
+            }.onFailure { e ->
+                Log.e("NotificationVM", "❌ 서버 전체 읽음 처리 호출 완전 실패: ${e.message}")
             }
         }
+    }
+
+    // 무전 알림 클릭 시 즉시 재생 처리
+    fun playWalkieFromNotification(notification: Notification) {
+        if (notification.audioUrl.isEmpty()) return
+        if (notification.isExpired) return
+
+        viewModelScope.launch {
+            notificationRepository.playWalkieNotification(notification, currentUserId)
+        }
+    }
+
+    // 배너 클릭 진입 시 최우선 즉시 재생 처리
+    fun playWalkie(intent: android.content.Intent) {
+        val notificationId = intent.getStringExtra("notification_id") ?: run {
+            Log.e("NotificationVM", "❌ notificationId 없음")
+            return
+        }
+        notificationRepository.playWalkie(intent, currentUserId)
+        setVoiceExpired(notificationId)
+        markAsRead(notificationId)
     }
 
     fun createTestNotification(type: String) {

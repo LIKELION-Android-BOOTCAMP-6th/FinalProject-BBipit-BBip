@@ -3,6 +3,7 @@ package com.bbip.bbipit.presentation.main
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -60,6 +62,8 @@ class MainActivity : ComponentActivity() {
     // 알림 클릭 시 이동 처리를 위한 반응형 상태
     private var pendingNotificationIntent by mutableStateOf<Intent?>(null)
 
+    private var pendingNotificationId by mutableStateOf<String?>(null)
+
     override fun onDestroy() {
         super.onDestroy()
     }
@@ -68,6 +72,8 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingNotificationIntent = intent
+        pendingNotificationId = intent.getStringExtra("notification_id")
+
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +90,7 @@ class MainActivity : ComponentActivity() {
 
         // 알림 클릭으로 온 Intent인지 구분
         pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
+        pendingNotificationId = intent.getStringExtra("notification_id")
 
         setContent {
 
@@ -128,6 +135,18 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
 //                            .padding(innerPadding)
                     ) {
+                        // 배너 클릭 진입 시 알림 처리
+                        LaunchedEffect(pendingNotificationId) {
+                            pendingNotificationId?.let { id ->
+                                val type = pendingNotificationIntent?.getStringExtra("notification_type")
+                                if (type == "WALKIE") {
+                                    notificationViewModel.playWalkie(pendingNotificationIntent!!)
+                                } else {
+                                    notificationViewModel.markAsRead(id)
+                                }
+                                pendingNotificationId = null
+                            }
+                        }
                         BBipItNavigation(
                             navController = navController,
                             authRepository = authRepository,
