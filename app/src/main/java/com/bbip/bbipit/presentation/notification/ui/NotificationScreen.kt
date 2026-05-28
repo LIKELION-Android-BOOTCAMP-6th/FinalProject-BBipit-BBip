@@ -1,6 +1,5 @@
 package com.bbip.bbipit.presentation.notification.ui
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,9 +31,6 @@ import com.bbip.bbipit.domain.entity.Notification
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
@@ -178,7 +174,6 @@ fun NotificationScreen(
                             currentTime = currentTime,
                             readAllClicked = isReadAllClicked,
                             isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
-                            senderProfileImage = item.senderProfileImage,
                             onClick = {
                                 if (item.type == "DM") {
                                     viewModel.markAsRead(item.id)
@@ -212,10 +207,8 @@ fun NotificationCard(
     onClick: () -> Unit,
     readAllClicked: Boolean = false,
     isVoiceExpiredInUi: Boolean = false,
-    isLocalRead: Boolean = false,
-    senderProfileImage: String = ""
+    isLocalRead: Boolean = false
 ) {
-    Log.d("NotificationCard", "senderProfileImage: $senderProfileImage")
     val isWalkieExpired = item.type == "WALKIE" && (item.isExpired || isVoiceExpiredInUi)
 
     Card(
@@ -224,9 +217,9 @@ fun NotificationCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = background
+            containerColor = if (isWalkieExpired) background.copy(0.5f) else background.copy(0.9f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -247,14 +240,11 @@ fun NotificationCard(
                 }
             }
 
-            AsyncImage(
-                model = senderProfileImage,
-                contentDescription = "프로필 이미지",
+            Box(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
-                    .background(if (isWalkieExpired) sub1.copy(alpha = 0.5f) else sub1),
-                contentScale = ContentScale.Crop
+                    .background(if (isWalkieExpired) sub1.copy(alpha = 0.5f) else sub1)
             )
 
             Spacer(modifier = Modifier.width(16.dp))

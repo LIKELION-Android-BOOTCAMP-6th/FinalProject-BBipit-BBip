@@ -14,7 +14,6 @@ fun NotificationDto.toEntity(id: String): Notification {
                 type = type,
                 senderId = sender_id,
                 senderName = sender_name,
-                senderProfileImage = sender_url,
                 content = content,
                 audioId = voice_id,
                 audioUrl = voice_url ?: "",

@@ -15,9 +15,6 @@ data class NotificationDto(
     // 발신자 표시 이름
     val sender_name: String = "",
 
-    // 발신자 프로필 이미지
-    val sender_url: String = "",
-
     // 알림 본문 내용
     val content: String = "",
 
