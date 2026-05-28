@@ -47,19 +47,10 @@ class AuthRepositoryImpl @Inject constructor(
             authRemoteDataSource.signInWithCustomToken(idToken, type)
             Result.Success(Unit)
         } catch (e: Exception){
-            val appError = when (type) {
-                LoginType.GOOGLE -> {
-                    if (e.javaClass.simpleName.contains("Canceled") || e.message?.contains("cancel", ignoreCase = true) == true) {
-                        AppError.Auth("구글 로그인 취소")
-                    } else {
-                        AppError.Unknown(e.message ?: "구글 로그인 오류")
-                    }
-                }
-                else -> AppError.Unknown(e.message ?: "알 수 없는 오류 발생")
-            }
+
             Log.e("${type.type} error", e.message.toString())
             e.printStackTrace()
-            Result.Failure(appError)
+            Result.Failure(AppError.Unknown("알 수 없는 오류 발생"))
         }
     }
 

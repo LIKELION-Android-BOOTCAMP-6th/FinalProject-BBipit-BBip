@@ -169,10 +169,18 @@ class SignInViewModel @Inject constructor(
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
             googleIdTokenCredential.idToken
         } catch (e: GetCredentialException) {
-            Log.e("GoogleLogin", "자격 증명 로드 실패: ${e.message}")
-            throw e
+
+            if (e.javaClass.simpleName.contains("Canceled") || e.message?.contains("cancel", ignoreCase = true) == true) {
+                throw AppError.Auth("구글 로그인 취소")
+            } else {
+                Log.e("GoogleLogin", "자격 증명 로드 실패: ${e.message}")
+                e.printStackTrace()
+                throw AppError.Auth("구글 계정을 불러올 수 없습니다.")
+            }
         } catch (e: Exception){
-            throw e
+            Log.e("구글 로그인 오류 발생", e.message.toString())
+            e.printStackTrace()
+            throw AppError.Auth("오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
         }
     }
 
