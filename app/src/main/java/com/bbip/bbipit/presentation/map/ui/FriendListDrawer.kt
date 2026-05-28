@@ -149,8 +149,7 @@ fun FriendDrawerItem(
 
     val indicatorColor = when {
         !friend.isSharing -> Color(0xFFF3F3F3)
-        friend.isOnline -> Color(0xFFFFFFFF)
-        else -> Color(0xFFF3F3F3)
+        else -> Color(0xFFFFFFFF)
     }
 
     Row(
@@ -185,10 +184,19 @@ fun FriendDrawerItem(
 
             Box(
                 modifier = Modifier
-                    .padding(1.5.dp)
+                    .size(13.dp)
+                    .align(Alignment.BottomEnd)
                     .clip(CircleShape)
-                    .background(Color.White)
-            )
+                    .background(Color.White) // 바깥 하얀색 테두리 효과
+                    .padding(2.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(if (friend.isOnline) Color(0xFF22C55E) else Color(0xFF94A3B8)) // 온라인(초록), 오프라인(회색)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(14.dp))
@@ -207,21 +215,11 @@ fun FriendDrawerItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            val subText = when {
-                !friend.isSharing -> "위치 공유 거부 중"
-                !friend.isOnline -> "오프라인"
-                else -> "위치 파악 완료" }
-
-            val subTextColor = when {
-                !friend.isSharing -> Color(0xFF64748B)
-                !friend.isOnline -> Color(0xFF64748B)
-                else -> mainColor }
-
             Text(
-                text =  subText,
+                text =  friend.status,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = subTextColor,
+                color = Color.Gray,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp)
@@ -229,6 +227,16 @@ fun FriendDrawerItem(
         }
 
         Spacer(modifier = Modifier.width(8.dp))
+
+        val subText = when {
+            friend.isSharing -> "위치 켬"
+            else -> "위치 끔"
+        }
+
+        val subTextColor = when{
+            friend.isSharing -> Color(0xFF25B65A)
+            else -> Color(0xFFC52222)
+        }
 
         // 6. 우측 상태 레이아웃
         if (isSelected) {
@@ -247,10 +255,10 @@ fun FriendDrawerItem(
             }
         } else {
             Text(
-                text = "현재",
+                text = subText,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF94A3B8)
+                color = subTextColor
             )
         }
     }
