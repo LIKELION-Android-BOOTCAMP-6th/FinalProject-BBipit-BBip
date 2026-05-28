@@ -79,7 +79,7 @@ class AuthRepositoryImpl @Inject constructor(
 
             val error = when(e.errorCode){
                 "ERROR_EMAIL_ALREADY_IN_USE" -> AppError.Email("이미 가입된 이메일 주소입니다.")
-                "ERROR_INVALID_EMAIL" -> AppError.Email("올바른 이메일 형식이 아닙니다.")
+                "ERROR_INVALID_EMAIL" -> AppError.Email()
                 "ERROR_WEAK_PASSWORD", "PASSWORD_DOES_NOT_MEET_REQUIREMENTS" -> AppError.Password()
                 else -> AppError.Auth(e.errorCode)
             }
@@ -88,7 +88,8 @@ class AuthRepositoryImpl @Inject constructor(
 
         } catch (e: Exception){
             Log.e("Auth", "회원가입 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "회원가입 중 오류 발생"))
+            e.printStackTrace()
+            Result.Failure(AppError.Unknown("오류가 발생했습니다. 잠시 후 다시 시도해주세요"))
 
         }
     }
