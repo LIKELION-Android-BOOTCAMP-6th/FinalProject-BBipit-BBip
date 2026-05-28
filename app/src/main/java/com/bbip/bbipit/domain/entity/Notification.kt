@@ -8,6 +8,7 @@ data class Notification(
     val type: String = "",
     val senderId: String = "",
     val senderName: String = "",
+    val senderProfileImage: String = "",
     val content: String = "",
     val audioId: String = "",
     val audioUrl: String = "",
