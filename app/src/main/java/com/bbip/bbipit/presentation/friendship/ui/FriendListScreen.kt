@@ -1,6 +1,7 @@
 package com.bbip.bbipit.presentation.friendship.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +41,7 @@ import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.layout.ContentScale
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.online
@@ -50,6 +52,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.input.KeyboardType
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 
@@ -320,9 +323,15 @@ fun FriendListItem(
                         AsyncImage(
                             model = friend.profileImageUrl,
                             contentDescription = "프로필 이미지",
+                            error = rememberVectorPainter(image = Icons.Default.Person),
                             modifier = Modifier
                                 .size(50.dp)
-                                .clip(CircleShape),
+                                .clip(CircleShape)
+                                .border(
+                                    width = 2.dp,            // 2. 테두리 두께 설정
+                                    color = background,     // 3. 테두리 색상 설정
+                                    shape = CircleShape      // 4. 테두리 모양 설정
+                                ),
                             contentScale = ContentScale.Crop
                         )
 

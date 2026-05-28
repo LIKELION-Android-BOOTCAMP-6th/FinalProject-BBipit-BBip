@@ -42,11 +42,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextAlign
 import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
@@ -272,13 +276,22 @@ fun ChatDetailHeader(navController: NavController, uiState: ChatDetailUiState) {
                     Surface(
                         modifier = Modifier.size(42.dp),
                         shape = CircleShape,
-                        color = primary
                     ) { // Coil 라이브러리 사용
                         coil.compose.AsyncImage(
                             model = uiState.partnerImageUrl, // 여기서 받은 이미지 URL 적용
                             contentDescription = "프로필 사진",
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        )
+                            error = rememberVectorPainter(image = Icons.Default.Person),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape) // 원형으로 자르기
+                                .border(
+                                    width = 2.dp,
+                                    color = background, // 하얀색 테두리
+                                    shape = CircleShape
+                                )
+                                .background(Color.White)
+                            )
                     }
 
                     Box(

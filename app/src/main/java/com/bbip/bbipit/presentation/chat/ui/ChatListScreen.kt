@@ -32,6 +32,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
@@ -229,11 +232,18 @@ fun ChatItemRow(
             Surface(
                 modifier = Modifier.size(56.dp), // 리스트형에 맞춰 살짝 키움
                 shape = CircleShape,
-                color = Color(0xFFE1BEE7)
             ) { AsyncImage(
                 model = chatItem.profileImageUrl,
                 contentDescription = "프로필 이미지",
-                modifier = Modifier.fillMaxSize(),
+                error = rememberVectorPainter(image = Icons.Default.Person),
+                modifier = Modifier.fillMaxSize()
+                    .clip(CircleShape) // 원형으로 자르기
+                    .border(
+                        width = 2.dp,
+                        color = background, // 하얀색 테두리
+                        shape = CircleShape
+                    )
+                    .background(Color.White),
                 contentScale = ContentScale.Crop)
             }
 
