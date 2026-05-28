@@ -77,7 +77,7 @@ class SignUpViewModel @Inject constructor(
             }
 
             if (!isValidPassword(_uiState.value.password)){
-                onUpdatePwError("비밀번호 규칙이 올바르지 않습니다.")
+                onUpdatePwError("비밀번호 형식이 올바르지 않습니다.")
                 onUpdateLoading(false)
                 onUpdatePassword("")
                 onUpdateCheckPw("")
