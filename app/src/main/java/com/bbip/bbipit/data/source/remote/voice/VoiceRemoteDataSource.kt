@@ -33,4 +33,5 @@ interface VoiceRemoteDataSource {
      * 음성 메시지를 읽음 상태로 업데이트하는 함수
      */
     suspend fun markVoiceMessageAsRead(messageId: String)
+    suspend fun getVoiceMessageById(messageId: String): VoiceMessageDto
 }

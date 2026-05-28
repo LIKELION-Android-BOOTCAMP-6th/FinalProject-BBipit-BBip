@@ -229,7 +229,7 @@ class NotificationRepositoryImpl @Inject constructor(
             receiverId = receiverId,
             voiceUrl = notification.audioUrl,
             duration = 0,
-            isRead = false,
+//            isRead = false,
             createdAt = notification.createdAt
         )
         voiceRepository.emitMobileVoiceEvent(voiceMessage)
@@ -248,7 +248,7 @@ class NotificationRepositoryImpl @Inject constructor(
             receiverId = receiverId,
             voiceUrl = audioUrl,
             duration = 0,
-            isRead = false,
+//            isRead = false,
             createdAt = createdAt
         )
         appScope.launch {

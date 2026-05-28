@@ -5,25 +5,23 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.util.AudioPlayer
-import com.bbip.bbipit.core.result.Result
-import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.entity.VoiceMessage
-import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.bbip.bbipit.core.result.Result
 
 /**
  * 수신 음성 메시지 UI 상태 관리 데이터 클래스
  */
 data class IncomingVoiceUiState(
     val isVisible: Boolean = false,
-    val sender: User? = null,
+    val senderName: String = "",
+    val senderProfileUrl: String = "",
     val currentVoiceMessage: VoiceMessage? = null,
     val currentPosition: Int = 0
 )
@@ -34,7 +32,6 @@ data class IncomingVoiceUiState(
 @HiltViewModel
 class VoicePlayerViewModel @Inject constructor(
     private val voiceRepository: VoiceRepository,
-    private val userRepository: UserRepository,
     @ApplicationContext private val context: Context
 ) : BaseViewModel<IncomingVoiceUiState>(IncomingVoiceUiState()) {
 
@@ -47,6 +44,53 @@ class VoicePlayerViewModel @Inject constructor(
     }
 
     /**
+     * 특정 음성 메시지 ID를 받아 서버에서 데이터를 조회한 후
+     * 즉시 재생 및 UI 상태를 처리하는 함수
+     */
+    fun playVoiceMessage(messageId: String) {
+        viewModelScope.launch {
+            // 서버에서 음성 메시지 조회
+            val result = voiceRepository.getVoiceMessageById(messageId)
+
+            when (result) {
+                is Result.Success -> {
+                    val voiceMessage = result.data
+                    val url = voiceMessage.voiceUrl
+
+                    updateState {
+                        copy(
+                            isVisible = true,
+                            senderName = voiceMessage.senderName,
+                            senderProfileUrl = voiceMessage.senderProfileUrl,
+                            currentVoiceMessage = voiceMessage
+                        )
+                    }
+
+                    // 3. 오디오 재생 및 완료 콜백 처리
+                    audioPlayer.playFromUrl(url) {
+                        viewModelScope.launch {
+                            // 완료 시 재생 위치를 총 길이로 보정
+                            updateState { copy(currentPosition = currentVoiceMessage?.duration ?: 0) }
+
+                            // 음성 메시지 읽음 처리 (기존 로직 유지)
+                            voiceRepository.markVoiceMessageAsRead(voiceMessage.id)
+                            delay(1000)
+                            dismissMessage()
+                        }
+                    }
+
+                    // 4. 재생 진행 위치 추적 시작
+                    startPositionTracking()
+                }
+                is Result.Failure -> {
+                    // 필요 시 에러 토스트 팝업이나 로그 처리 추가 가능
+                    Log.e(TAG, "음성 메시지 재생 실패: ${result.error}")
+                }
+            }
+        }
+    }
+
+    /**
      * 음성 메시지 수신 이벤트 구독 및 재생 처리 함수
      */
     private fun listenToServiceVoiceEvent() {
@@ -55,18 +99,12 @@ class VoicePlayerViewModel @Inject constructor(
             voiceRepository.voiceMessageEvent.collect { voiceMessage ->
                 val url = voiceMessage.voiceUrl
 
-                // 발신자 프로필 조회
-                val senderResult = userRepository.getUserProfile(voiceMessage.senderId)
-                val sender = when (senderResult) {
-                    is Result.Success -> senderResult.data
-                    is Result.Failure -> null
-                }
-
                 // UI 노출 및 데이터 업데이트
                 updateState {
                     copy(
                         isVisible = true,
-                        sender = sender,
+                        senderName = voiceMessage.senderName,
+                        senderProfileUrl = voiceMessage.senderProfileUrl,
                         currentVoiceMessage = voiceMessage
                     )
                 }
@@ -94,7 +132,7 @@ class VoicePlayerViewModel @Inject constructor(
      * 수신 메시지 UI 및 데이터 초기화 함수
      */
     fun dismissMessage() {
-        updateState { copy(isVisible = false, sender = null, currentVoiceMessage = null, currentPosition = 0) }
+        updateState { copy(isVisible = false, senderName = "", senderProfileUrl = "", currentVoiceMessage = null, currentPosition = 0) }
     }
 
     /**

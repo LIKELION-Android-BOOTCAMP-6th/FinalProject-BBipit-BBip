@@ -2,6 +2,7 @@ package com.bbip.bbipit.data.repository
 
 import android.util.Log
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.data.mapper.toDomainEntity
 import com.bbip.bbipit.data.source.remote.voice.VoiceRemoteDataSource
 import com.bbip.bbipit.domain.entity.VoiceMessage
 import com.bbip.bbipit.domain.error.AppError
@@ -26,6 +27,19 @@ class VoiceRepositoryImpl @Inject constructor(
 
     private val _voiceMessageEvent = MutableSharedFlow<VoiceMessage>(extraBufferCapacity = 1)
     override val voiceMessageEvent = _voiceMessageEvent.asSharedFlow()
+
+    override suspend fun getVoiceMessageById(messageId: String): Result<VoiceMessage> {
+        return try {
+            val dto = voiceRemoteDataSource.getVoiceMessageById(messageId)
+
+            val voiceMessage = dto.toDomainEntity(id = messageId, isInitial = false)
+
+            Result.Success(voiceMessage)
+        } catch (e: Exception) {
+            Log.e("VoiceRepository", "음성 메시지 단건 조회 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "음성 메시지를 가져오는 중 오류 발생"))
+        }
+    }
 
     /**
      * 모바일용 무전 수신 이벤트 송출 함수
@@ -63,10 +77,11 @@ class VoiceRepositoryImpl @Inject constructor(
             VoiceMessage(
                 id = id,
                 senderId = dto.senderId,
+                senderName = dto.senderName,
+                senderProfileUrl = dto.senderProfileUrl,
                 receiverId = dto.receiverId,
                 voiceUrl = dto.voiceUrl,
                 duration = dto.duration,
-                isRead = dto.isRead,
                 createdAt = dto.createdAt?.toDate()?.time ?: 0L,
                 isInitial = isInitial
             )
