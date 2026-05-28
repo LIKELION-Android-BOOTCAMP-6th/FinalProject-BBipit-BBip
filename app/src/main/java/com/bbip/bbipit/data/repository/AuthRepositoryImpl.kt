@@ -48,13 +48,6 @@ class AuthRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception){
             val appError = when (type) {
-                LoginType.KAKAO -> {
-                    if (e is ClientError && e.reason == ClientErrorCause.Cancelled) {
-                        AppError.Auth("카카오 로그인 취소")
-                    } else {
-                        AppError.Unknown(e.message ?: "카카오 클라이언트 오류")
-                    }
-                }
                 LoginType.GOOGLE -> {
                     if (e.javaClass.simpleName.contains("Canceled") || e.message?.contains("cancel", ignoreCase = true) == true) {
                         AppError.Auth("구글 로그인 취소")
