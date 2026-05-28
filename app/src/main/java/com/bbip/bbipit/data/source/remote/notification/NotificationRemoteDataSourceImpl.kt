@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +20,30 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseFunctions: FirebaseFunctions
 ) : NotificationRemoteDataSource {
+
+    override suspend fun markVoiceNotificationAsPlayed(notificationId: String): Boolean {
+        val data = hashMapOf(
+            "notificationId" to notificationId
+        )
+
+        return try {
+            val result = firebaseFunctions
+                .getHttpsCallable("markVoiceNotificationAsPlayed")
+                .call(data)
+                .await()
+
+            val resultData = result.data as? Map<*, *>
+            resultData?.get("success") as? Boolean ?: false
+        } catch (e: Exception) {
+            if (e is FirebaseFunctionsException) {
+                Log.e("NotificationDS", "서버 에러 [${e.code}]: ${e.message}")
+            } else {
+                Log.e("NotificationDS", "통신 중 알 수 없는 에러: ${e.localizedMessage}")
+            }
+            false
+        }
+    }
+
 
     /**
      * 특정 유저 식별자 하위 알림 서브 컬렉션 내 전체 알림 목록 단발성 인출 함수

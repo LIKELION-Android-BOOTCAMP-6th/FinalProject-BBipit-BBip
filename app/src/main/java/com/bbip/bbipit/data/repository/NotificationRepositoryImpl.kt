@@ -52,6 +52,13 @@ class NotificationRepositoryImpl @Inject constructor(
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    override suspend fun markVoiceNotiAsPlayed(notificationId: String): Boolean {
+        if (notificationId.isBlank()) return false
+
+        return dataSource.markVoiceNotificationAsPlayed(notificationId)
+    }
+
+
     /**
      * 앱 수명 스코프로 Firestore 구독 시작 (로그인 직후 1회 호출)
      * 구독 즉시 전체 문서를 수신하여 캐시에 보관
