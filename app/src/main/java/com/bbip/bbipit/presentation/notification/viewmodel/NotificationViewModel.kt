@@ -103,7 +103,7 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    // 단건 읽음 처리 수정
+    // 단건 읽음 처리
     fun markAsRead(id: String) {
         if (currentUserId.isEmpty()) return
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
@@ -126,7 +126,7 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    // 전체 읽음 처리 수정
+    // 전체 확인 처리
     fun onReadAllClick() {
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
 

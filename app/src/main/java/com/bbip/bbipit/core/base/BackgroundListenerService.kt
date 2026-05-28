@@ -706,9 +706,7 @@ class BackgroundListenerService : Service() {
                     return@collect
                 }
 
-                notifications.forEach { notification ->
-                    // 🚨 [중요 수정]: 꼬여있던 이중 if 검사를 하나로 정렬하고 중복 방지 가드를 정확히 잡았습니다.
-                    if (!notification.isRead &&
+                notifications.forEach { notification -> if (!notification.isRead &&
                         !notifiedIds.contains(notification.id) &&
                         notification.createdAt > serviceStartTime
                     ) {
@@ -733,11 +731,9 @@ class BackgroundListenerService : Service() {
                                 Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
                                 showSystemNotification(notification)
                             }
-
                             // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
                             return@forEach
                         }
-
                         // 일반 알림(DM, REQ) 처리
                         showSystemNotification(notification)
                     }
@@ -770,7 +766,7 @@ class BackgroundListenerService : Service() {
 
         val safeFlags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
 
-        // 배너 클릭 시 Intent 조립
+        // 배너 클릭 시 Intent
         val intent = when (notification.type) {
             "DM" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
@@ -799,13 +795,14 @@ class BackgroundListenerService : Service() {
             }
         }
 
+        // 알림 클릭 시 Intent
         val pendingIntent = PendingIntent.getActivity(
             this,
             notification.id.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
+        // 시스템 알림 빌더 구동 및 인텐트 파라미터 기반 시각적 요소 구성
         val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(com.bbip.bbipit.R.drawable.baseline_notifications_24)
             .setContentTitle(notification.senderName)
@@ -814,6 +811,7 @@ class BackgroundListenerService : Service() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
+        // 고유 ID 기반 시스템 서비스 알림 발행
         val notificationId = notification.id.hashCode()
         notificationManager.notify(notificationId, builder.build())
     }
