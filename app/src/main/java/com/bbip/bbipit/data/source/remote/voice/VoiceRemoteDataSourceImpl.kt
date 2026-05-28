@@ -1,5 +1,7 @@
 package com.bbip.bbipit.data.source.remote.voice
 
+import android.util.Log
+import com.bbip.bbipit.data.mapper.toVoiceMessageDto
 import com.bbip.bbipit.data.source.model.VoiceMessageDto
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,6 +25,20 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     private val functions: FirebaseFunctions,
     private val storage: FirebaseStorage
 ) : VoiceRemoteDataSource {
+
+    /**
+     * 특정 음성 메시지 ID를 통해 단건 데이터를 조회하는 함수
+     */
+    override suspend fun getVoiceMessageById(messageId: String): VoiceMessageDto {
+        val data = hashMapOf("messageId" to messageId)
+        val result = functions.getHttpsCallable("getVoiceMessageById").call(data).await()
+
+        val resultMap = result.data as? Map<*, *>
+        val voiceMessageMap = resultMap?.get("voiceMessage") as? Map<*, *>
+            ?: throw Exception("음성 메시지 데이터를 찾을 수 없습니다.")
+
+        return voiceMessageMap.toVoiceMessageDto()
+    }
 
     /**
      * 음성 메시지 전송 함수
@@ -55,18 +71,25 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
                 return@addSnapshotListener
             }
 
+            if (snapshot == null) return@addSnapshotListener
+
             // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
             val isCurrentInitial = isInitialCallback
             isInitialCallback = false
 
             // 새로 추가된 문서만 필터링하여 전달
-            snapshot?.documentChanges?.forEach { dc ->
+            snapshot.documentChanges.forEach { dc ->
                 if (dc.type == DocumentChange.Type.ADDED) {
                     val dto = dc.document.toObject(VoiceMessageDto::class.java)
                     if (dto != null && dto.voiceUrl.isNotEmpty()) {
                         trySend(Triple(dc.document.id, dto, isCurrentInitial))
+                        Log.d("Try Send", isCurrentInitial.toString())
                     }
                 }
+            }
+
+            if (!snapshot.isEmpty) {
+                isInitialCallback = false
             }
         }
         awaitClose { subscription.remove() }

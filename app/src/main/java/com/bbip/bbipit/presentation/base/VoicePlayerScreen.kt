@@ -51,8 +51,8 @@ fun VoicePlayerScreen(
             .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
     ) {
         VoiceReceptionCard(
-            nickname = uiState.sender?.nickname ?: "알 수 없음",
-            profileImageUrl = uiState.sender?.profileImageUrl,
+            nickname = uiState.senderName,
+            profileImageUrl = uiState.senderProfileUrl,
             currentPosition = uiState.currentPosition,
             totalDuration = uiState.currentVoiceMessage?.duration ?: 0,
             onDismiss = { viewModel.dismissMessage() }

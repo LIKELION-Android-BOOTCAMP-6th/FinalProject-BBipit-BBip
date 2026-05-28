@@ -310,8 +310,10 @@ class BackgroundListenerService : Service() {
                     voiceRepository.observeIncomingVoice(uid).collect { voiceMessage ->
                         val url = voiceMessage.voiceUrl
 
+                        Log.d(TAG, voiceMessage.toString())
+
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
-                        if (url.isNotEmpty() && !voiceMessage.isRead && !voiceMessage.isInitial) {
+                        if (url.isNotEmpty() && !voiceMessage.isInitial) {
                             val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
                             if(onlineStatusResult is Result.Success && onlineStatusResult.data) {
                                 if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
