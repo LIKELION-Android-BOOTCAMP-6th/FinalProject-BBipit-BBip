@@ -41,4 +41,5 @@ interface UserRepository {
      * 내 프로필 상세 정보 조회 함수
      */
     suspend fun getMyProfile(uid: String): Result<User>
+    suspend fun getUserOnlineStatus(uid: String): Result<Boolean>
 }

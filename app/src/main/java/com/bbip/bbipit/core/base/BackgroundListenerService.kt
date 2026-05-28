@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.LiveStatus
@@ -26,6 +27,7 @@ import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
+import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
 import com.bbip.bbipit.presentation.main.MainActivity
 import com.google.android.gms.location.*
@@ -55,6 +57,8 @@ class BackgroundListenerService : Service() {
 
     @Inject
     lateinit var voiceRepository: VoiceRepository
+    @Inject
+    lateinit var userRepository: UserRepository
 
     @Inject
     lateinit var liveStatusRepository: LiveStatusRepository
@@ -308,10 +312,15 @@ class BackgroundListenerService : Service() {
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
                         if (url.isNotEmpty() && !voiceMessage.isRead && !voiceMessage.isInitial) {
-                            if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
-                                sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
+                            val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
+                            if(onlineStatusResult is Result.Success && onlineStatusResult.data) {
+                                if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
+                                    sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
+                                } else {
+                                    voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                                }
                             } else {
-                                voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                                Log.d(TAG, "사용자가 오프라인 상태이거나 상태 조회에 실패하여 이벤트를 건너뜁니다.")
                             }
                         }
                     }
@@ -650,22 +659,26 @@ class BackgroundListenerService : Service() {
      * 시스템 알림 채널 정의 및 서비스 상주 알림 등록 함수
      */
     private fun startForegroundServiceNotification() {
-        val channelId = "voice_receiver_channel"
+        val channelId = CHANNEL_ID_VOICE
 
-        // 오레오 버전 전제 알림 채널 빌드
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel =
-                NotificationChannel(channelId, "워치 무전 수신", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(
+                channelId,
+                "워치 무전 수신 상주 서비스",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                setShowBadge(false)
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
 
-        // 포어그라운드 유지용 영속 배너 설정
         val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("무전기 대기 중")
+            .setContentTitle("Bipp-it 대기 중")
             .setContentText("워치로부터 음성 신호를 받을 준비가 되었습니다.")
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기

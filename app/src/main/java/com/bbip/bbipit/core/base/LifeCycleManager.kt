@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
+import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +18,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class LifeCycleManager @Inject constructor(
-    private val liveStatusRepository: LiveStatusRepository
+    private val liveStatusRepository: LiveStatusRepository,
+    private val userRepository: UserRepository
 ) {
     // 로그 출력용 클래스 식별 태그
     private val TAG = "LifeCycleManager"
@@ -82,6 +84,17 @@ class LifeCycleManager @Inject constructor(
 
         // 진행 중인 하트비트 루프 중단
         stopHeartbeatLoop()
+
+        // 백그라운드 진입 시 즉시 오프라인 상태 반영
+        if (auth.currentUser != null) {
+            sessionScope.launch {
+                // 기존 라이프사이클 종료 신호 전송 (전입 방 정보 해제)
+                liveStatusRepository.updateLifeCycle(null)
+
+                // 오프라인 상태 서버에 즉시 반영
+                userRepository.updateOnlineStatus(false)
+            }
+        }
     }
 
     /**

@@ -30,6 +30,23 @@ class UserRepositoryImpl @Inject constructor(
 ) : UserRepository {
 
     /**
+     * 특정 유저의 온라인 접속 상태 직접 조회 함수
+     */
+    override suspend fun getUserOnlineStatus(uid: String): Result<Boolean> {
+        return try {
+            val isOnline = userRemoteDataSource.getUserOnlineStatus(uid)
+            if (isOnline != null) {
+                Result.Success(isOnline)
+            } else {
+                Result.Failure(AppError.Unknown("해당 유저의 온라인 상태 정보를 가져올 수 없습니다."))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "온라인 상태 직접 조회 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "온라인 상태 조회 실패"))
+        }
+    }
+
+    /**
      * 알림 푸시 토큰 조회 함수
      */
     override suspend fun getFcmToken(): String? = userRemoteDataSource.getToken()

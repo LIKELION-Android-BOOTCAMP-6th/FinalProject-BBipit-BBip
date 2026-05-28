@@ -345,7 +345,12 @@ fun MapScreen(
                                     clickedFriendUid = friend.uid
                                     drawerState.close()
                                     cameraPositionState.animate(
-                                        update = newLatLngZoom(LatLng(friend.latitude, friend.longitude), 16f)
+                                        update = newLatLngZoom(
+                                            LatLng(
+                                                friend.latitude,
+                                                friend.longitude
+                                            ), 16f
+                                        )
                                     )
                                 }
                             },
@@ -408,12 +413,17 @@ fun MapScreen(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
-        val hasCoarseLocation = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        // 알림 권한 체크 추가 (API 33 이상 대응)
+        val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
 
-        if (hasFineLocation || hasCoarseLocation) {
-            Log.d(TAG, "✅ 위치 권한 확인 완료 -> 안전하게 서비스 시작")
+        if (hasFineLocation && hasNotificationPermission) {
+            Log.d(TAG, "✅ 필요한 모든 권한 확인 완료 -> 안전하게 서비스 시작")
             val intent = Intent(context, BackgroundListenerService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -421,15 +431,21 @@ fun MapScreen(
                 context.startService(intent)
             }
         } else {
-            Log.d(TAG, "⚠️ 위치 권한 없음 -> 권한 요청 팝업 실행")
-            requestMultiplePermissionsLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.RECORD_AUDIO
-                )
-            )
+            Log.d(TAG, "⚠️ 권한 부족 -> 권한 요청 팝업 실행")
+
+            val permissionsToRequest = mutableListOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.RECORD_AUDIO
+            ).apply {
+                // 안드로이드 13 이상일 때만 알림 권한 추가
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }.toTypedArray()
+
+            requestMultiplePermissionsLauncher.launch(permissionsToRequest)
         }
     }
 }
