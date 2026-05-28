@@ -101,8 +101,10 @@ class ChatListViewModel @Inject constructor(
 
             chatRepository.observeChatRooms(myUid).collect { chatRooms ->
                 try {
+                    // 내림차순
+                    val sortedRooms = chatRooms.sortedByDescending { it.updatedAt }
                     // 병렬로 개별 채팅방 상세 정보 처리
-                    val chatItems = chatRooms.map { room ->
+                    val chatItems = sortedRooms.map { room ->
                         viewModelScope.async { processChatRoomDetails(room) }
                     }.awaitAll()
 
