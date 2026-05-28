@@ -36,8 +36,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -221,9 +219,6 @@ class BackgroundListenerService : Service() {
                 ACTION_PUSH_LOCATION_TO_WATCH -> {
                     scope.launch {
                         val myStatus = liveStatusRepository.getCachedMyLiveStatus()
-                        val friendsList = friendRepository.myFriends.value.mapNotNull {
-                            liveStatusRepository.myLiveStatusFlow.value
-                        }
                         pushLocationsToWatch(listOfNotNull(myStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
                     }
                 }
@@ -308,10 +303,17 @@ class BackgroundListenerService : Service() {
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
                         if (url.isNotEmpty() && !voiceMessage.isRead && !voiceMessage.isInitial) {
-                            if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
+                            if (appLifecycleObserver.isAppInForeground) {
+                                // 앱이 포그라운드일 때만 즉시 재생 이벤트 송출
+                                Log.d(TAG, "🔊 포그라운드 -> 무전 즉시 재생")
+                                voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                            } else if (isWatchInForeground) {
+                                // 백그라운드지만 워치가 있으면 워치로 전송
+                                Log.d(TAG, "⌚ 백그라운드 -> 워치로 무전 전송")
                                 sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                             } else {
-                                voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                                // 백그라운드고 워치도 없으면 아무것도 안 함. (알림 배너 대기)
+                                Log.d(TAG, "🔇 백그라운드 -> 자동 재생 차단 (알림 배너 대기)")
                             }
                         }
                     }
@@ -498,8 +500,6 @@ class BackgroundListenerService : Service() {
                         input.copyTo(output)
                     }
                 }
-            } catch (e: ChannelIOException) {
-                Log.w(TAG, "⚠️ 워치 채널 전송 마감 중 끊김")
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 오디오 수신 오류", e)
             } finally {
@@ -532,7 +532,7 @@ class BackgroundListenerService : Service() {
             // 파일 업로드 성공 후 음성 메시지 최종 전송
             voiceRepository.uploadVoiceFile(fileUri)
                 .onSuccess { url ->
-                    voiceRepository.sendVoiceMessage( targetUid, url, duration)
+                    voiceRepository.sendVoiceMessage(targetUid, url, duration)
                 }
                 .onFailure { Log.e(TAG, "파일 전송 실패") }
         }
@@ -650,7 +650,7 @@ class BackgroundListenerService : Service() {
      * 시스템 알림 채널 정의 및 서비스 상주 알림 등록 함수
      */
     private fun startForegroundServiceNotification() {
-        val channelId = "voice_receiver_channel"
+        val channelId = CHANNEL_ID_VOICE
 
         // 오레오 버전 전제 알림 채널 빌드
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -688,9 +688,6 @@ class BackgroundListenerService : Service() {
 
     /**
      * Repository 캐시 구독 기반 신규 알림 감지 및 시스템 알림 발행 함수
-     * 초기 수신 전체 문서는 notifiedIds에 등록만 하고 알림 발행 없이 스킵
-     * 이후 추가된 신규 문서만 시스템 알림으로 발행
-     * WALKIE 타입은 앱 백그라운드 상태일 때만 시스템 알림 발행
      */
     private fun observeNotifications() {
         scope.launch {
@@ -710,37 +707,53 @@ class BackgroundListenerService : Service() {
                 }
 
                 notifications.forEach { notification ->
-                    // 필터링 및 중복 검사 조건
-                    // 1. 읽지 않은 상태
-                    // 2. 이미 알림을 띄운 ID 리스트(Set)에 포함되지 않았을 것
-                    // 3. 서비스 시작 시점 이후에 생성된 데이터일 것
-                    // 4. WALKIE 타입은 앱 백그라운드 상태일 때만 발행
+                    // 🚨 [중요 수정]: 꼬여있던 이중 if 검사를 하나로 정렬하고 중복 방지 가드를 정확히 잡았습니다.
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id) &&
                         notification.createdAt > serviceStartTime
                     ) {
-                        // 즉시 처리 완료 목록에 추가하여 동일 문서의 후속 수정으로 인한 재발 방지
                         notifiedIds.add(notification.id)
-                        Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id}")
+                        Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})")
 
-                        // 시스템 알림 표출
-                        showSystemNotification(notification)
+                        // WALKIE 타입 최우선 분기 처리
+                        if (notification.type == "WALKIE") {
+                            // 1. 앱이 켜져있을 때 (포그라운드) -> 화면 안에서 바로 무전 자동 재생
+                            if (appLifecycleObserver.isAppInForeground) {
+                                val currentUserId = authRepository.getCurrentUserUid() ?: return@forEach
+                                scope.launch {
+                                    Log.d(TAG, "🔊 앱 포그라운드 상태 -> 무전 즉시 자동 재생 구동")
+                                    notificationRepository.playWalkieNotification(
+                                        notification = notification,
+                                        receiverId = currentUserId
+                                    )
+                                }
+                            }
+                            // 2. 앱이 꺼져있거나 홈화면일 때 (백그라운드)
+                            else {
+                                Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
+                                showSystemNotification(notification)
+                            }
+
+                            // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
+                            return@forEach
                         }
+
+                        // 일반 알림(DM, REQ) 처리
+                        showSystemNotification(notification)
                     }
                 }
             }
         }
+    }
 
     /**
      * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
-     * 알림 타입별 본문 메시지 분기 처리 및 고유 해시코드를 이용한 개별 알림 식별 목적
      */
     private fun showSystemNotification(notification: com.bbip.bbipit.domain.entity.Notification) {
+        Log.d(TAG, "WALKIE 배너 발행 - audioUrl: ${notification.audioUrl}, audioId: ${notification.audioId}")
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
-        Log.d(TAG, "🔔 roomId: ${notification.roomId}, type: ${notification.type}")
         val channelId = "phone_alert_channel"
-        val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // 오레오(API 26) 이상 대응용 알림 채널 생성 및 중요도(HIGH) 설정
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -749,49 +762,50 @@ class BackgroundListenerService : Service() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // 알림 타입별 표출 텍스트 가공
         val bodyText = when (notification.type) {
             "REQ" -> "친구 요청이 왔습니다."
             "WALKIE" -> "무전이 왔습니다."
             else -> notification.content
         }
 
-        // 배너 클릭 시 Intent
+        val safeFlags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+
+        // 배너 클릭 시 Intent 조립
         val intent = when (notification.type) {
             "DM" -> Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = safeFlags
                 putExtra("notification_type", "DM")
                 putExtra("notification_id", notification.id)
-
                 putExtra("notification_room_id", notification.roomId)
                 putExtra("notification_receiver_id", notification.senderId)
             }
             "REQ" -> Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = safeFlags
                 putExtra("notification_type", "REQ")
             }
             "WALKIE" -> Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = safeFlags
                 putExtra("notification_type", "WALKIE")
                 putExtra("notification_id", notification.id)
                 putExtra("notification_audio_url", notification.audioUrl)
-                putExtra("notification_audio_id", notification.audioId)
+                putExtra("notification_audio_id", notification.id)
                 putExtra("notification_sender_id", notification.senderId)
                 putExtra("notification_created_at", notification.createdAt)
+                putExtra("notification_duration", notification.duration)
+
             }
             else -> Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                flags = safeFlags
             }
         }
 
-        // 알림 클릭 시 Intent
         val pendingIntent = PendingIntent.getActivity(
             this,
             notification.id.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // 시스템 알림 빌더 구동 및 인텐트 파라미터 기반 시각적 요소 구성
+
         val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(com.bbip.bbipit.R.drawable.baseline_notifications_24)
             .setContentTitle(notification.senderName)
@@ -800,7 +814,6 @@ class BackgroundListenerService : Service() {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
 
-        // 고유 ID 기반 시스템 서비스 알림 발행
         val notificationId = notification.id.hashCode()
         notificationManager.notify(notificationId, builder.build())
     }

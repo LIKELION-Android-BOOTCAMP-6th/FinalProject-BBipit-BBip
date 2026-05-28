@@ -122,7 +122,6 @@ class NotificationRepositoryImpl @Inject constructor(
         observingUserId = null
         Log.d("NotificationRepo", "Firestore 알림 구독 중단 및 캐시 초기화")
     }
-
     // 알림 목록 조회
     override suspend fun getNotificationList(userId: String): Result<List<Notification>> {
         return try {
@@ -221,7 +220,7 @@ class NotificationRepositoryImpl @Inject constructor(
             senderId = notification.senderId,
             receiverId = receiverId,
             voiceUrl = notification.audioUrl,
-            duration = 0,
+            duration = notification.duration,
             isRead = false,
             createdAt = notification.createdAt
         )
@@ -234,13 +233,14 @@ class NotificationRepositoryImpl @Inject constructor(
         val audioUrl = intent.getStringExtra("notification_audio_url") ?: return
         val senderId = intent.getStringExtra("notification_sender_id") ?: ""
         val createdAt = intent.getLongExtra("notification_created_at", 0L)
+        val duration = intent.getIntExtra("notification_duration", 0)
 
         val voiceMessage = VoiceMessage(
             id = audioId,
             senderId = senderId,
             receiverId = receiverId,
             voiceUrl = audioUrl,
-            duration = 0,
+            duration = duration,
             isRead = false,
             createdAt = createdAt
         )
