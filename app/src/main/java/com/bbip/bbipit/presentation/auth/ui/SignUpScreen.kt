@@ -123,7 +123,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             InputField(
                 value = uiState.name,
                 onValueChange = { viewModel.onUpdateName(it) },
-                placeholder = "이름",
+                placeholder = "닉네임",
                 keyboardType = KeyboardType.Text
             )
 
