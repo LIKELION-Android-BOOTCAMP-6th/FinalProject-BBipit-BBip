@@ -197,6 +197,7 @@ fun MyPageScreen(
                         Text(
                             text = uiState.nickname,
                             style = Typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                             color = fontDefault
                         )
 
@@ -260,8 +261,9 @@ fun MyPageScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    text = "UNIQUE ID",
-                                    fontSize = 11.sp,
+                                    text = "내 CODE : ${uiState.userCode} ",
+                                    style = Typography.bodyMedium,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Black,
                                     color = fontDefault,
                                     letterSpacing = 1.5.sp
@@ -285,7 +287,7 @@ fun MyPageScreen(
 
                                     // 복사 버튼
                                     IconButton(
-                                        onClick = { onCopyIdClick(uiState.uniqueId) },
+                                        onClick = { viewModel.copyToClipboard(uiState.userCode) },
                                         modifier = Modifier
                                             .size(36.dp)
                                             .background(background, shape = RoundedCornerShape(8.dp))
@@ -298,22 +300,22 @@ fun MyPageScreen(
                                         )
                                     }
 
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    // 카카오톡 공유 버튼
-                                    IconButton(
-                                        onClick = { onShareKakaoClick(uiState.uniqueId) },
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(KakaoYellow, shape = RoundedCornerShape(8.dp))
-                                    ) {
-                                        // 💡 실제 카카오 이모지 아이콘 리소스가 있다면 대체 가능합니다!
-                                        Text(
-                                            text = "💬",
-                                            fontSize = 14.sp,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
+//                                    Spacer(modifier = Modifier.width(20.dp))
+//
+//                                    // 카카오톡 공유 버튼
+//                                    IconButton(
+//                                        onClick = { onShareKakaoClick(uiState.uniqueId) },
+//                                        modifier = Modifier
+//                                            .size(36.dp)
+//                                            .background(KakaoYellow, shape = RoundedCornerShape(8.dp))
+//                                    ) {
+//                                        // 💡 실제 카카오 이모지 아이콘 리소스가 있다면 대체 가능합니다!
+//                                        Text(
+//                                            text = "💬",
+//                                            fontSize = 14.sp,
+//                                            textAlign = TextAlign.Center
+//                                        )
+//                                    }
                                 }
                             }
                         }

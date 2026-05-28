@@ -1,6 +1,7 @@
 package com.bbip.bbipit.presentation.friendship.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,7 +134,15 @@ fun FriendRequestItem(
                 AsyncImage(
                     model = profileImageUrl,
                     contentDescription = "프로필 이미지",
-                    modifier = Modifier.size(50.dp).clip(CircleShape),
+                    error = rememberVectorPainter(image = Icons.Default.Person),
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .border(
+                        width = 2.dp,            // 2. 테두리 두께 설정
+                        color = background,     // 3. 테두리 색상 설정
+                        shape = CircleShape      // 4. 테두리 모양 설정
+                    ),
                     contentScale = ContentScale.Crop,
                 )
             }

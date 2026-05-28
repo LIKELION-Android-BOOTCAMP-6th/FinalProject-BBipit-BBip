@@ -38,7 +38,8 @@ data class MyPageUiState(
     val isSignOutDialogShown: Boolean = false,
     val email: String = "",
     val loginType: String  = "",
-    val toast: String? = null
+    val toast: String? = null,
+    val userCode: String = ""
 )
 
 sealed class MyPageEvent{
@@ -71,7 +72,6 @@ class MyPageViewmodel @Inject constructor(
         val clip = ClipData.newPlainText("BBIP_ID", text)
         clipboard.setPrimaryClip(clip)
 
-        onUpdateToast("ID가 클립보드에 복사되었습니다.")
     }
 
     /**
@@ -118,7 +118,8 @@ class MyPageViewmodel @Inject constructor(
                                 profileImageUrl = user.profileImageUrl,
                                 email = user.email,
                                 loginType = user.loginType,
-                                isLoading = false
+                                isLoading = false,
+                                userCode = user.userCode
                             )
                         }
                     }
