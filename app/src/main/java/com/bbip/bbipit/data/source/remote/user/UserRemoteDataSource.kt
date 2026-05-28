@@ -29,4 +29,5 @@ interface UserRemoteDataSource {
      * 내 프로필 정보 조회 함수
      */
     suspend fun getMyProfile(uid: String): Map<String, Any>?
+    suspend fun getUserOnlineStatus(uid: String): Boolean?
 }
