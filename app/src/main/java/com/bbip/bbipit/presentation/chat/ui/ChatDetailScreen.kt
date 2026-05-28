@@ -290,7 +290,8 @@ fun ChatDetailHeader(navController: NavController, uiState: ChatDetailUiState) {
                                     color = background, // 하얀색 테두리
                                     shape = CircleShape
                                 )
-                        )
+                                .background(Color.White)
+                            )
                     }
 
                     Box(

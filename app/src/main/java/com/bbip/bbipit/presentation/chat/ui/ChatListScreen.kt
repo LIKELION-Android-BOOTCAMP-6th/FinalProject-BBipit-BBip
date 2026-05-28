@@ -242,7 +242,8 @@ fun ChatItemRow(
                         width = 2.dp,
                         color = background, // 하얀색 테두리
                         shape = CircleShape
-                    ),
+                    )
+                    .background(Color.White),
                 contentScale = ContentScale.Crop)
             }
 
