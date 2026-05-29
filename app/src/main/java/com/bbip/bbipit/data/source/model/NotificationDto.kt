@@ -23,6 +23,10 @@ data class NotificationDto(
     // 음성 파일 주소
     val voice_url: String? = null,
 
+    val voice_isPlayed: Boolean = false,
+
+    val voice_duration: Int = 0,
+
     // 연동된 채팅방 식별자
     val room_id: String? = null,
 

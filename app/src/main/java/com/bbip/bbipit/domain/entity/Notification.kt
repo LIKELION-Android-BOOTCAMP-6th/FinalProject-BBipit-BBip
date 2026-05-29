@@ -11,6 +11,8 @@ data class Notification(
     val content: String = "",
     val audioId: String = "",
     val audioUrl: String = "",
+    val isPlayed: Boolean = false,
+    val duration: Int = 0,
     val createdAt: Long = 0L,
     val roomId: String = "",
     val isRead: Boolean = false,

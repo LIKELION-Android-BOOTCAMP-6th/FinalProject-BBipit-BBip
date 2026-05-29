@@ -31,6 +31,7 @@ import com.bbip.bbipit.domain.entity.Notification
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
 
@@ -61,6 +62,22 @@ fun NotificationScreen(
         }
     }
 
+// 확인하지 않은 무전이 있는지 체크하는 상태
+    var showWalkieDialog by remember { mutableStateOf(false) }
+
+// 전체확인 다이얼로그
+    if (showWalkieDialog) {
+        ConfirmDialog(
+            text = "확인하지 않은 무전이 있습니다.",
+            semiText = "전체 확인 시에도 무전을 들으실 수 있습니다.",
+            isSingleBtn = true,
+            onDismiss = { },
+            onConfirm = {
+                showWalkieDialog = false
+                viewModel.onReadAllClick()
+            }
+        )
+    }
     Scaffold(
         containerColor = background,
         modifier = Modifier.fillMaxSize()
@@ -71,7 +88,16 @@ fun NotificationScreen(
                 .navigationBarsPadding().padding(bottom = 68.dp),
         ) {
             NotificationHeader(
-                onReadAll = { viewModel.onReadAllClick() },
+                onReadAll = {
+                    val hasUnreadWalkie = notification.any {
+                        it.type == "WALKIE" && !it.isRead && !it.isExpired && !expiredVoiceIds.contains(it.id)
+                    }
+                    if (hasUnreadWalkie) {
+                        showWalkieDialog = true
+                    } else {
+                        viewModel.onReadAllClick()
+                    }
+                },
                 onAddTestClick = { type -> viewModel.createTestNotification(type) }
             )
             Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {

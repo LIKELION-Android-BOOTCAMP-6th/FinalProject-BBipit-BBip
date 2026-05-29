@@ -56,7 +56,7 @@ class NotificationViewModel @Inject constructor(
                 if (liveNotifications.size > _notification.value.size) {
                     _readAllClicked.value = false
                 }
-                // 데이터 정렬
+
                 _notification.value = liveNotifications
                     .sortedWith(compareBy<Notification> { it.isRead }.thenByDescending { it.createdAt })
                     .toList()
@@ -103,7 +103,7 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    // 단건 읽음 처리: Repository → RemoteDataSource → Cloud Functions
+    // 단건 읽음 처리
     fun markAsRead(id: String) {
         if (currentUserId.isEmpty()) return
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
@@ -126,7 +126,7 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
-    // 전체 확인: 서버 API로 is_read=true 일괄 처리
+    // 전체 확인 처리
     fun onReadAllClick() {
         if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
 
@@ -166,6 +166,9 @@ class NotificationViewModel @Inject constructor(
             Log.e("NotificationVM", "❌ notificationId 없음")
             return
         }
+
+        if (currentUserId.isEmpty()) return
+        Log.d("NotificationVM", "무전 재생 시작: $notificationId")
         notificationRepository.playWalkie(intent, currentUserId)
         setVoiceExpired(notificationId)
         markAsRead(notificationId)

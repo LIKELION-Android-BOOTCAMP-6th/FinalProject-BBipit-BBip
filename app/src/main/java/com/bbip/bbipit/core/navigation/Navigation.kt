@@ -39,6 +39,7 @@ fun BBipItNavigation(
     val start = when {
         !(isLogin && isEmailVerified) -> Routes.SignIn
 
+        notificationType == "WALKIE" -> Routes.Map
         notificationType != null -> Routes.Notification
 
         else -> Routes.Map
@@ -93,8 +94,8 @@ fun BBipItNavigation(
                 }
             }
             "WALKIE" -> {
+                navController.navigate(Routes.Map)
                 notificationViewModel.playWalkie(notificationIntent)
-                navController.navigate(Routes.Notification)
             }
             "REQ" -> {
                 navController.navigate(Routes.FriendRequestList)
