@@ -67,7 +67,7 @@ class ChatDetailViewModel @Inject constructor(
             launch {
                 chatRepository.observeMessages(roomId).collect { domainMessages ->
                     // 1. 도메인 메시지를 MessageItem으로 먼저 변환
-                    val allMessages = domainMessages.map { chatMessage ->
+                    val serverMessages = domainMessages.map { chatMessage ->
                         MessageItem(
                             id = chatMessage.id,
                             text = chatMessage.content,
@@ -77,6 +77,18 @@ class ChatDetailViewModel @Inject constructor(
                             isMine = chatMessage.senderId == myUid
                         )
                     }
+
+                    // 💡 1. 서버 메시지 ID 목록을 가져옵니다.
+                    val serverIds = serverMessages.map { it.id }.toSet()
+
+                    // 💡 2. 내가 방금 만든 임시 메시지(isFailed == true인 것) 중에서
+                    // 서버에 아직 안 들어간(ID가 서버 리스트에 없는) 것만 골라냅니다.
+                    val persistentFailedMessages = _uiState.value.messages.filter {
+                        it.isFailed && it.id !in serverIds
+                    }
+
+                    // 💡 3. 합치기 (서버 데이터 + 내 실패 데이터)
+                    val allMessages = (serverMessages + persistentFailedMessages).sortedBy { it.sentAt }
 
                     // 2. 변환된 아이템들을 날짜별로 그룹화
                     val grouped = allMessages.groupBy { message ->
@@ -125,9 +137,12 @@ class ChatDetailViewModel @Inject constructor(
             )
 
             // 로컬 화면 리스트에 임시 메시지 즉시 추가
-            _uiState.update {
-                it.copy(messages = it.messages + tempMessage)
+            _uiState.update { currentState ->
+                val newList = currentState.messages.toMutableList()
+                newList.add(tempMessage)
+                currentState.copy(messages = newList.toList())
             }
+
             // 실제 백엔드 sendMessage Cloud Functions 호출
             val result = chatRepository.sendMessage(roomId, receiverId, text)
 
@@ -158,13 +173,19 @@ class ChatDetailViewModel @Inject constructor(
                         "서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
                     }
 
-                    val failedList = _uiState.value.messages.map { msg ->
-                        if (msg.id == tempId) msg.copy(isFailed = true) else msg
-                    }
+                    _uiState.update { currentState ->
+                        val updatedMessages = currentState.messages.map { msg ->
+                            if (msg.id == tempId) msg.copy(isFailed = true) else msg
+                        }
 
-                    _uiState.update {
-                        it.copy(
-                            messages = failedList,
+                        val newGrouped = updatedMessages.groupBy { message ->
+                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+                            sdf.format(java.util.Date(message.sentAt))
+                        }
+
+                        currentState.copy(
+                            messages = updatedMessages,
+                            groupedMessages = newGrouped, // 💡 UI가 변경된 groupedMessages를 받음
                             errorMessage = displayMessage
                         )
                     }
@@ -217,10 +238,13 @@ class ChatDetailViewModel @Inject constructor(
      */
     fun removeFailedMessage(tempId: String) {
         _uiState.update { currentState ->
-            val updatedMessages = currentState.messages.filterNot { msg -> msg.id == tempId }
+            // 기존 리스트에서 특정 ID만 제외하고, .toList()를 호출해 새 객체로 만듦
+            val updatedMessages = currentState.messages.filterNot { it.id == tempId }.toList()
+
+            // 이렇게 하면 currentState.copy(...)를 통해 새로운 상태 객체가 생성됨
             currentState.copy(messages = updatedMessages)
         }
-        android.util.Log.d("ChatDetailViewModel", "실패 메시지 삭제 완료: $tempId")
+        android.util.Log.d("ChatDetailViewModel", "삭제 완료: $tempId")
     }
 
     // 에러 메세지 감시

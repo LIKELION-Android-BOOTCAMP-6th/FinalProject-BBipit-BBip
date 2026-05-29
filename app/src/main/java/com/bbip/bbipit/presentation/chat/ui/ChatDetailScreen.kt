@@ -111,6 +111,11 @@ fun ChatDetailScreen(
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    val grouped = uiState.messages.groupBy { message ->
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+        sdf.format(java.util.Date(message.sentAt))
+    }
+
     // uiState.errorMessage가 null이 아닐 때만
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
@@ -178,7 +183,7 @@ fun ChatDetailScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    uiState.groupedMessages.forEach { (dateKey, messagesInDate) ->
+                    grouped.forEach { (dateKey, messagesInDate) ->
 
                         // 1. 날짜 헤더 (포맷팅 함수 사용)
                         item(key = "header_$dateKey") {
@@ -197,6 +202,8 @@ fun ChatDetailScreen(
                                     viewModel.sendMessage(roomId, receiverId, failedMessage.text)
                                 },
                                 onDeleteClick = { failedMessage ->
+                                    // 여기서 삭제하면 uiState.messages가 바뀌고,
+                                    // 위에서 계산한 grouped도 즉시 다시 계산되어 화면에서 즉시 사라짐!
                                     viewModel.removeFailedMessage(failedMessage.id)
                                 }
                             )
@@ -473,7 +480,7 @@ fun MessageBubble(
 fun MessageStatusSection(message: MessageItem) {
     Column(horizontalAlignment = Alignment.End) {
         // 읽지 않았을 때만 '1' 표시
-        if (!message.isRead) {
+        if (!message.isRead && !message.isFailed) {
             Text(
                 text = "1",
                 style = Typography.labelSmall,
