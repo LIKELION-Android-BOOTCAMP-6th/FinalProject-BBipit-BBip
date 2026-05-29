@@ -65,6 +65,7 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
+import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
@@ -192,6 +193,18 @@ fun MapScreen(
         }
     }
 
+    if(uiState.isStopSharingDialogShown && uiState.isLocationSharing){
+        ConfirmDialog(
+            text = "위치 공유를 중지하시겠습니까?",
+            semiText = "위치 공유를 중지할 경우 \n친구의 위치를 알 수 없습니다.",
+            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false)},
+            onConfirm = {
+                mapViewModel.onUpdateStopSharingDialog(false)
+                mapViewModel.toggleLocationSharing(false)
+            }
+        )
+    }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -217,8 +230,12 @@ fun MapScreen(
                 // 실시간 위치 공유 토글 버튼
                 LocationSharingToggleButton(
                     isSharingEnabled = uiState.isLocationSharing,
-                    onToggleClick = { isEnabled ->
-                        mapViewModel.toggleLocationSharing(isEnabled)
+                    onToggleClick = { isEnable ->
+                        if(uiState.isLocationSharing){
+                            mapViewModel.onUpdateStopSharingDialog(true)
+                        }else{
+                            mapViewModel.toggleLocationSharing(isEnable)
+                        }
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -226,18 +243,19 @@ fun MapScreen(
                         .padding(top = 16.dp)
                 )
 
+                //TODO : 2차 개발 시 주석 해제 후 사용할 것
                 // 히스토리 상세 다이얼로그
-                if (isDetailDialogOpen && selectedHistory != null) {
-                    HistoryDetailDialog(
-                        history = selectedHistory!!,
-                        currentUserId = uiState.myStatus?.uid.orEmpty(),
-                        onDismiss = { isDetailDialogOpen = false },
-                        onDelete = { history ->
-                            historyViewModel.deleteHistory(history.id)
-                            isDetailDialogOpen = false
-                        }
-                    )
-                }
+//                if (isDetailDialogOpen && selectedHistory != null) {
+//                    HistoryDetailDialog(
+//                        history = selectedHistory!!,
+//                        currentUserId = uiState.myStatus?.uid.orEmpty(),
+//                        onDismiss = { isDetailDialogOpen = false },
+//                        onDelete = { history ->
+//                            historyViewModel.deleteHistory(history.id)
+//                            isDetailDialogOpen = false
+//                        }
+//                    )
+//                }
 
                 // 친구 목록 토글 버튼
                 FriendListToggleButton(
@@ -250,34 +268,35 @@ fun MapScreen(
                         .padding(end = 16.dp, bottom = 220.dp)
                 )
 
+                //TODO: 2차 개발 시 주석 해제하고 사용할 것
                 // 작성 페이지 전환 버튼
-                FilledIconButton(
-                    onClick = {
-                        isHistorySheetOpen = true
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .statusBarsPadding()
-                        .padding(end = 16.dp, bottom = 280.dp)
-                        .size(50.dp)
-                        .shadow(
-                            elevation = 6.dp,
-                            shape = RoundedCornerShape(14.dp),
-                            clip = false
-                        ),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = Color(0xFFF1F5F9),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_footprints_icon),
-                        contentDescription = "히스토리 바텀 시트 열기",
-                        modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF956AFC)
-                    )
-                }
+//                FilledIconButton(
+//                    onClick = {
+//                        isHistorySheetOpen = true
+//                    },
+//                    modifier = Modifier
+//                        .align(Alignment.BottomEnd)
+//                        .statusBarsPadding()
+//                        .padding(end = 16.dp, bottom = 280.dp)
+//                        .size(50.dp)
+//                        .shadow(
+//                            elevation = 6.dp,
+//                            shape = RoundedCornerShape(14.dp),
+//                            clip = false
+//                        ),
+//                    shape = RoundedCornerShape(14.dp),
+//                    colors = IconButtonDefaults.filledIconButtonColors(
+//                        containerColor = Color(0xFFF1F5F9),
+//                        contentColor = Color.White
+//                    )
+//                ) {
+//                    Icon(
+//                        painter = painterResource(id = R.drawable.ic_footprints_icon),
+//                        contentDescription = "히스토리 바텀 시트 열기",
+//                        modifier = Modifier.size(24.dp),
+//                        tint = Color(0xFF956AFC)
+//                    )
+//                }
 
                 // 위치 업데이트 버튼
                 FilledIconButton(

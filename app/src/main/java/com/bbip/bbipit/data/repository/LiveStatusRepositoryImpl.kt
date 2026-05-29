@@ -9,6 +9,7 @@ import com.bbip.bbipit.data.source.remote.live.LiveStatusRemoteDataSource
 import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.error.AppError
+import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
@@ -29,6 +30,8 @@ import javax.inject.Singleton
 class LiveStatusRepositoryImpl @Inject constructor(
     private val liveStatusRemoteDataSource: LiveStatusRemoteDataSource,
     private val friendRepository: FriendRepository,
+    private val authRepository: AuthRepository,
+    private val db: FirebaseFirestore
 ) : LiveStatusRepository {
 
     // 비동기 작업 처리용 Scope
@@ -47,7 +50,7 @@ class LiveStatusRepositoryImpl @Inject constructor(
 
     override suspend fun refreshMyLiveStatusCache(): Result<String> {
         return try {
-            val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val myUid = authRepository.getCurrentUserUid() ?: ""
 
             // 원격 데이터 조회 및 도메인 엔티티 변환 (기존 원본 로직)
             val dto = liveStatusRemoteDataSource.getLiveStatusByUid(myUid)
@@ -197,9 +200,9 @@ class LiveStatusRepositoryImpl @Inject constructor(
         return try {
             _isLocationSharingEnabled.value = isSharing
 
-            val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: return Result.Failure(AppError.Unknown("로그인 정보 없음"))
+            val myUid = authRepository.getCurrentUserUid() ?: return Result.Failure(AppError.Unknown("로그인 정보 없음"))
 
-            FirebaseFirestore.getInstance().collection("Users").document(myUid)
+            db.collection("Users").document(myUid)
                 .update("is_sharing", isSharing)
                 .await()
 
