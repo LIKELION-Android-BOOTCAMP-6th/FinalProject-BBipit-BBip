@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
         // 알림 클릭으로 온 Intent인지 구분
         pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
         pendingNotificationId = intent.getStringExtra("notification_id")
+        Log.d("MainActivity", "onCreate - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
 
         setContent {
 
@@ -137,11 +138,14 @@ class MainActivity : ComponentActivity() {
                     ) {
                         // 배너 클릭 진입 시 알림 처리
                         LaunchedEffect(pendingNotificationId) {
+                            Log.d("MainActivity", "LaunchedEffect - pendingNotificationId: $pendingNotificationId")
                             pendingNotificationId?.let { id ->
                                 val type = pendingNotificationIntent?.getStringExtra("notification_type")
+                                Log.d("MainActivity", "처리 시작 - type: $type, id: $id")
                                 if (type == "WALKIE") {
-                                    notificationViewModel.playWalkie(pendingNotificationIntent!!)
-                                } else {
+                                    val audioId = pendingNotificationIntent?.getStringExtra("notification_audio_id") ?: ""
+                                    if (audioId.isNotEmpty()) {
+                                        notificationViewModel.onClickAudioNotification(id, audioId)   }                             } else {
                                     notificationViewModel.markAsRead(id)
                                 }
                                 pendingNotificationId = null
