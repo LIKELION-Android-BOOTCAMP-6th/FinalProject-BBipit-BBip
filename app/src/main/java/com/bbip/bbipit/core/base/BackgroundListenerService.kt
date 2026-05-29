@@ -733,7 +733,7 @@ class BackgroundListenerService : Service() {
                             // 2. 앱이 꺼져있거나 홈화면일 때 (백그라운드)
                             else {
                                 Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
-//                                showSystemNotification(notification)
+                                showSystemNotification(notification)
                             }
                             // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
                             return@forEach
@@ -769,8 +769,7 @@ class BackgroundListenerService : Service() {
             else -> notification.content
         }
 
-        val safeFlags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-
+        val safeFlags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         // 배너 클릭 시 Intent
         val intent = when (notification.type) {
             "DM" -> Intent(this, MainActivity::class.java).apply {
@@ -790,30 +789,30 @@ class BackgroundListenerService : Service() {
             }
             "WALKIE" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
-//                putExtra("notification_type", "WALKIE")
-//                putExtra("notification_id", notification.id)
-//                putExtra("notification_audio_id", notification.audioId)
-//                putExtra("notification_sender_id", notification.senderId)
-//                putExtra("notification_created_at", notification.createdAt)
+                putExtra("notification_type", "WALKIE")
+                putExtra("notification_id", notification.id)
+                putExtra("notification_audio_id", notification.audioId)
+                putExtra("notification_sender_id", notification.senderId)
+                putExtra("notification_created_at", notification.createdAt)
 
-                scope.launch {
-                    // 서버에서 음성 메시지 조회
-                    val result = voiceRepository.getVoiceMessageById(notification.audioId)
-
-                    when (result) {
-                        is Result.Success -> {
-                            notificationRepository.markVoiceNotificationAsPlayed(notification.id)
-
-                            val voiceMessage = result.data
-                            Log.d("NotificationViewModel", result.data.toString())
-                            voiceRepository.emitMobileVoiceEvent(voiceMessage)
-                        }
-                        is Result.Failure -> {
-                            // 필요 시 에러 토스트 팝업이나 로그 처리 추가 가능
-                            Log.e("NotificationViewModel", "음성 메시지 재생 실패: ${result.error}")
-                        }
-                    }
-                }
+//                scope.launch {
+//                    // 서버에서 음성 메시지 조회
+//                    val result = voiceRepository.getVoiceMessageById(notification.audioId)
+//
+//                    when (result) {
+//                        is Result.Success -> {
+//                            notificationRepository.markVoiceNotificationAsPlayed(notification.id)
+//
+//                            val voiceMessage = result.data
+//                            Log.d("NotificationViewModel", result.data.toString())
+//                            voiceRepository.emitMobileVoiceEvent(voiceMessage)
+//                        }
+//                        is Result.Failure -> {
+//                            // 필요 시 에러 토스트 팝업이나 로그 처리 추가 가능
+//                            Log.e("NotificationViewModel", "음성 메시지 재생 실패: ${result.error}")
+//                        }
+//                    }
+//                }
 
             }
             else -> Intent(this, MainActivity::class.java).apply {

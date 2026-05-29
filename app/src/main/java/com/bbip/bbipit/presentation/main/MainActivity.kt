@@ -144,6 +144,7 @@ class MainActivity : ComponentActivity() {
                                 Log.d("MainActivity", "처리 시작 - type: $type, id: $id")
                                 if (type == "WALKIE") {
                                     val audioId = pendingNotificationIntent?.getStringExtra("notification_audio_id") ?: ""
+                                    Log.d("MainActivity", "audioId: $audioId")
                                     if (audioId.isNotEmpty()) {
                                         notificationViewModel.onClickAudioNotification(id, audioId)   }                             } else {
                                     notificationViewModel.markAsRead(id)
