@@ -6,6 +6,8 @@ import com.google.firebase.Timestamp
  * 시스템 및 서비스 알림 정보 데이터 전송 객체
  */
 data class NotificationDto(
+    val id: String = "",
+
     // 알림 카테고리 종류
     val type: String = "",
 
@@ -15,13 +17,12 @@ data class NotificationDto(
     // 발신자 표시 이름
     val sender_name: String = "",
 
+    val sender_url: String = "",
+
     // 알림 본문 내용
     val content: String = "",
 
-    val voice_id: String = "",
-
-    // 음성 파일 주소
-    val voice_url: String? = null,
+    val voice_id: String? = null,
 
     val voice_isPlayed: Boolean = false,
 

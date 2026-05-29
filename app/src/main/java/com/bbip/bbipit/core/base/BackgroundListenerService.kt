@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
@@ -223,6 +224,9 @@ class BackgroundListenerService : Service() {
                 ACTION_PUSH_LOCATION_TO_WATCH -> {
                     scope.launch {
                         val myStatus = liveStatusRepository.getCachedMyLiveStatus()
+                        val friendsList = friendRepository.myFriends.value.mapNotNull {
+                            liveStatusRepository.myLiveStatusFlow.value
+                        }
                         pushLocationsToWatch(listOfNotNull(myStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
                     }
                 }
@@ -504,6 +508,8 @@ class BackgroundListenerService : Service() {
                         input.copyTo(output)
                     }
                 }
+            } catch (e: ChannelIOException) {
+                Log.w(TAG, "⚠️ 워치 채널 전송 마감 중 끊김")
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 오디오 수신 오류", e)
             } finally {
@@ -536,7 +542,7 @@ class BackgroundListenerService : Service() {
             // 파일 업로드 성공 후 음성 메시지 최종 전송
             voiceRepository.uploadVoiceFile(fileUri)
                 .onSuccess { url ->
-                    voiceRepository.sendVoiceMessage(targetUid, url, duration)
+                    voiceRepository.sendVoiceMessage( targetUid, url, duration)
                 }
                 .onFailure { Log.e(TAG, "파일 전송 실패") }
         }
@@ -660,9 +666,10 @@ class BackgroundListenerService : Service() {
             val channel = NotificationChannel(
                 channelId,
                 "워치 무전 수신 상주 서비스",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_LOW // ◀ IMPORTANCE_LOW로 수정하여 무음 처리
             ).apply {
                 setShowBadge(false)
+                setSound(null, null) // ◀ 명시적 무음 처리 추가
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
@@ -673,7 +680,7 @@ class BackgroundListenerService : Service() {
             .setContentText("워치로부터 음성 신호를 받을 준비가 되었습니다.")
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW) // ◀ 빌더 Priority도 LOW로 수정
             .build()
 
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
@@ -696,27 +703,16 @@ class BackgroundListenerService : Service() {
 
     /**
      * Repository 캐시 구독 기반 신규 알림 감지 및 시스템 알림 발행 함수
+     * 초기 수신 전체 문서는 notifiedIds에 등록만 하고 알림 발행 없이 스킵
+     * 이후 추가된 신규 문서만 시스템 알림으로 발행
+     * WALKIE 타입은 앱 백그라운드 상태일 때만 시스템 알림 발행
      */
     private fun observeNotifications() {
         scope.launch {
             notificationRepository.notifications.collect { notifications ->
-                if (isInitialData) {
-                    if (notifications.isNotEmpty()) {
-                        notifications.forEach { notification ->
-                            // 읽지 않은 알림은 등록하지 않아 신규 알림으로 처리되도록 허용
-                            if (notification.isRead) {
-                                notifiedIds.add(notification.id)
-                            }
-                        }
-                        isInitialData = false
-                        Log.d(TAG, "✅ 초기 데이터 ${notifications.size}건 중 읽은 것만 처리 완료 목록 등록")
-                    }
-                    return@collect
-                }
-
                 notifications.forEach { notification -> if (!notification.isRead &&
-                        !notifiedIds.contains(notification.id) &&
-                        notification.createdAt > serviceStartTime
+                    !notifiedIds.contains(notification.id) &&
+                    !notification.isInitial
                     ) {
                         notifiedIds.add(notification.id)
                         Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})")
@@ -737,7 +733,7 @@ class BackgroundListenerService : Service() {
                             // 2. 앱이 꺼져있거나 홈화면일 때 (백그라운드)
                             else {
                                 Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
-                                showSystemNotification(notification)
+//                                showSystemNotification(notification)
                             }
                             // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
                             return@forEach
@@ -754,7 +750,7 @@ class BackgroundListenerService : Service() {
      * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
      */
     private fun showSystemNotification(notification: com.bbip.bbipit.domain.entity.Notification) {
-        Log.d(TAG, "WALKIE 배너 발행 - audioUrl: ${notification.audioUrl}, audioId: ${notification.audioId}")
+        Log.d(TAG, "WALKIE 배너 발행 - audioId: ${notification.audioId}")
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
         val channelId = "phone_alert_channel"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -768,6 +764,7 @@ class BackgroundListenerService : Service() {
 
         val bodyText = when (notification.type) {
             "REQ" -> "친구 요청이 왔습니다."
+            "ACT" -> "친구 요청이 수락되었습니다."
             "WALKIE" -> "무전이 왔습니다."
             else -> notification.content
         }
@@ -787,21 +784,44 @@ class BackgroundListenerService : Service() {
                 flags = safeFlags
                 putExtra("notification_type", "REQ")
             }
+            "ACT"-> Intent(this, MainActivity::class.java).apply {
+                flags = safeFlags
+                putExtra("notification_type", "REQ")
+            }
             "WALKIE" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
-                putExtra("notification_type", "WALKIE")
-                putExtra("notification_id", notification.id)
-                putExtra("notification_audio_url", notification.audioUrl)
-                putExtra("notification_audio_id", notification.id)
-                putExtra("notification_sender_id", notification.senderId)
-                putExtra("notification_created_at", notification.createdAt)
-                putExtra("notification_duration", notification.duration)
+//                putExtra("notification_type", "WALKIE")
+//                putExtra("notification_id", notification.id)
+//                putExtra("notification_audio_id", notification.audioId)
+//                putExtra("notification_sender_id", notification.senderId)
+//                putExtra("notification_created_at", notification.createdAt)
+
+                scope.launch {
+                    // 서버에서 음성 메시지 조회
+                    val result = voiceRepository.getVoiceMessageById(notification.audioId)
+
+                    when (result) {
+                        is Result.Success -> {
+                            notificationRepository.markVoiceNotificationAsPlayed(notification.id)
+
+                            val voiceMessage = result.data
+                            Log.d("NotificationViewModel", result.data.toString())
+                            voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                        }
+                        is Result.Failure -> {
+                            // 필요 시 에러 토스트 팝업이나 로그 처리 추가 가능
+                            Log.e("NotificationViewModel", "음성 메시지 재생 실패: ${result.error}")
+                        }
+                    }
+                }
 
             }
             else -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
             }
         }
+
+        Log.d(TAG, "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
 
         // 알림 클릭 시 Intent
         val pendingIntent = PendingIntent.getActivity(

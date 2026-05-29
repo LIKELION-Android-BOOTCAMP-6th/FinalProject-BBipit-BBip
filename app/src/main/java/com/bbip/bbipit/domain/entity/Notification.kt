@@ -8,15 +8,16 @@ data class Notification(
     val type: String = "",
     val senderId: String = "",
     val senderName: String = "",
+    val profileImage: String = "",
     val content: String = "",
     val audioId: String = "",
-    val audioUrl: String = "",
     val isPlayed: Boolean = false,
-    val duration: Int = 0,
     val createdAt: Long = 0L,
     val roomId: String = "",
     val isRead: Boolean = false,
-    val expiresAt: Long?
+    val expiresAt: Long = 0L,
+    // 최초 구독 상태
+    val isInitial: Boolean = false
 ) {
     /**
      * 알림 만료 여부 반환 프로퍼티
@@ -26,9 +27,6 @@ data class Notification(
             if (type != "WALKIE") return false
 
             val now = System.currentTimeMillis()
-            // 만료 시간을 3시간으로 계산
-            val expireMillis = createdAt + (3 * 60 * 60 * 1000L)
-
-            return expireMillis != 0L && now > expireMillis
+            return now > expiresAt
         }
 }

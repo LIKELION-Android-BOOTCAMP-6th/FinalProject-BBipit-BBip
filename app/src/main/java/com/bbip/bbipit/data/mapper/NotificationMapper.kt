@@ -14,14 +14,13 @@ fun NotificationDto.toEntity(id: String): Notification {
                 type = type,
                 senderId = sender_id,
                 senderName = sender_name,
+                profileImage = sender_url,
                 content = content,
-                audioId = voice_id,
-                audioUrl = voice_url ?: "",
+                audioId = voice_id ?: "",
                 isPlayed = voice_isPlayed,
-                duration = voice_duration,
                 roomId = room_id ?: "",
                 isRead = is_read,
                 createdAt = created_at?.toDate()?.time ?: 0L,
-                expiresAt = expires_at?.toDate()?.time
+                expiresAt = expires_at?.toDate()?.time ?: 0L
         )
 }

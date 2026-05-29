@@ -40,5 +40,5 @@ interface NotificationRepository {
 
     // Intent에서 추출한 데이터로 무전 즉시 재생
     fun playWalkie(intent: android.content.Intent, receiverId: String)
-    suspend fun markVoiceNotiAsPlayed(notificationId: String): Boolean
+    suspend fun markVoiceNotificationAsPlayed(notificationId: String): Boolean
 }

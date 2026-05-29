@@ -1,7 +1,9 @@
 package com.bbip.bbipit.presentation.notification.ui
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,7 +33,12 @@ import com.bbip.bbipit.domain.entity.Notification
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.VoicePlayerViewModel
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
 
@@ -40,6 +47,7 @@ import kotlinx.coroutines.delay
 fun NotificationScreen(
     navController: NavController,
     viewModel: NotificationViewModel = hiltViewModel(),
+    voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
 ) {
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -62,10 +70,10 @@ fun NotificationScreen(
         }
     }
 
-// 확인하지 않은 무전이 있는지 체크하는 상태
+    // 확인하지 않은 무전이 있는지 체크하는 상태
     var showWalkieDialog by remember { mutableStateOf(false) }
 
-// 전체확인 다이얼로그
+    // 전체확인 다이얼로그
     if (showWalkieDialog) {
         ConfirmDialog(
             text = "확인하지 않은 무전이 있습니다.",
@@ -112,19 +120,17 @@ fun NotificationScreen(
             val listState = rememberLazyListState()
 
             LaunchedEffect(filteredList.size) {
+                if (filteredList.isNotEmpty()) {
                     listState.animateScrollToItem(0)
                 }
-
+            }
 
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
                     bottom = innerPadding.calculateBottomPadding()
                 )
             ) {
@@ -138,61 +144,64 @@ fun NotificationScreen(
                             } else false
                         }
                     )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                val progress = dismissState.progress
+                                val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            val progress = dismissState.progress
-                            val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+                                if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
 
-                            if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
+                                val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
+                                val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
 
-                            val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
-                            val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
-
-                            Box(
-                                Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Color.Red.copy(alpha = bgAlpha),
-                                        RoundedCornerShape(20.dp)
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Color.Red.copy(alpha = bgAlpha),
+                                            RoundedCornerShape(20.dp)
+                                        )
+                                        .padding(start = 20.dp, end = 20.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = iconAlpha)
                                     )
-                                    .padding(start = 20.dp, end = 20.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = iconAlpha)
-                                )
-                            }
-                        },
-                        enableDismissFromStartToEnd = false
-                    ) {
-                        NotificationCard(
-                            item = item,
-                            currentTime = currentTime,
-                            readAllClicked = isReadAllClicked,
-                            isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
-                            onClick = {
-                                if (item.type == "DM") {
-                                    viewModel.markAsRead(item.id)
-                                    navController.navigate(Routes.ChatRoom(roomId = item.roomId, receiverId = item.senderId ?: "")) // 알림 sender id = dm의 receiver id
                                 }
-                                else if (item.type == "WALKIE") {
-                                    val alreadyExpired = item.isExpired || expiredVoiceIds.contains(item.id)
-                                    if (!alreadyExpired) {
+                            },
+                            enableDismissFromStartToEnd = false
+                        ) {
+                            NotificationCard(
+                                item = item,
+                                currentTime = currentTime,
+                                readAllClicked = isReadAllClicked,
+//                                isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
+                                onClick = {
+                                    if (item.type == "DM") {
                                         viewModel.markAsRead(item.id)
-                                        viewModel.setVoiceExpired(item.id)
-                                        viewModel.playWalkieFromNotification(item)
+                                        navController.navigate(Routes.ChatRoom(roomId = item.roomId, receiverId = item.senderId ?: ""))
+                                    }
+                                    else if (item.type == "WALKIE") {
+                                        viewModel.markAsRead(item.id)
+                                        viewModel.onClickAudioNotification(item.id, item.audioId)
+                                    }
+                                    else if (item.type == "REQ") {
+                                        viewModel.markAsRead(item.id)
+                                        navController.navigate(Routes.FriendRequestList)
                                     }
                                 }
-                                else if (item.type == "REQ") {
-                                    viewModel.markAsRead(item.id)
-                                    navController.navigate(Routes.FriendRequestList)
-                                }
-                            }
+                            )
+                        }
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 20.dp),
+                            thickness = 0.5.dp,
+                            color = Color.LightGray.copy(alpha = 0.4f)
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
             }
@@ -200,24 +209,26 @@ fun NotificationScreen(
     }
 }
 
+
 @Composable
 fun NotificationCard(
     item: Notification,
     currentTime: Long,
     onClick: () -> Unit,
     readAllClicked: Boolean = false,
-    isVoiceExpiredInUi: Boolean = false,
-    isLocalRead: Boolean = false
+//    isVoiceExpiredInUi: Boolean = false,
+    isLocalRead: Boolean = false,
+    senderProfileImage: String = ""
 ) {
-    val isWalkieExpired = item.type == "WALKIE" && (item.isExpired || isVoiceExpiredInUi)
+    val isWalkieExpired = item.type == "WALKIE" && (item.isExpired || item.isPlayed)
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick, enabled = !isWalkieExpired),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isWalkieExpired) background.copy(0.5f) else background.copy(0.9f)
+            containerColor = background
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -240,13 +251,20 @@ fun NotificationCard(
                 }
             }
 
-            Box(
+            AsyncImage(
+                model = item.profileImage,
+                contentDescription = "프로필 이미지",
+                error = rememberVectorPainter(image = Icons.Default.Person),
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
-                    .background(if (isWalkieExpired) sub1.copy(alpha = 0.5f) else sub1)
+                    .border(
+                        width = 2.dp,
+                        color = if(isWalkieExpired) background.copy(alpha = 0.5f) else background,
+                        shape = CircleShape
+                    ),
+                contentScale = ContentScale.Crop
             )
-
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
@@ -255,8 +273,10 @@ fun NotificationCard(
                 Text(
                     text = item.senderName,
                     style = Typography.bodyMedium,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isWalkieExpired) bottomBarBack else fontDefault
+                    color = if (isWalkieExpired) bottomBarBack else fontDefault,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -292,9 +312,8 @@ fun NotificationCard(
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = formatTimestamp(item.createdAt, currentTime),
-                    style = Typography.bodySmall,
-                    fontSize = 11.sp,
-                    color = bottomBarBack
+                    style = Typography.labelSmall,
+                    color = Color.Gray
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))

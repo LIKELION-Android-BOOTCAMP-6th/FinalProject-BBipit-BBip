@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.Notification
@@ -30,6 +31,7 @@ class NotificationViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
     private val notificationRepository: NotificationRepository,
+    private val voiceRepository: VoiceRepository
 ) : ViewModel() {
 
     private val _notification = MutableStateFlow<List<Notification>>(emptyList())
@@ -152,27 +154,66 @@ class NotificationViewModel @Inject constructor(
 
     // 무전 알림 클릭 시 즉시 재생 처리
     fun playWalkieFromNotification(notification: Notification) {
-        if (notification.audioUrl.isEmpty()) return
+        if (notification.audioId.isEmpty()) return
         if (notification.isExpired) return
 
         viewModelScope.launch {
-            notificationRepository.playWalkieNotification(notification, currentUserId)
+            try {
+                val result = voiceRepository.getVoiceMessageById(notification.audioId)
+                if (result is Result.Success) {
+                    notificationRepository.playWalkieNotification(notification, currentUserId)
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationVM", "알림창 무전 클릭 재생 실패: ${e.message}")
+            }
+
+            notificationRepository.markAsRead(notification.id)
         }
     }
 
     // 배너 클릭 진입 시 최우선 즉시 재생 처리
     fun playWalkie(intent: android.content.Intent) {
-        val notificationId = intent.getStringExtra("notification_id") ?: run {
-            Log.e("NotificationVM", "❌ notificationId 없음")
-            return
+        val notificationId = intent.getStringExtra("notification_id") ?: return
+        val voiceId = intent.getStringExtra("notification_audio_id") ?: ""
+
+        if (voiceId.isNotEmpty() && currentUserId.isNotEmpty()) {
+            Log.d("NotificationVM", "🔊 [배너 클릭] voice_id($voiceId) 감지 -> 레포지토리 직접 깨우기")
+
+            viewModelScope.launch {
+                val result = voiceRepository.getVoiceMessageById(voiceId)
+                if (result is Result.Success) {
+                    notificationRepository.playWalkie(intent, currentUserId)
+                }
+            }
         }
 
-        if (currentUserId.isEmpty()) return
-        Log.d("NotificationVM", "무전 재생 시작: $notificationId")
-        notificationRepository.playWalkie(intent, currentUserId)
+        // 기존에 작동하던 알림창 장부 정리 로직 유지
         setVoiceExpired(notificationId)
         markAsRead(notificationId)
     }
+
+
+    fun onClickAudioNotification(notificationId: String, voiceId: String){
+        viewModelScope.launch {
+            // 서버에서 음성 메시지 조회
+            val result = voiceRepository.getVoiceMessageById(voiceId)
+
+            when (result) {
+                is Result.Success -> {
+                    notificationRepository.markVoiceNotificationAsPlayed(notificationId)
+
+                    val voiceMessage = result.data
+                    Log.d("NotificationViewModel", result.data.toString())
+                    voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                }
+                is Result.Failure -> {
+                    // 필요 시 에러 토스트 팝업이나 로그 처리 추가 가능
+                    Log.e("NotificationViewModel", "음성 메시지 재생 실패: ${result.error}")
+                }
+            }
+        }
+    }
+
 
     fun createTestNotification(type: String) {
         val userId = authRepository.getCurrentUserUid() ?: ""

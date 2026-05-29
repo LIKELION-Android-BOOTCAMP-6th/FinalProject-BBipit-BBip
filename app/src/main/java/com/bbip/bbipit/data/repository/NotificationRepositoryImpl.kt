@@ -52,7 +52,7 @@ class NotificationRepositoryImpl @Inject constructor(
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override suspend fun markVoiceNotiAsPlayed(notificationId: String): Boolean {
+    override suspend fun markVoiceNotificationAsPlayed(notificationId: String): Boolean {
         if (notificationId.isBlank()) return false
 
         return dataSource.markVoiceNotificationAsPlayed(notificationId)
@@ -75,6 +75,9 @@ class NotificationRepositoryImpl @Inject constructor(
         stopObserving()
         observingUserId = userId
 
+        // 첫 번째 Snapshot Callback 여부를 추적하는 로컬 상태값
+        var isInitialCallback = true
+
         val query = firestore
             .collection("Notifications")
             .document(userId)
@@ -91,17 +94,25 @@ class NotificationRepositoryImpl @Inject constructor(
                 Log.d("NotificationRepo", "Firestore 스냅샷 수신! 변경된 문서 수: ${snapshot.documentChanges.size}"
                 )
 
+
+                // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
+                val isCurrentInitial = isInitialCallback
+                isInitialCallback = false
+
+
                 // 전체 문서를 엔티티로 변환
                 val items = snapshot.documents.mapNotNull { doc ->
                     try {
                         val dto = doc.toObject(NotificationDto::class.java)
                         val realIsReadFromServer = doc.getBoolean("is_read") ?: false
-
                         dto?.toEntity(doc.id)?.copy(isRead = realIsReadFromServer)
                     } catch (e: Exception) {
                         Log.e("NotificationRepo", "데이터 변환 실패: ${doc.id}, 에러: ${e.message}")
                         null
                     }
+                }
+                if (!snapshot.isEmpty) {
+                    isInitialCallback = false
                 }
 
                 val mergedItems = items.map { newItem ->
@@ -111,10 +122,13 @@ class NotificationRepositoryImpl @Inject constructor(
                             (cachedItem?.isRead == true) ||
                             _uiReadIds.value.contains(newItem.id)
 
-                    newItem.copy(isRead = finalIsRead)
+                    newItem.copy(isRead = finalIsRead, isInitial = isCurrentInitial)
                 }
 
                 _notifications.value = mergedItems
+                _notifications.value.forEach {
+                    Log.d("NotificationRepo", "${it.isInitial}")
+                }
                 Log.d("NotificationRepo", "🔄 실시간 동기화 완료: ${mergedItems.size}건 갱신됨")
             }
         }
@@ -226,8 +240,7 @@ class NotificationRepositoryImpl @Inject constructor(
             id = notification.id,
             senderId = notification.senderId,
             receiverId = receiverId,
-            voiceUrl = notification.audioUrl,
-            duration = notification.duration,
+            voiceUrl = notification.audioId,
             isRead = false,
             createdAt = notification.createdAt
         )
