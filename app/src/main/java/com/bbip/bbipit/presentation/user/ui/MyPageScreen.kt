@@ -184,6 +184,7 @@ fun MyPageScreen(
                                 ,
                                 contentScale = ContentScale.Crop
                             )
+
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
