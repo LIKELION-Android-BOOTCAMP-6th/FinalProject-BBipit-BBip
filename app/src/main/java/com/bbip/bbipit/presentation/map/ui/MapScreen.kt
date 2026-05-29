@@ -398,9 +398,21 @@ fun MapScreen(
                     voiceViewModel = pushToTalkViewModel,
                     onDismiss = { clickedFriendUid = null },
                     onChatClick = {
-                        clickedFriendUid = null
-                        Toast.makeText(context, "${friend.uid} 채팅 방으로 이동..", Toast.LENGTH_SHORT)
-                            .show()
+                        mapViewModel.createOrGetChatRoom(
+                            targetUid = friend.uid,
+                            onSuccess = { roomId ->
+                                clickedFriendUid = null
+                                navController.navigate(
+                                    Routes.ChatRoom(
+                                        roomId = roomId,
+                                        receiverId = friend.uid
+                                    )
+                                )
+                            },
+                            onError = { errorMessage ->
+                                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
                 )
             }
