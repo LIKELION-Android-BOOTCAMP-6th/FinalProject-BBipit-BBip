@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,7 @@ import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -166,29 +168,22 @@ fun MyPageScreen(
                                 .padding(4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            // profileImageUrl이 비어있지 않으면 사진을, 비어있으면 아이콘을 보여줌
-                            if (uiState.profileImageUrl.isNotEmpty()) {
-                                AsyncImage(
-                                    model = uiState.profileImageUrl,
-                                    contentDescription = "프로필 이미지",
-                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Color.LightGray, shape = CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "기본 프로필",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(78.dp) // 130.dp의 60%
+                            AsyncImage(
+                                model = uiState.profileImageUrl,
+                                contentDescription = "프로필 이미지",
+                                error = rememberVectorPainter(image = Icons.Default.Person),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .border(
+                                        width = 1.dp,
+                                        color = primary,
+                                        shape = CircleShape
                                     )
-                                }
-                            }
+                                    .background(background)
+                                ,
+                                contentScale = ContentScale.Crop
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
