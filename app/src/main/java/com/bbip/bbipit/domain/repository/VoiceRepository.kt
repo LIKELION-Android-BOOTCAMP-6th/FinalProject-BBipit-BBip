@@ -43,4 +43,5 @@ interface VoiceRepository {
      * 모바일용 무전 수신 이벤트 송출 함수
      */
     suspend fun emitMobileVoiceEvent(message: VoiceMessage)
+    suspend fun getVoiceMessageById(messageId: String): Result<VoiceMessage>
 }

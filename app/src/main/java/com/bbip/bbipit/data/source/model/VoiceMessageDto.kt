@@ -11,6 +11,14 @@ data class VoiceMessageDto(
     @get:PropertyName("sender_id") @set:PropertyName("sender_id")
     var senderId: String = "",
 
+    // 발신자 고유 식별자
+    @get:PropertyName("sender_name") @set:PropertyName("sender_name")
+    var senderName: String = "",
+
+    // 발신자 고유 식별자
+    @get:PropertyName("sender_profile_url") @set:PropertyName("sender_profile_url")
+    var senderProfileUrl: String = "",
+
     // 음성 파일 주소
     @get:PropertyName("voice_url") @set:PropertyName("voice_url")
     var voiceUrl: String = "",
@@ -28,6 +36,6 @@ data class VoiceMessageDto(
     var receiverId: String = "",
 
     // 메시지 읽음 여부
-    @get:PropertyName("is_read") @set:PropertyName("is_read")
-    var isRead: Boolean = false
+//    @get:PropertyName("is_read") @set:PropertyName("is_read")
+//    var isRead: Boolean = false
 )

@@ -20,6 +20,24 @@ class UserRemoteDataSourceImpl @Inject constructor(
 ) : UserRemoteDataSource {
 
     /**
+     * DB에서 특정 유저의 온라인 상태(is_online)를 직접 조회하는 함수
+     */
+    override suspend fun getUserOnlineStatus(uid: String): Boolean? {
+        return try {
+            val documentSnapshot = firestore.collection("Users")
+                .document(uid)
+                .get()
+                .await()
+
+            // "is_online" 필드 값을 Boolean으로 직접 가져옴 (없으면 null 반환)
+            documentSnapshot.getBoolean("is_online")
+        } catch (e: Exception) {
+            Log.e("UserRemoteDataSource", "온라인 상태 조회 실패: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * 알림 푸시 토큰 조회 함수
      */
     override suspend fun getToken(): String? {
