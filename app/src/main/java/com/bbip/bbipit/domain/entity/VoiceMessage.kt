@@ -19,7 +19,7 @@ data class VoiceMessage(
     // 오디오 재생 시간(초)
     val duration: Int = 0,
     // 메시지 읽음 여부
-//    val isRead: Boolean = false,
+    val isRead: Boolean = false,
     // 메시지 생성 시간(타임스탬프)
     val createdAt: Long = 0L,
     // 최초 구독 상태

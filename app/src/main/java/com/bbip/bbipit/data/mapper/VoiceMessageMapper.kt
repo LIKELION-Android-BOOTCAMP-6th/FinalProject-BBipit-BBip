@@ -19,7 +19,9 @@ fun Map<*, *>.toVoiceMessageDto(): VoiceMessageDto {
         voiceUrl = this["voice_url"] as? String ?: "",
         duration = (this["duration"] as? Number)?.toInt() ?: 0,
         receiverId = this["receiver_id"] as? String ?: "",
-        createdAt = timestamp
+        createdAt = timestamp,
+        isRead = this["is_read"] as? Boolean ?: false,
+        isInitial = this["is_initial"] as? Boolean ?: false
     )
 }
 
@@ -36,6 +38,7 @@ fun VoiceMessageDto.toDomainEntity(id: String, isInitial: Boolean = false): Voic
         voiceUrl = this.voiceUrl,
         duration = this.duration,
         createdAt = this.createdAt?.toDate()?.time ?: 0L,
-        isInitial = isInitial
+        isInitial = isInitial,
+        isRead = this.isRead
     )
 }

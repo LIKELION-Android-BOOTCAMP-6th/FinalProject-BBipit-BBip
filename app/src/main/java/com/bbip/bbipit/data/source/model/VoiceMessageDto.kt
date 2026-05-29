@@ -36,6 +36,9 @@ data class VoiceMessageDto(
     var receiverId: String = "",
 
     // 메시지 읽음 여부
-//    @get:PropertyName("is_read") @set:PropertyName("is_read")
-//    var isRead: Boolean = false
+    @get:PropertyName("is_read") @set:PropertyName("is_read")
+    var isRead: Boolean = false,
+
+    @get: PropertyName("is_initial") @set: PropertyName("is_initial")
+    var isInitial: Boolean = false
 )
