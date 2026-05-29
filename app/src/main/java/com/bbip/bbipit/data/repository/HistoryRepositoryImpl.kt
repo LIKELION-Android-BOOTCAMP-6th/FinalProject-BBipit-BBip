@@ -2,7 +2,7 @@ package com.bbip.bbipit.data.repository
 
 import android.util.Log
 import com.bbip.bbipit.core.result.Result
-import com.bbip.bbipit.data.mapper.HistoryMapper.toDomainHistory
+import com.bbip.bbipit.data.mapper.toDomainHistory
 import com.bbip.bbipit.data.source.model.HistoryRequestDto
 import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
 import com.bbip.bbipit.data.source.remote.history.HistoryRemoteDataSource
