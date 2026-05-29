@@ -18,14 +18,14 @@ data class NotificationDto(
     // 알림 본문 내용
     val content: String = "",
 
-    val voice_id: String = "",
+    val voice_id: String? = "",
 
     // 음성 파일 주소
     val voice_url: String? = null,
 
-    val voice_isPlayed: Boolean = false,
+    val voice_isPlayed: Boolean? = false,
 
-    val voice_duration: Int = 0,
+    val voice_duration: Int? = 0,
 
     // 연동된 채팅방 식별자
     val room_id: String? = null,
@@ -37,5 +37,8 @@ data class NotificationDto(
     val created_at: Timestamp? = null,
 
     // 알림 만료 시간
-    val expires_at: Timestamp? = null
+    val expires_at: Timestamp? = null,
+
+    //발신자 프로필 이미지
+    val sender_url: String = ""
 )

@@ -16,7 +16,8 @@ data class Notification(
     val createdAt: Long = 0L,
     val roomId: String = "",
     val isRead: Boolean = false,
-    val expiresAt: Long?
+    val expiresAt: Long?,
+    val senderUrl: String = ""
 ) {
     /**
      * 알림 만료 여부 반환 프로퍼티

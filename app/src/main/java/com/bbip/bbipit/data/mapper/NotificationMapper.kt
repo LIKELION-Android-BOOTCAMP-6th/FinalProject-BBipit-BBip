@@ -15,13 +15,15 @@ fun NotificationDto.toEntity(id: String): Notification {
                 senderId = sender_id,
                 senderName = sender_name,
                 content = content,
-                audioId = voice_id,
+                audioId = voice_id ?: "",
                 audioUrl = voice_url ?: "",
-                isPlayed = voice_isPlayed,
-                duration = voice_duration,
+                isPlayed = voice_isPlayed ?: false,
+                duration = voice_duration ?: 0,
                 roomId = room_id ?: "",
                 isRead = is_read,
                 createdAt = created_at?.toDate()?.time ?: 0L,
-                expiresAt = expires_at?.toDate()?.time
+                expiresAt = expires_at?.toDate()?.time,
+                senderUrl = sender_url
+
         )
 }
