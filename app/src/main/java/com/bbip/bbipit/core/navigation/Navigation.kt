@@ -93,10 +93,6 @@ fun BBipItNavigation(
                     )
                 }
             }
-            "WALKIE" -> {
-                navController.navigate(Routes.Map)
-                notificationViewModel.playWalkie(notificationIntent)
-            }
             "REQ" -> {
                 navController.navigate(Routes.FriendRequestList)
             }
