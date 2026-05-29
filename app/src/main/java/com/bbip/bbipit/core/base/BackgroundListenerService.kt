@@ -56,6 +56,7 @@ class BackgroundListenerService : Service() {
 
     @Inject
     lateinit var voiceRepository: VoiceRepository
+
     @Inject
     lateinit var userRepository: UserRepository
 
@@ -314,7 +315,7 @@ class BackgroundListenerService : Service() {
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
                         if (url.isNotEmpty() && !voiceMessage.isInitial) {
                             val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
-                            if(onlineStatusResult is Result.Success && onlineStatusResult.data) {
+                            if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
                                 if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
                                     sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                                 } else {
@@ -334,7 +335,7 @@ class BackgroundListenerService : Service() {
      * 음성 재생 페이로드 가공 및 워치 메시지 송신 함수
      */
     private fun sendVoiceToWatch(messageId: String, senderId: String, voiceUrl: String) {
-        Log.d(TAG, "워치로 음성 전송중..",)
+        Log.d(TAG, "워치로 음성 전송중..")
         scope.launch {
             runCatching {
                 // 발신자 정보 및 메시지 데이터 구성
@@ -542,7 +543,7 @@ class BackgroundListenerService : Service() {
             // 파일 업로드 성공 후 음성 메시지 최종 전송
             voiceRepository.uploadVoiceFile(fileUri)
                 .onSuccess { url ->
-                    voiceRepository.sendVoiceMessage( targetUid, url, duration)
+                    voiceRepository.sendVoiceMessage(targetUid, url, duration)
                 }
                 .onFailure { Log.e(TAG, "파일 전송 실패") }
         }
@@ -710,36 +711,42 @@ class BackgroundListenerService : Service() {
     private fun observeNotifications() {
         scope.launch {
             notificationRepository.notifications.collect { notifications ->
-                notifications.forEach { notification -> if (!notification.isRead &&
-                    !notifiedIds.contains(notification.id) &&
-                    !notification.isInitial
+                notifications.forEach { notification ->
+                    if (!notification.isRead &&
+                        !notifiedIds.contains(notification.id)
                     ) {
                         notifiedIds.add(notification.id)
-                        Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})")
+                        Log.d(
+                            TAG,
+                            "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})"
+                        )
 
-                        // WALKIE 타입 최우선 분기 처리
-                        if (notification.type == "WALKIE") {
-                            // 1. 앱이 켜져있을 때 (포그라운드) -> 화면 안에서 바로 무전 자동 재생
-                            if (appLifecycleObserver.isAppInForeground) {
-                                val currentUserId = authRepository.getCurrentUserUid() ?: return@forEach
-                                scope.launch {
-                                    Log.d(TAG, "🔊 앱 포그라운드 상태 -> 무전 즉시 자동 재생 구동")
-                                    notificationRepository.playWalkieNotification(
-                                        notification = notification,
-                                        receiverId = currentUserId
-                                    )
+                        if (!notification.isInitial) {
+                            // WALKIE 타입 최우선 분기 처리
+                            if (notification.type == "WALKIE") {
+                                // 1. 앱이 켜져있을 때 (포그라운드) -> 화면 안에서 바로 무전 자동 재생
+                                if (appLifecycleObserver.isAppInForeground) {
+                                    val currentUserId =
+                                        authRepository.getCurrentUserUid() ?: return@forEach
+                                    scope.launch {
+                                        Log.d(TAG, "🔊 앱 포그라운드 상태 -> 무전 즉시 자동 재생 구동")
+                                        notificationRepository.playWalkieNotification(
+                                            notification = notification,
+                                            receiverId = currentUserId
+                                        )
+                                    }
                                 }
+                                // 2. 앱이 꺼져있거나 홈화면일 때 (백그라운드)
+                                else {
+                                    Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
+                                    showSystemNotification(notification)
+                                }
+                                // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
+                                return@forEach
                             }
-                            // 2. 앱이 꺼져있거나 홈화면일 때 (백그라운드)
-                            else {
-                                Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
-                                showSystemNotification(notification)
-                            }
-                            // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
-                            return@forEach
+                            // 일반 알림(DM, REQ) 처리
+                            showSystemNotification(notification)
                         }
-                        // 일반 알림(DM, REQ) 처리
-                        showSystemNotification(notification)
                     }
                 }
             }
@@ -753,7 +760,8 @@ class BackgroundListenerService : Service() {
         Log.d(TAG, "WALKIE 배너 발행 - audioId: ${notification.audioId}")
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
         val channelId = "phone_alert_channel"
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // 오레오(API 26) 이상 대응용 알림 채널 생성 및 중요도(HIGH) 설정
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -779,14 +787,17 @@ class BackgroundListenerService : Service() {
                 putExtra("notification_room_id", notification.roomId)
                 putExtra("notification_receiver_id", notification.senderId)
             }
+
             "REQ" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
                 putExtra("notification_type", "REQ")
             }
-            "ACT"-> Intent(this, MainActivity::class.java).apply {
+
+            "ACT" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
                 putExtra("notification_type", "REQ")
             }
+
             "WALKIE" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
                 putExtra("notification_type", "WALKIE")
@@ -815,12 +826,18 @@ class BackgroundListenerService : Service() {
 //                }
 
             }
+
             else -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
             }
         }
 
-        Log.d(TAG, "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
+        Log.d(
+            TAG,
+            "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${
+                intent.getStringExtra("notification_id")
+            }"
+        )
 
         // 알림 클릭 시 Intent
         val pendingIntent = PendingIntent.getActivity(
