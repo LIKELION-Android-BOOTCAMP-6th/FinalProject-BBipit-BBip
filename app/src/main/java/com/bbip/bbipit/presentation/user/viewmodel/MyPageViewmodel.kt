@@ -72,6 +72,7 @@ class MyPageViewmodel @Inject constructor(
         val clip = ClipData.newPlainText("BBIP_ID", text)
         clipboard.setPrimaryClip(clip)
 
+        onUpdateToast("내 CODE가 복사되었습니다.")
     }
 
     /**
@@ -139,8 +140,9 @@ class MyPageViewmodel @Inject constructor(
     fun onChangeSignOutDialog(value: Boolean) = _uiState.update { it.copy(isSignOutDialogShown = value) }
     fun signOut(){
         _uiState.update { it.copy(isLoading = true) }
-        //유저 정보 받아오는 거 리팩토링 후 수정 예정
-        val loginType = LoginType.GOOGLE
+
+        //스트링 -> LoginType으로 변경
+        val loginType = LoginType.fromString(_uiState.value.loginType)
         viewModelScope.launch {
             authRepository.signOut(loginType)
             _uiState.update { it.copy(isLoading = false) }

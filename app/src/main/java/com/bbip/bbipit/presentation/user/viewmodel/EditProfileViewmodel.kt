@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.presentation.base.UserStatusType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -105,9 +106,18 @@ class EditProfileViewModel @Inject constructor(
                     _saveSuccessEvent.emit(true) // 성공 신호 송출
                 }
             } catch (e: Exception) {
-                val errorMessage = when (e) {
-                    is java.net.UnknownHostException -> "네트워크 연결을 확인해주세요."
-                    else -> "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+                println("프로필 수정 오류 ${e.message}")
+                e.printStackTrace()
+
+                val errorMessage = if (e is FirebaseFunctionsException) {
+                    when (e.code) {
+                        FirebaseFunctionsException.Code.UNAVAILABLE -> "네트워크 연결을 확인해주세요."
+                        else -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+                    }
+                } else if (e is java.net.UnknownHostException || e.cause is java.net.UnknownHostException) {
+                    "네트워크 연결을 확인해주세요."
+                } else {
+                    "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
                 }
                 sendToast(errorMessage)
                 _saveSuccessEvent.emit(false)
