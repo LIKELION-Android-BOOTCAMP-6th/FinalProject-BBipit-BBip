@@ -2,6 +2,7 @@ package com.bbip.bbipit.presentation.notification.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +32,9 @@ import com.bbip.bbipit.domain.entity.Notification
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
@@ -240,11 +244,19 @@ fun NotificationCard(
                 }
             }
 
-            Box(
+            AsyncImage(
+                model = item.senderUrl,
+                contentDescription = "프로필 이미지",
+                error = rememberVectorPainter(image = Icons.Default.Person),
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
-                    .background(if (isWalkieExpired) sub1.copy(alpha = 0.5f) else sub1)
+                    .border(
+                        width = 2.dp,
+                        color = if(isWalkieExpired) background.copy(alpha = 0.5f) else background,
+                        shape = CircleShape
+                    ),
+                contentScale = ContentScale.Crop
             )
 
             Spacer(modifier = Modifier.width(16.dp))
