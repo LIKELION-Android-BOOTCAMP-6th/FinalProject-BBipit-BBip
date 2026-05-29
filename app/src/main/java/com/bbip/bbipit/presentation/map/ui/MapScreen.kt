@@ -65,6 +65,7 @@ import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
+import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
@@ -192,6 +193,18 @@ fun MapScreen(
         }
     }
 
+    if(uiState.isStopSharingDialogShown && uiState.isLocationSharing){
+        ConfirmDialog(
+            text = "위치 공유를 중지하시겠습니까?",
+            semiText = "위치 공유를 중지할 경우 \n친구의 위치를 알 수 없습니다.",
+            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false)},
+            onConfirm = {
+                mapViewModel.onUpdateStopSharingDialog(false)
+                mapViewModel.toggleLocationSharing(false)
+            }
+        )
+    }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -217,8 +230,12 @@ fun MapScreen(
                 // 실시간 위치 공유 토글 버튼
                 LocationSharingToggleButton(
                     isSharingEnabled = uiState.isLocationSharing,
-                    onToggleClick = { isEnabled ->
-                        mapViewModel.toggleLocationSharing(isEnabled)
+                    onToggleClick = { isEnable ->
+                        if(uiState.isLocationSharing){
+                            mapViewModel.onUpdateStopSharingDialog(true)
+                        }else{
+                            mapViewModel.toggleLocationSharing(isEnable)
+                        }
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)

@@ -9,6 +9,7 @@ import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
+import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -32,13 +33,15 @@ data class MapUiState(
     val friendsStatuses: List<LiveStatus> = emptyList(),
     val isLoading: Boolean = true,
     val isLocationSharing: Boolean = true,
+    val isStopSharingDialogShown: Boolean = false
 )
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
     private val fusedLocationClient: FusedLocationProviderClient,
-    private val chatRepository: ChatRepositoryImpl
+    private val chatRepository: ChatRepositoryImpl,
+    private val authRepository: AuthRepository
 ): BaseViewModel<MapUiState>(MapUiState()) {
 
     // 서버 데이터 공급 전 로컬 캐시 레이어 즉시 파싱용 백업용 Flow
@@ -230,4 +233,6 @@ class MapViewModel @Inject constructor(
             longitude = DEFAULT_LONGITUDE
         )
     }
+
+    fun onUpdateStopSharingDialog(value : Boolean) = updateState { copy(isStopSharingDialogShown = value) }
 }
