@@ -25,5 +25,6 @@ sealed interface Routes {
     @Serializable data object Notification : Routes
     @Serializable data object Setting : Routes
 
+    @Serializable data object ServiceRestricted : Routes
 
 }

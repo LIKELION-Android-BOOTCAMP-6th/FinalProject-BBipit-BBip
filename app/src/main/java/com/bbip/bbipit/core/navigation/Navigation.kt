@@ -18,6 +18,7 @@ import com.bbip.bbipit.presentation.mypage.EditProfileScreen
 import com.bbip.bbipit.presentation.mypage.MyPageScreen
 import com.bbip.bbipit.presentation.notification.ui.NotificationScreen
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
+import com.bbip.bbipit.presentation.permission.ServiceRestrictedScreen
 import kotlinx.coroutines.delay
 
 @Composable
@@ -67,6 +68,7 @@ fun BBipItNavigation(
         composable<Routes.EditProfile> { EditProfileScreen(navController) }
         composable<Routes.FriendList> { FriendListScreen(navController) }
         composable<Routes.FriendRequestList> { FriendRequestScreen(navController) }
+        composable<Routes.ServiceRestricted> { ServiceRestrictedScreen(navController) }
     }
 
     LaunchedEffect(notificationIntent) {
