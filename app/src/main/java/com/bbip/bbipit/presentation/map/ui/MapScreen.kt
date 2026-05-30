@@ -4,6 +4,7 @@ import com.bbip.bbipit.R
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -55,8 +56,9 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
@@ -72,9 +74,9 @@ import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
 import com.bbip.bbipit.presentation.map.viewmodel.MapViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.VoiceUiState
 import com.bbip.bbipit.presentation.map.viewmodel.PushToTalkViewModel
+import com.bbip.bbipit.presentation.permission.PermissionRequestScreen
 import com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom
 import com.google.android.gms.maps.model.BitmapDescriptor
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -112,6 +114,9 @@ fun MapScreen(
     var isDetailDialogOpen by remember { mutableStateOf(false) }
     var selectedHistory by remember { mutableStateOf<History?>(null) }
 
+    // 권한 안내 다이얼로그 노출 여부를 관리하는 상태
+    var showPermissionDialog by remember { mutableStateOf(false) }
+
     val seoul = LatLng(37.5665, 126.9780)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(seoul, 15f)
@@ -128,11 +133,77 @@ fun MapScreen(
     // 두 좌표 간 거리 계산 (Haversine 공식)
     fun calculateDistanceInMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
         val results = FloatArray(1)
-        android.location.Location.distanceBetween(lat1, lng1, lat2, lng2, results)
+        Location.distanceBetween(lat1, lng1, lat2, lng2, results)
         return results[0]
     }
 
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+    // 권한 확인 및 백그라운드 서비스 시작을 처리하는 함수
+    val checkAndStartService = {
+        // 위치 권한 체크
+        val hasLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // 알림 권한 체크
+        val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+
+        // 마이크 권한 체크
+        val hasAudioPermission = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasLocation && hasNotificationPermission && hasAudioPermission) {
+            Log.d(TAG, "✅ 권한 확인 완료 -> 백그라운드 서비스 시작")
+            showPermissionDialog = false
+            val intent = Intent(context, BackgroundListenerService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } else {
+            // 최초 진입 시 권한이 없다면 커스텀 안내 팝업만 노출
+            showPermissionDialog = true
+        }
+    }
+
+    val requestMultiplePermissionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val notificationGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
+        } else {
+            true
+        }
+        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
+
+        if ((fineLocationGranted || coarseLocationGranted) && notificationGranted && audioGranted) {
+            // 사용자가 최초 팝업에서 허용했을 때
+            checkAndStartService()
+        } else {
+            // 사용자가 최초 팝업에서 거부했을 때
+            showPermissionDialog = false
+            Log.d(TAG, "❌ 최초 권한 요청 거부 -> 제한 화면으로 이동")
+            navController.navigate(Routes.ServiceRestricted)
+        }
+    }
+
+    // 홈화면 최초 진입 시 권한 상태만 체크
+    LaunchedEffect(Unit) {
+        checkAndStartService()
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         Log.d("MapScreen", "🗺️ 지도 화면 복귀")
 
         mapViewModel.fetchLiveStatusAndRefreshCache()
@@ -178,26 +249,11 @@ fun MapScreen(
         }
     }
 
-    val requestMultiplePermissionsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
-        val bluetoothConnectGranted = permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: false
-
-        if (fineLocationGranted || coarseLocationGranted || bluetoothConnectGranted) {
-            Log.d(TAG, "권한 승인됨 -> BackgroundListenerService 가동")
-            Intent(context, BackgroundListenerService::class.java)
-        } else {
-            Toast.makeText(context, "서비스 이용을 위해 위치 및 블루투스 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    if(uiState.isStopSharingDialogShown && uiState.isLocationSharing){
+    if (uiState.isStopSharingDialogShown && uiState.isLocationSharing) {
         ConfirmDialog(
             text = "위치 공유를 중지하시겠습니까?",
             semiText = "위치 공유를 중지할 경우 \n친구의 위치를 알 수 없습니다.",
-            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false)},
+            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false) },
             onConfirm = {
                 mapViewModel.onUpdateStopSharingDialog(false)
                 mapViewModel.toggleLocationSharing(false)
@@ -205,6 +261,42 @@ fun MapScreen(
         )
     }
 
+    if(uiState.isStopSharingDialogShown && uiState.isLocationSharing) {
+        ConfirmDialog(
+            text = "위치 공유를 중지하시겠습니까?",
+            semiText = "위치 공유를 중지할 경우 \n친구의 위치를 알 수 없습니다.",
+            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false) },
+            onConfirm = {
+                mapViewModel.onUpdateStopSharingDialog(false)
+                mapViewModel.toggleLocationSharing(false)
+            }
+        )
+    }
+
+    // 권한이 없는 경우에만 권한 요청 스크린 표시
+    if (showPermissionDialog) {
+        PermissionRequestScreen(
+            onGrantPermission = {
+                // 시스템 권한 요청 팝업 띄우기
+                val permissionsToRequest = mutableListOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.RECORD_AUDIO
+                ).apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        add(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }.toTypedArray()
+
+                requestMultiplePermissionsLauncher.launch(permissionsToRequest)
+            },
+            onDismiss = {
+                // '다음에 할게요' 선택 시 제한 화면으로 이동
+                showPermissionDialog = false
+                navController.navigate(Routes.ServiceRestricted)
+            }
+        )
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -437,48 +529,6 @@ fun MapScreen(
             }
         }
     }
-
-    // 시스템 권한 확인 및 백그라운드 서비스 제어
-    LaunchedEffect(Unit) {
-        val hasFineLocation = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        // 알림 권한 체크 추가 (API 33 이상 대응)
-        val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-
-        if (hasFineLocation && hasNotificationPermission) {
-            Log.d(TAG, "✅ 필요한 모든 권한 확인 완료 -> 안전하게 서비스 시작")
-            val intent = Intent(context, BackgroundListenerService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } else {
-            Log.d(TAG, "⚠️ 권한 부족 -> 권한 요청 팝업 실행")
-
-            val permissionsToRequest = mutableListOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.RECORD_AUDIO
-            ).apply {
-                // 안드로이드 13 이상일 때만 알림 권한 추가
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    add(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }.toTypedArray()
-
-            requestMultiplePermissionsLauncher.launch(permissionsToRequest)
-        }
-    }
 }
 
 @OptIn(MapsComposeExperimentalApi::class)
@@ -615,31 +665,31 @@ private fun MapContent(
                 val (iconResId, bgColor, iconColor) = remember(history.category) {
                     when (history.category) {
                         "무전" -> Triple(
-                            com.bbip.bbipit.R.drawable.ic_walkie_talkie_icon,
+                            R.drawable.ic_walkie_talkie_icon,
                             Color(0xFFFAF5FF),
                             Color(0xFFA855F7)
                         )
 
                         "카페" -> Triple(
-                            com.bbip.bbipit.R.drawable.ic_cafe_icon,
+                            R.drawable.ic_cafe_icon,
                             Color(0xFFFFFBEB),
                             Color(0xFFD97706)
                         )
 
                         "음식" -> Triple(
-                            com.bbip.bbipit.R.drawable.ic_restaurant_icon,
+                            R.drawable.ic_restaurant_icon,
                             Color(0xFFFFF1F2),
                             Color(0xFFF43F5E)
                         )
 
                         "운동" -> Triple(
-                            com.bbip.bbipit.R.drawable.ic_exercise_icon,
+                            R.drawable.ic_exercise_icon,
                             Color(0xFFECFDF5),
                             Color(0xFF10B981)
                         )
 
                         else -> Triple(
-                            com.bbip.bbipit.R.drawable.ic_daily_icon,
+                            R.drawable.ic_daily_icon,
                             Color(0xFFEEF2FF),
                             Color(0xFF6366F1)
                         )

@@ -1,5 +1,13 @@
 package com.bbip.bbipit.presentation.main
 
+import android.app.Activity
+import androidx.core.app.ActivityCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
@@ -43,6 +51,9 @@ import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
+import androidx.lifecycle.Lifecycle
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -100,7 +111,9 @@ class MainActivity : ComponentActivity() {
             val notificationViewModel: NotificationViewModel = hiltViewModel()
 
             val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
+
             BbipitTheme(dynamicColor = false) {
+
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -118,6 +131,79 @@ class MainActivity : ComponentActivity() {
                 } ?: false
 
                 val showBottomBar = isMainRoute && !isShownDrawer
+
+                val context = LocalContext.current
+                var initialCheckStage by rememberSaveable { mutableStateOf(0) }
+                val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+
+                LaunchedEffect(navBackStackEntry, lifecycleState) {
+                    val currentDestination = navBackStackEntry?.destination ?: return@LaunchedEffect
+
+                    // 앱이 최종적으로 활성화 상태일 때만 체크
+                    if (lifecycleState == Lifecycle.State.RESUMED) {
+
+                        if (initialCheckStage == 0) {
+                            if (currentDestination.hasRoute<Routes.Map>()) {
+                                initialCheckStage = 1 // 맵 화면에 도달했음을 기록
+                            }
+                            Log.d("MainActivity", "ℹ️ 앱 최초 렌더링 단계: MapScreen의 팝업 권한 처리를 위해 전역 체크를 스킵합니다.")
+                            return@LaunchedEffect
+                        }
+
+                        if (initialCheckStage == 1) {
+                            // 맵 화면에 아직 머물러 있고, 아직 사용자가 시스템 팝업 결과를 내지 않은 상태라면 계속 스킵
+                            if (currentDestination.hasRoute<Routes.Map>()) {
+                                Log.d("MainActivity", "ℹ️ 최초 권한 요청 대기 단계: 사용자의 입력을 기다립니다.")
+                                return@LaunchedEffect
+                            } else {
+                                // 사용자가 거부하여 ServiceRestricted으로 이동하기 시작한 시점부터 전역 감지를 활성화
+                                initialCheckStage = 2
+                            }
+                        }
+
+                        // 위치 권한 체크
+                        val hasLocation = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_COARSE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED
+                        // 알림 권한 체크
+                        val hasNotification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.POST_NOTIFICATIONS
+                            ) == PackageManager.PERMISSION_GRANTED
+                        } else {
+                            true
+                        }
+                        // 음성 권한 체크
+                        val hasAudio = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        val isRestrictedScreen = currentDestination.hasRoute<Routes.ServiceRestricted>()
+
+                        // 모든 권한이 허용된 경우 -> 정상 지도 화면으로 복구
+                        if (hasLocation && hasNotification && hasAudio) {
+                            if (isRestrictedScreen) {
+                                Log.d("MainActivity", "✅ 권한 허용 감지 -> MapScreen 복귀")
+                                navController.navigate(Routes.Map) {
+                                    popUpTo(0) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                        // 권한이 거부된 경우 -> 이용 제한 화면으로 강제 이동
+                        else {
+                            if (!isRestrictedScreen) {
+                                Log.d("MainActivity", "🚨 권한 영구 거부 감지 -> ServiceRestrictedScreen 강제 이동")
+                                navController.navigate(Routes.ServiceRestricted) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
