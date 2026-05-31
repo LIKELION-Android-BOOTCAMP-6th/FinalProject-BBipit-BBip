@@ -157,7 +157,6 @@ class MapViewModel @Inject constructor(
                                     val freshStatus = currentCache.copy(
                                         latitude = location.latitude,
                                         longitude = location.longitude,
-                                        isSharing = true
                                     )
 
                                     // Live 컬렉션 업데이트

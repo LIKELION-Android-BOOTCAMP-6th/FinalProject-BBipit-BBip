@@ -3,6 +3,8 @@ package com.bbip.bbipit.core.base
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -20,7 +22,7 @@ import javax.inject.Singleton
 class LifeCycleManager @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
     private val userRepository: UserRepository
-) {
+): DefaultLifecycleObserver {
     // 로그 출력용 클래스 식별 태그
     private val TAG = "LifeCycleManager"
 
@@ -42,6 +44,10 @@ class LifeCycleManager @Inject constructor(
     // 현재 진입한 채팅방 고유 식별자
     private var currentRoomId: String? = null
 
+    // 앱의 현재 포어그라운드 위치 여부 플래그
+    var isAppInForeground: Boolean = false
+        private set
+
     /**
      * 현재 활성화된 채팅방 정보 갱신 및 상태 전송 함수
      */
@@ -51,6 +57,22 @@ class LifeCycleManager @Inject constructor(
 
         // 변경된 상태 서버에 즉시 전송
         triggerHeartbeat()
+    }
+
+    /**
+     * 앱의 포어그라운드 전환 콜백 함수
+     */
+    override fun onStart(owner: LifecycleOwner) {
+        // 활성화 상태 플래그 변경
+        isAppInForeground = true
+    }
+
+    /**
+     * 앱의 백그라운드 전환 콜백 함수
+     */
+    override fun onStop(owner: LifecycleOwner) {
+        // 활성화 상태 플래그 변경
+        isAppInForeground = false
     }
 
     /**

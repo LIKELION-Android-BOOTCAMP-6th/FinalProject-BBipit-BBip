@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.bbip.bbipit.presentation.main.MainActivity
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
@@ -32,8 +33,9 @@ class MobileMessageListenerService : WearableListenerService() {
 
         // 워치 메시지 경로별 작업 분기
         when (messageEvent.path) {
-            // 친구 위치 목록 푸시 요청 대응
-            "/request_friends_location" -> {
+            // 자신 및 친구 위치 목록 푸시 요청 대응
+            "/request_locations" -> {
+                Log.d(TAG, "🔄 워치로부터 사용자 실시간 위치 요청 명령 수신함")
                 triggerBackgroundServiceAction(BackgroundListenerService.ACTION_PUSH_LOCATION_TO_WATCH)
             }
             // 음성 메시지 읽음 처리 대응
@@ -82,7 +84,6 @@ class MobileMessageListenerService : WearableListenerService() {
      * 필수 권한 검증 및 워치 대상 상태 회신 함수
      */
     private fun handleMobileStatusCheck(senderNodeId: String) {
-        // 블루투스 권한 검증
         val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ContextCompat.checkSelfPermission(
                 this,
@@ -96,9 +97,27 @@ class MobileMessageListenerService : WearableListenerService() {
             runCatching {
                 // 권한 확인 결과 구성 및 워치로 메시지 송신
                 val messageClient = Wearable.getMessageClient(this@MobileMessageListenerService)
-                val status = if (hasPermission) "READY" else "NEED_PERMISSION"
+                if (hasPermission) {
+                    // 1. 권한이 있다면 기존대로 READY 회신
+                    messageClient.sendMessage(senderNodeId, "/phone_status_reply", "READY".toByteArray()).await()
 
-                messageClient.sendMessage(senderNodeId, "/phone_status_reply", status.toByteArray()).await()
+                    // 🔥 [핵심 추가] 워치가 켜졌으므로 멈춰있던 스마트폰의 백그라운드 서비스를 강제로 깨웁니다.
+                    // 이 액션은 BackgroundListenerService의 onStartCommand를 관통하며 세션을 시작(startSession)시킵니다.
+                    triggerBackgroundServiceAction(BackgroundListenerService.ACTION_PUSH_LOCATION_TO_WATCH)
+                } else {
+                    // 2. 💡 권한이 없다면 NEED_PERMISSION을 보내 워치에 제한 화면을 보여주고
+                    messageClient.sendMessage(senderNodeId, "/phone_status_reply", "NEED_PERMISSION".toByteArray()).await()
+
+                    // 3. 💡 백그라운드 상태인 휴대폰 액티비티를 강제로 활성화하여 즉시 권한을 요청하게 만듭니다.
+                    val intent = Intent(this@MobileMessageListenerService, MainActivity::class.java).apply {
+                        // 백그라운드 서비스에서 액티비티를 실행할 때 필수적인 플래그 설정
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        // 액티비티가 어떤 이유로 켜졌는지 구별할 수 있는 데이터 키-값 전달
+                        putExtra("ACTION_REQUEST_PERMISSIONS", true)
+                    }
+                    startActivity(intent)
+                    Log.w(TAG, "⚠️ 블루투스 권한 누락 감지 ➔ 휴대폰 MainActivity 권한 요청 트리거 실행")
+                }
             }.onFailure { e ->
                 // 메시지 전송 실패 예외 처리
                 Log.e(TAG, "❌ [WearableService] 권한 체크 응답 실패", e)

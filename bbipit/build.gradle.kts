@@ -90,4 +90,7 @@ dependencies {
 
     // 💡 프로필 이미지 로딩을 위한 Coil 라이브러리
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // 💡 확장 아이콘 라이브러리 추가 (WarningAmber 참조용)
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 }

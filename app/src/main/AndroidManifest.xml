@@ -50,7 +50,7 @@
 
                 <data android:host="*" android:scheme="wear" android:pathPrefix="/mark_voice_read" />
                 <data android:host="*" android:scheme="wear" android:pathPrefix="/check_phone_status" />
-                <data android:host="*" android:scheme="wear" android:pathPrefix="/request_friends_location" />
+                <data android:host="*" android:scheme="wear" android:pathPrefix="/request_locations" />
             </intent-filter>
         </service>
         <!-- fcm 토큰 자동 갱신 서비스-->
