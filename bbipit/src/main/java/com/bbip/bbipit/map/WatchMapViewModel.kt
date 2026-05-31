@@ -2,26 +2,22 @@ package com.bbip.bbipit.map
 
 import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.base.WatchBaseViewModel
+import com.bbip.bbipit.models.MobileServiceStatus
 import com.bbip.bbipit.models.WatchLiveStatus
 import com.bbip.bbipit.service.WatchCentralService
-import com.google.android.gms.wearable.MessageClient
-import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import android.content.Context
 
 /**
  * 지도 UI 상태 데이터 클래스
  */
 data class WatchMapUiState(
-    val locationList: List<WatchLiveStatus> = emptyList(),
+    val liveStatusList: List<WatchLiveStatus> = emptyList(),
+    val selectedFriendUid: String? = null,
     val isLoading: Boolean = false
 )
 
@@ -30,14 +26,44 @@ data class WatchMapUiState(
  */
 class WatchMapViewModel: WatchBaseViewModel<WatchMapUiState>(WatchMapUiState()) {
 
+    val TAG = "WatchMapViewModel"
+
     init {
         // 위치 이벤트 버스 구독 및 상태 업데이트
         viewModelScope.launch {
             WatchCentralService.locationEventBus.collect { decryptedList ->
                 updateState {
-                    copy(locationList = decryptedList)
+                    copy(liveStatusList = decryptedList)
                 }
+                Log.d(TAG, "위치 이벤트 버스를 통해 라이브 리스트 상태 업데이트")
             }
+        }
+    }
+
+    fun refreshCurrentLocationAndSync(context: Context) {
+        val messageClient = Wearable.getMessageClient(context)
+        val nodeClient = Wearable.getNodeClient(context)
+        viewModelScope.launch {
+            try {
+                val nodes = nodeClient.connectedNodes.await()
+                if (nodes.isEmpty()) {
+                    Log.e(TAG, "❌ 연결된 휴대폰 디바이스가 없습니다.")
+                    return@launch
+                }
+
+                // 휴대폰으로 실시간 위치 전달 신호 송신
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, "/request_locations", byteArrayOf()).await()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 실시간 위치 전달 프로세스 중 에러 발생", e)
+            }
+        }
+    }
+
+    fun selectFriend(uid: String?) {
+        updateState {
+            copy(selectedFriendUid = uid)
         }
     }
 }

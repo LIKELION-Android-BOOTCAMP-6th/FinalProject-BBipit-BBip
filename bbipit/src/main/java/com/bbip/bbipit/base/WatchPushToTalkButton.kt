@@ -30,7 +30,7 @@ import com.bbip.bbipit.util.WatchPermissionUtil
  */
 @Composable
 fun WatchPushToTalkButton(
-    viewModel: WatchVoiceViewModelWatch,
+    viewModel: WatchVoiceViewModel,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()

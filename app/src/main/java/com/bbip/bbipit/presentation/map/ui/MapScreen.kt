@@ -30,8 +30,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -92,29 +90,24 @@ import kotlinx.coroutines.launch
 @Composable
 fun MapScreen(
     navController: NavController,
-    mapViewModel: MapViewModel = hiltViewModel(),
+    viewModel: MapViewModel = hiltViewModel(),
     historyViewModel: HistoryViewModel = hiltViewModel(),
     pushToTalkViewModel: PushToTalkViewModel = hiltViewModel(),
     bottomBarViewModel: BottomBarViewModel =
         hiltViewModel(viewModelStoreOwner = (LocalActivity.current as ComponentActivity)),
 ) {
     val context = LocalContext.current
-    val uiState by mapViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val voiceUiState by pushToTalkViewModel.uiState.collectAsState()
     val historyUiState by historyViewModel.uiState.collectAsState()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
-
-    // 드로어 열림/닫힘 상태 제어용
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     var isHistorySheetOpen by remember { mutableStateOf(false) }
-    // 히스토리 상세 다이얼로그 제어용 상태
     var isDetailDialogOpen by remember { mutableStateOf(false) }
     var selectedHistory by remember { mutableStateOf<History?>(null) }
-
-    // 권한 안내 다이얼로그 노출 여부를 관리하는 상태
     var showPermissionDialog by remember { mutableStateOf(false) }
 
     val seoul = LatLng(37.5665, 126.9780)
@@ -122,42 +115,34 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(seoul, 15f)
     }
 
-    // 마지막 쿼리 수행 위치
     var lastFetchedLocation by remember { mutableStateOf<LatLng?>(null) }
-
     val TAG = "MapScreen"
-
-    // 이동 거리 감지 및 데이터 자동 동기화
     val myStatus = uiState.myStatus
 
-    // 두 좌표 간 거리 계산 (Haversine 공식)
     fun calculateDistanceInMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
         val results = FloatArray(1)
         Location.distanceBetween(lat1, lng1, lat2, lng2, results)
         return results[0]
     }
 
-    // 권한 확인 및 백그라운드 서비스 시작을 처리하는 함수
     val checkAndStartService = {
-        // 위치 권한 체크
         val hasLocation = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        // 알림 권한 체크
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
         val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-
-        // 마이크 권한 체크
+        } else true
         val hasAudioPermission = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.RECORD_AUDIO
+            context,
+            Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
 
         if (hasLocation && hasNotificationPermission && hasAudioPermission) {
@@ -170,7 +155,6 @@ fun MapScreen(
                 context.startService(intent)
             }
         } else {
-            // 최초 진입 시 권한이 없다면 커스텀 안내 팝업만 노출
             showPermissionDialog = true
         }
     }
@@ -182,31 +166,23 @@ fun MapScreen(
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
         val notificationGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
-        } else {
-            true
-        }
+        } else true
         val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
 
         if ((fineLocationGranted || coarseLocationGranted) && notificationGranted && audioGranted) {
-            // 사용자가 최초 팝업에서 허용했을 때
             checkAndStartService()
         } else {
-            // 사용자가 최초 팝업에서 거부했을 때
             showPermissionDialog = false
-            Log.d(TAG, "❌ 최초 권한 요청 거부 -> 제한 화면으로 이동")
             navController.navigate(Routes.ServiceRestricted)
         }
     }
 
-    // 홈화면 최초 진입 시 권한 상태만 체크
     LaunchedEffect(Unit) {
         checkAndStartService()
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        Log.d("MapScreen", "🗺️ 지도 화면 복귀")
-
-        mapViewModel.fetchLiveStatusAndRefreshCache()
+        viewModel.fetchLiveStatusAndRefreshCache()
     }
 
     LaunchedEffect(drawerState.isOpen) {
@@ -217,23 +193,19 @@ fun MapScreen(
         if (myStatus != null) {
             val currentLat = myStatus.latitude
             val currentLng = myStatus.longitude
-
             val lastLoc = lastFetchedLocation
+
             if (lastLoc == null) {
-                // 최초 데이터 요청
-                Log.d(TAG, "🚀 최초 위치 포착으로 인한 히스토리 로드 시작")
                 historyViewModel.fetchNearbyHistory(currentLat, currentLng)
                 lastFetchedLocation = LatLng(currentLat, currentLng)
             } else {
                 val distance = calculateDistanceInMeters(
-                    lastLoc.latitude, lastLoc.longitude,
-                    currentLat, currentLng
+                    lastLoc.latitude,
+                    lastLoc.longitude,
+                    currentLat,
+                    currentLng
                 )
-                Log.d(TAG, "🏃 현재 이동 거리 체크: ${distance}m")
-
-                // 500m 이동 시 재요청
                 if (distance >= 500f) {
-                    Log.d(TAG, "🎯 500m 이상 이동 감지! 히스토리 자동 동기화 쿼리 실행")
                     historyViewModel.fetchNearbyHistory(currentLat, currentLng)
                     lastFetchedLocation = LatLng(currentLat, currentLng)
                 }
@@ -241,7 +213,6 @@ fun MapScreen(
         }
     }
 
-    // 오류 메시지 팝업 출력
     LaunchedEffect(voiceUiState.error) {
         voiceUiState.error?.let {
             Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
@@ -253,31 +224,17 @@ fun MapScreen(
         ConfirmDialog(
             text = "위치 공유를 중지하시겠습니까?",
             semiText = "위치 공유를 중지할 경우 \n친구의 위치를 알 수 없습니다.",
-            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false) },
+            onDismiss = { viewModel.onUpdateStopSharingDialog(false) },
             onConfirm = {
-                mapViewModel.onUpdateStopSharingDialog(false)
-                mapViewModel.toggleLocationSharing(false)
+                viewModel.onUpdateStopSharingDialog(false)
+                viewModel.toggleLocationSharing(false)
             }
         )
     }
 
-    if(uiState.isStopSharingDialogShown && uiState.isLocationSharing) {
-        ConfirmDialog(
-            text = "위치 공유를 중지하시겠습니까?",
-            semiText = "위치 공유를 중지할 경우 \n친구의 위치를 알 수 없습니다.",
-            onDismiss = { mapViewModel.onUpdateStopSharingDialog(false) },
-            onConfirm = {
-                mapViewModel.onUpdateStopSharingDialog(false)
-                mapViewModel.toggleLocationSharing(false)
-            }
-        )
-    }
-
-    // 권한이 없는 경우에만 권한 요청 스크린 표시
     if (showPermissionDialog) {
         PermissionRequestScreen(
             onGrantPermission = {
-                // 시스템 권한 요청 팝업 띄우기
                 val permissionsToRequest = mutableListOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -287,11 +244,9 @@ fun MapScreen(
                         add(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 }.toTypedArray()
-
                 requestMultiplePermissionsLauncher.launch(permissionsToRequest)
             },
             onDismiss = {
-                // '다음에 할게요' 선택 시 제한 화면으로 이동
                 showPermissionDialog = false
                 navController.navigate(Routes.ServiceRestricted)
             }
@@ -304,29 +259,37 @@ fun MapScreen(
     ) { _ ->
         BackgroundBox {
             Box(modifier = Modifier.fillMaxSize()) {
-                // 지도 콘텐츠 레이어
                 MapContent(
                     mapUiState = uiState,
                     histories = historyUiState.nearbyHistories,
                     cameraPositionState = cameraPositionState,
                     modifier = Modifier.fillMaxSize(),
-                    onFriendClick = { friend ->
-                        clickedFriendUid = friend.uid
-                    },
+                    onFriendClick = { friend -> clickedFriendUid = friend.uid },
                     onHistoryClick = { history ->
                         selectedHistory = history
                         isDetailDialogOpen = true
                     }
                 )
 
-                // 실시간 위치 공유 토글 버튼
+                if (isDetailDialogOpen && selectedHistory != null) {
+                    HistoryDetailDialog(
+                        history = selectedHistory!!,
+                        currentUserId = uiState.myStatus?.uid.orEmpty(),
+                        onDismiss = { isDetailDialogOpen = false },
+                        onDelete = { history ->
+                            historyViewModel.deleteHistory(history.id)
+                            isDetailDialogOpen = false
+                        }
+                    )
+                }
+
                 LocationSharingToggleButton(
                     isSharingEnabled = uiState.isLocationSharing,
                     onToggleClick = { isEnable ->
-                        if(uiState.isLocationSharing){
-                            mapViewModel.onUpdateStopSharingDialog(true)
-                        }else{
-                            mapViewModel.toggleLocationSharing(isEnable)
+                        if (uiState.isLocationSharing) {
+                            viewModel.onUpdateStopSharingDialog(true)
+                        } else {
+                            viewModel.toggleLocationSharing(isEnable)
                         }
                     },
                     modifier = Modifier
@@ -335,70 +298,14 @@ fun MapScreen(
                         .padding(top = 16.dp)
                 )
 
-                //TODO : 2차 개발 시 주석 해제 후 사용할 것
-                // 히스토리 상세 다이얼로그
-//                if (isDetailDialogOpen && selectedHistory != null) {
-//                    HistoryDetailDialog(
-//                        history = selectedHistory!!,
-//                        currentUserId = uiState.myStatus?.uid.orEmpty(),
-//                        onDismiss = { isDetailDialogOpen = false },
-//                        onDelete = { history ->
-//                            historyViewModel.deleteHistory(history.id)
-//                            isDetailDialogOpen = false
-//                        }
-//                    )
-//                }
-
-                // 친구 목록 토글 버튼
-                FriendListToggleButton(
-                    onClick = {
-                        scope.launch { drawerState.open() }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .statusBarsPadding()
-                        .padding(end = 16.dp, bottom = 220.dp)
-                )
-
-                //TODO: 2차 개발 시 주석 해제하고 사용할 것
-                // 작성 페이지 전환 버튼
-//                FilledIconButton(
-//                    onClick = {
-//                        isHistorySheetOpen = true
-//                    },
-//                    modifier = Modifier
-//                        .align(Alignment.BottomEnd)
-//                        .statusBarsPadding()
-//                        .padding(end = 16.dp, bottom = 280.dp)
-//                        .size(50.dp)
-//                        .shadow(
-//                            elevation = 6.dp,
-//                            shape = RoundedCornerShape(14.dp),
-//                            clip = false
-//                        ),
-//                    shape = RoundedCornerShape(14.dp),
-//                    colors = IconButtonDefaults.filledIconButtonColors(
-//                        containerColor = Color(0xFFF1F5F9),
-//                        contentColor = Color.White
-//                    )
-//                ) {
-//                    Icon(
-//                        painter = painterResource(id = R.drawable.ic_footprints_icon),
-//                        contentDescription = "히스토리 바텀 시트 열기",
-//                        modifier = Modifier.size(24.dp),
-//                        tint = Color(0xFF956AFC)
-//                    )
-//                }
-
-                // 위치 업데이트 버튼
                 FilledIconButton(
                     onClick = {
-                        mapViewModel.refreshCurrentLocationAndSync()
+                        isHistorySheetOpen = true
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .statusBarsPadding()
-                        .padding(end = 16.dp, bottom = 160.dp)
+                        .padding(end = 16.dp, bottom = 280.dp)
                         .size(50.dp)
                         .shadow(
                             elevation = 6.dp,
@@ -409,6 +316,37 @@ fun MapScreen(
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = Color(0xFFF1F5F9),
                         contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_footprints_icon),
+                        contentDescription = "히스토리 바텀 시트 열기",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF956AFC)
+                    )
+                }
+
+                FriendListToggleButton(
+                    onClick = { scope.launch { drawerState.open() } },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 220.dp)
+                )
+
+                FilledIconButton(
+                    onClick = { viewModel.refreshCurrentLocationAndSync() },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 160.dp)
+                        .size(50.dp)
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(14.dp), clip = false),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color(
+                            0xFFF1F5F9
+                        )
                     )
                 ) {
                     Icon(
@@ -423,9 +361,7 @@ fun MapScreen(
             if (drawerState.isOpen) {
                 Popup(
                     alignment = Alignment.TopStart,
-                    onDismissRequest = {
-                        scope.launch { drawerState.close() }
-                    },
+                    onDismissRequest = { scope.launch { drawerState.close() } },
                     properties = PopupProperties(
                         focusable = true,
                         dismissOnBackPress = true,
@@ -433,7 +369,6 @@ fun MapScreen(
                         clippingEnabled = false
                     )
                 ) {
-                    // 투명한 전체 화면 배경을 만들어 상태바와 네비게이션 바를 덮습니다.
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -448,9 +383,7 @@ fun MapScreen(
                         FriendListDrawer(
                             friends = uiState.friendsStatuses,
                             selectedFriendUid = clickedFriendUid,
-                            onCloseClick = {
-                                scope.launch { drawerState.close() }
-                            },
+                            onCloseClick = { scope.launch { drawerState.close() } },
                             onFriendClick = { friend ->
                                 scope.launch {
                                     clickedFriendUid = friend.uid
@@ -465,7 +398,6 @@ fun MapScreen(
                                     )
                                 }
                             },
-                            // ★ 중요: FriendListDrawer 내부에 전체 화면 높이를 강제 전달하기 위해 modifier 확장
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .width(280.dp)
@@ -474,7 +406,6 @@ fun MapScreen(
                 }
             }
 
-            // 입력 폼 바텀 시트
             HistoryWriteSheet(
                 isOpen = isHistorySheetOpen,
                 onDismissRequest = { isHistorySheetOpen = false },
@@ -483,7 +414,6 @@ fun MapScreen(
                         Toast.makeText(context, "히스토리 내용을 입력해 주세요.", Toast.LENGTH_SHORT).show()
                         return@HistoryWriteSheet
                     }
-
                     uiState.myStatus?.let { myStatus ->
                         historyViewModel.createNewHistory(
                             category = selectedCategory,
@@ -501,7 +431,6 @@ fun MapScreen(
                 uiState.friendsStatuses.find { it.uid == clickedFriendUid }
             }
 
-            // 상세 정보 다이얼로그
             currentClickedFriend?.let { friend ->
                 FriendProfileDialog(
                     friend = friend,
@@ -509,7 +438,7 @@ fun MapScreen(
                     voiceViewModel = pushToTalkViewModel,
                     onDismiss = { clickedFriendUid = null },
                     onChatClick = {
-                        mapViewModel.createOrGetChatRoom(
+                        viewModel.createOrGetChatRoom(
                             targetUid = friend.uid,
                             onSuccess = { roomId ->
                                 clickedFriendUid = null
@@ -531,7 +460,6 @@ fun MapScreen(
     }
 }
 
-@OptIn(MapsComposeExperimentalApi::class)
 @Composable
 private fun MapContent(
     mapUiState: MapUiState,
@@ -541,30 +469,18 @@ private fun MapContent(
     onFriendClick: (LiveStatus) -> Unit,
     onHistoryClick: (History) -> Unit
 ) {
-    val context = LocalContext.current
-
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
-
     var isCameraInitialized by remember { mutableStateOf(false) }
 
-    val TAG = "MapContent"
-
-    // 내 위치 포착 시 카메라 이동
     LaunchedEffect(myLat, myLng) {
         if (myLat != null && myLng != null) {
             if (!isCameraInitialized) {
-                Log.d(TAG, "🎯 최초 위치 즉시 조준 (Snap) -> $myLat, $myLng")
-                cameraPositionState.move(
-                    update = newLatLngZoom(LatLng(myLat, myLng), 16f)
-                )
+                cameraPositionState.move(update = newLatLngZoom(LatLng(myLat, myLng), 16f))
                 isCameraInitialized = true
-            }
-            else {
-                Log.d(TAG, "🎯 실제 내 위치 포착 완료 -> 카메라 이동: $myLat, $myLng")
+            } else {
                 cameraPositionState.animate(
-                    update = newLatLngZoom(
-                        LatLng(myLat, myLng), 16f),
+                    update = newLatLngZoom(LatLng(myLat, myLng), 16f),
                     durationMs = 500
                 )
             }
@@ -576,152 +492,123 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState
         ) {
-            // 내 마커 구성
             mapUiState.myStatus?.let { my ->
-
-                var myCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
-                val myProfileUrl = mapUiState.myStatus.profileImageUrl
-
-                // 프로필 URL이 실제로 바뀔 때만 비트맵을 딱 한 번 생성
-                LaunchedEffect(myProfileUrl) {
-                    myCustomMarkerIcon = createCustomMarkerBitmap(
-                        context = context,
-                        imageUrl = myProfileUrl,
-                        isOnline = true
-                    )
-                }
-
-                val myMarkerState = remember(my.uid) {
-                    MarkerState(position = LatLng(my.latitude, my.longitude))
-                }
-
-                // 좌표 업데이트
-                LaunchedEffect(my.latitude, my.longitude) {
-                    myMarkerState.position = LatLng(my.latitude, my.longitude)
-                }
-
-                if (myCustomMarkerIcon != null) {
-                    Marker(
-                        state = myMarkerState,
-                        icon = myCustomMarkerIcon,
-                        zIndex = 0.0f,
-                        onClick = { true }
-                    )
-                }
+                MyMarker(myStatus = my, profileImageUrl = my.profileImageUrl)
             }
 
-            // 친구 마커 구성
             mapUiState.friendsStatuses.forEach { friend ->
-                if (!friend.isSharing) return@forEach
-                val friendMarkerState = remember(friend.uid) {
-                    MarkerState(position = LatLng(friend.latitude, friend.longitude))
-                }
-
-                LaunchedEffect(friend.latitude, friend.longitude) {
-                    friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
-                }
-
-                var friendCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
-
-                LaunchedEffect(friend.profileImageUrl, friend.isOnline) {
-                    friendCustomMarkerIcon = createCustomMarkerBitmap(
-                        context = context,
-                        imageUrl = friend.profileImageUrl,
-                        isOnline = friend.isOnline
-                    )
-                }
-
-                if (friendCustomMarkerIcon != null) {
-                    Marker(
-                        state = friendMarkerState,
-                        icon = friendCustomMarkerIcon,
-                        zIndex = 1.0f,
-                        onClick = {
-                            Log.d(TAG, "친구 마커 클릭됨: ${friend.nickname} (UID: ${friend.uid})")
-                            onFriendClick(friend)
-                            true
-                        }
-                    )
+                if (friend.isSharing) {
+                    key(friend.uid) {
+                        FriendMarker(friend = friend, onFriendClick = onFriendClick)
+                    }
                 }
             }
 
-            // 히스토리 마커 구성
             histories.forEach { history ->
-                val historyLatLng = LatLng(history.latitude, history.longitude)
-
-                val markerState = remember(history.id) {
-                    MarkerState(position = historyLatLng)
+                key(history.id) {
+                    HistoryMarker(history = history, onHistoryClick = onHistoryClick)
                 }
-
-                LaunchedEffect(history.latitude, history.longitude) {
-                    markerState.position = historyLatLng
-                }
-
-                val bitmapKey = remember(history.id, history.category) {
-                    "${history.id}_${history.category}"
-                }
-
-                // 카테고리별 아이콘 속성 정의
-                val (iconResId, bgColor, iconColor) = remember(history.category) {
-                    when (history.category) {
-                        "무전" -> Triple(
-                            R.drawable.ic_walkie_talkie_icon,
-                            Color(0xFFFAF5FF),
-                            Color(0xFFA855F7)
-                        )
-
-                        "카페" -> Triple(
-                            R.drawable.ic_cafe_icon,
-                            Color(0xFFFFFBEB),
-                            Color(0xFFD97706)
-                        )
-
-                        "음식" -> Triple(
-                            R.drawable.ic_restaurant_icon,
-                            Color(0xFFFFF1F2),
-                            Color(0xFFF43F5E)
-                        )
-
-                        "운동" -> Triple(
-                            R.drawable.ic_exercise_icon,
-                            Color(0xFFECFDF5),
-                            Color(0xFF10B981)
-                        )
-
-                        else -> Triple(
-                            R.drawable.ic_daily_icon,
-                            Color(0xFFEEF2FF),
-                            Color(0xFF6366F1)
-                        )
-                    }
-                }
-
-                val composeMarkerBitmap = rememberComposeBitmapDescriptor(
-                    bitmapKey,
-                    bitmapKey
-                ) {
-                    HistoryIconCircle(
-                        iconResId = iconResId,
-                        iconTint = iconColor,
-                        backgroundColor = bgColor,
-                    )
-                }
-
-                Marker(
-                    state = markerState,
-                    title = "[${history.category}] ${history.placeName}",
-                    snippet = "${history.userNickname}: ${history.content}",
-                    icon = composeMarkerBitmap,
-                    alpha = 0.95f,
-                    zIndex = 2.0f,
-                    onClick = { _ ->
-                        onHistoryClick(history)
-                        true
-                    }
-                )
             }
         }
     }
+}
+
+@Composable
+private fun MyMarker(myStatus: LiveStatus, profileImageUrl: String) {
+    val context = LocalContext.current
+    var myCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
+
+    val myMarkerState = remember(myStatus.uid) {
+        MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
+    }
+
+    LaunchedEffect(myStatus.latitude, myStatus.longitude) {
+        myMarkerState.position = LatLng(myStatus.latitude, myStatus.longitude)
+    }
+
+    LaunchedEffect(profileImageUrl) {
+        myCustomMarkerIcon =
+            createCustomMarkerBitmap(context = context, imageUrl = profileImageUrl, isOnline = true)
+    }
+
+    if (myCustomMarkerIcon != null) {
+        Marker(state = myMarkerState, icon = myCustomMarkerIcon, zIndex = 0.0f, onClick = { true })
+    }
+}
+
+@Composable
+private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit) {
+    val context = LocalContext.current
+    var friendCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
+
+    val friendMarkerState = remember(friend.uid) {
+        MarkerState(position = LatLng(friend.latitude, friend.longitude))
+    }
+
+    LaunchedEffect(friend.latitude, friend.longitude) {
+        friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
+    }
+
+    LaunchedEffect(friend.profileImageUrl, friend.isOnline) {
+        friendCustomMarkerIcon = createCustomMarkerBitmap(
+            context = context,
+            imageUrl = friend.profileImageUrl,
+            isOnline = friend.isOnline
+        )
+    }
+
+    if (friendCustomMarkerIcon != null) {
+        Marker(
+            state = friendMarkerState,
+            icon = friendCustomMarkerIcon,
+            zIndex = 1.0f,
+            onClick = {
+                onFriendClick(friend)
+                true
+            }
+        )
+    }
+}
+
+@OptIn(MapsComposeExperimentalApi::class)
+@Composable
+private fun HistoryMarker(history: History, onHistoryClick: (History) -> Unit) {
+    val historyLatLng = remember(history.latitude, history.longitude) {
+        LatLng(history.latitude, history.longitude)
+    }
+    val markerState = remember(history.id) { MarkerState(position = historyLatLng) }
+
+    LaunchedEffect(history.latitude, history.longitude) {
+        markerState.position = historyLatLng
+    }
+
+    val bitmapKey = remember(history.id, history.category) { "${history.id}_${history.category}" }
+    val (iconResId, bgColor, iconColor) = remember(history.category) {
+        when (history.category) {
+            "무전" -> Triple(R.drawable.ic_walkie_talkie_icon, Color(0xFFFAF5FF), Color(0xFFA855F7))
+            "카페" -> Triple(R.drawable.ic_cafe_icon, Color(0xFFFFFBEB), Color(0xFFD97706))
+            "음식" -> Triple(R.drawable.ic_restaurant_icon, Color(0xFFFFF1F2), Color(0xFFF43F5E))
+            "운동" -> Triple(R.drawable.ic_exercise_icon, Color(0xFFECFDF5), Color(0xFF10B981))
+            else -> Triple(R.drawable.ic_daily_icon, Color(0xFFEEF2FF), Color(0xFF6366F1))
+        }
+    }
+
+    val composeMarkerBitmap = rememberComposeBitmapDescriptor(bitmapKey, bitmapKey) {
+        HistoryIconCircle(iconResId = iconResId, iconTint = iconColor, backgroundColor = bgColor)
+    }
+
+    Marker(
+        state = markerState,
+        title = "[${history.category}] ${history.placeName}",
+        snippet = "${history.userNickname}: ${history.content}",
+        icon = composeMarkerBitmap,
+        alpha = 0.95f,
+        zIndex = 2.0f,
+        onClick = {
+            onHistoryClick(history)
+            true
+        }
+    )
 }
 
 // 친구찾기 토글 버튼

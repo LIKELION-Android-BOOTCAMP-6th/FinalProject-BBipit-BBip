@@ -23,7 +23,7 @@ data class WatchVoiceUiState(
 /**
  * 워치 음성 무전 송신 뷰모델
  */
-class WatchVoiceViewModelWatch(
+class WatchVoiceViewModel(
     private val context: Context
 ) : WatchBaseViewModel<WatchVoiceUiState>(WatchVoiceUiState()) {
 
@@ -124,7 +124,7 @@ class WatchVoiceViewModelWatch(
         fun provideFactory(context: Context): ViewModelProvider.Factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return WatchVoiceViewModelWatch(context.applicationContext) as T
+                return WatchVoiceViewModel(context.applicationContext) as T
             }
         }
     }

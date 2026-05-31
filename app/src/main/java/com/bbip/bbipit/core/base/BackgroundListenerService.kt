@@ -19,7 +19,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
@@ -37,7 +36,6 @@ import com.google.android.gms.wearable.*
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.tasks.await
 import java.io.File
@@ -65,9 +63,6 @@ class BackgroundListenerService : Service() {
 
     @Inject
     lateinit var friendRepository: FriendRepository
-
-    @Inject
-    lateinit var appLifecycleObserver: AppLifecycleObserver
 
     @Inject
     lateinit var lifeCycleManager: LifeCycleManager
@@ -125,7 +120,7 @@ class BackgroundListenerService : Service() {
         const val PATH_REQUEST_WATCH_STATUS = "/request_watch_status"
 
         // 친구 위치 목록 워치 전송 경로
-        const val PATH_RESPONSE_FRIENDS_LOCATION = "/response_friends_location"
+        const val PATH_RESPONSE_FRIENDS_LOCATION = "/response_locations"
 
         // 워치 오디오 출력 명령 경로
         const val PATH_PLAY_VOICE = "/play_voice"
@@ -224,11 +219,9 @@ class BackgroundListenerService : Service() {
                 // 친구 위치 정보를 워치로 전송
                 ACTION_PUSH_LOCATION_TO_WATCH -> {
                     scope.launch {
-                        val myStatus = liveStatusRepository.getCachedMyLiveStatus()
-                        val friendsList = friendRepository.myFriends.value.mapNotNull {
-                            liveStatusRepository.myLiveStatusFlow.value
-                        }
-                        pushLocationsToWatch(listOfNotNull(myStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
+                        Log.d(TAG, "🔄 워치의 요청으로 실시간 GPS 강제 새로고침 파이프라인 가동")
+
+                        fetchFreshLocationAndPushToWatch()
                     }
                 }
                 // 음성 메시지 읽음 처리
@@ -244,6 +237,49 @@ class BackgroundListenerService : Service() {
         // 앱 활성화 상태에 따른 세션 제어
         manageSessionByState()
         return START_STICKY
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun fetchFreshLocationAndPushToWatch() {
+        scope.launch { // 서비스 내부 CoroutineScope 활용
+            try {
+                val locationRequest = CurrentLocationRequest.Builder()
+                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY) // GPS 위성 강제 가동
+                    .build()
+
+                // 1. 단발성으로 현재 장소의 가장 정확한 좌표를 즉시 측정
+                fusedLocationClient.getCurrentLocation(locationRequest, null)
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            scope.launch {
+                                // 서버 및 로컬 Repository에 최신 좌표 업데이트 반영
+                                val currentCache = liveStatusRepository.getCachedMyLiveStatus()
+                                val freshMyStatus = currentCache?.copy(
+                                        latitude = location.latitude,
+                                        longitude = location.longitude,
+                                        isOnline = true,
+                                    )
+
+                                if (freshMyStatus != null) {
+                                    // 파이어베이스 Live 컬렉션 및 원격 동기화 진행
+                                    liveStatusRepository.updateMyLiveStatus(freshMyStatus)
+
+                                    // 갱신이 완료된 최신 데이터를 워치로 전송
+                                    pushLocationsToWatch(listOfNotNull(freshMyStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
+                                    Log.d(TAG, "⚡ 워치 요청에 따른 진짜 실시간 GPS 좌표 동기화 및 송신 완료!")
+                                }
+                            }
+                        } else {
+                            Log.w(TAG, "⚠️ GPS 측정 결과가 null입니다. 캐시된 마지막 위치로 대체 송신합니다.")
+                            // 실패 시 방어 코드로 기존 푸시 로직 가동
+                            val cacheMyStatus = liveStatusRepository.getCachedMyLiveStatus()
+                            pushLocationsToWatch(listOfNotNull(cacheMyStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 백그라운드 강제 GPS 갱신 중 실패: ${e.message}")
+            }
+        }
     }
 
     /**
@@ -282,7 +318,7 @@ class BackgroundListenerService : Service() {
      * 모바일 및 워치 포어그라운드 상태 기반 세션 제어 함수
      */
     private fun manageSessionByState() {
-        val isMobileForeground = appLifecycleObserver.isAppInForeground
+        val isMobileForeground = lifeCycleManager.isAppInForeground
         val isUserLoggedIn = authRepository.getCurrentUserUid() != null
 
         // 비로그인 상태 세션 종료
@@ -316,7 +352,7 @@ class BackgroundListenerService : Service() {
                         if (url.isNotEmpty() && !voiceMessage.isInitial) {
                             val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
                             if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
-                                if (!appLifecycleObserver.isAppInForeground && isWatchInForeground) {
+                                if (!lifeCycleManager.isAppInForeground && isWatchInForeground) {
                                     sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                                 } else {
                                     voiceRepository.emitMobileVoiceEvent(voiceMessage)
@@ -571,6 +607,7 @@ class BackgroundListenerService : Service() {
      * 최신 위치 좌표 데이터 구조체 워치 송신 함수
      */
     private fun pushLocationsToWatch(locations: List<LiveStatus>) {
+        if(!isWatchInForeground) return
         scope.launch {
             runCatching {
                 // 데이터를 직렬화하여 연결된 워치 기기들에 송신
@@ -725,7 +762,7 @@ class BackgroundListenerService : Service() {
                             // WALKIE 타입 최우선 분기 처리
                             if (notification.type == "WALKIE") {
                                 // 1. 앱이 켜져있을 때 (포그라운드) -> 화면 안에서 바로 무전 자동 재생
-                                if (appLifecycleObserver.isAppInForeground) {
+                                if (lifeCycleManager.isAppInForeground) {
                                     val currentUserId =
                                         authRepository.getCurrentUserUid() ?: return@forEach
                                     scope.launch {

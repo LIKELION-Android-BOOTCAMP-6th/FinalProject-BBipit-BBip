@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -46,7 +47,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.bbip.bbipit.core.base.AppLifecycleObserver
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.presentation.chat.viewmodel.ChatListViewModel
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
@@ -54,6 +54,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.Lifecycle
+import com.bbip.bbipit.core.base.LifeCycleManager
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -68,12 +69,53 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var liveStatusRepository: LiveStatusRepository
     @Inject
-    lateinit var appLifecycleObserver: AppLifecycleObserver
+    lateinit var lifeCycleManager: LifeCycleManager
 
     // 알림 클릭 시 이동 처리를 위한 반응형 상태
     private var pendingNotificationIntent by mutableStateOf<Intent?>(null)
 
     private var pendingNotificationId by mutableStateOf<String?>(null)
+
+    private val TAG = "MobileMainActivity"
+
+    // 안드로이드 공식 권한 요청 런처 정의
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val isBluetoothGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permissions[Manifest.permission.BLUETOOTH_CONNECT] == true
+        } else {
+            true
+        }
+
+        if (isBluetoothGranted) {
+            Log.d(TAG, "✅ 사용자가 블루투스 연결 권한을 승인했습니다.")
+            // 필요 시 여기에 워치로 다시 READY 신호를 강제 푸시하는 로직을 연동할 수 있습니다.
+        } else {
+            Log.w(TAG, "❌ 사용자가 블루투스 권한을 거부했습니다.")
+        }
+    }
+
+    /**
+     * 서비스로부터 온 인텐트를 분석하여 필요시 시스템 권한 팝업 가동
+     */
+    private fun checkIntentAndRequestPermissions(intent: Intent?) {
+        val shouldRequest = intent?.getBooleanExtra("ACTION_REQUEST_PERMISSIONS", false) ?: false
+
+        if (shouldRequest) {
+            Log.d(TAG, "🚀 서비스 요청 수신: 유저에게 즉시 권한 승인 팝업을 표시합니다.")
+
+            // 안드로이드 12(API 31) 이상일 때만 블루투스 커넥트 권한이 필수입니다.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                requestPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.BLUETOOTH_CONNECT,
+                        Manifest.permission.BLUETOOTH_SCAN
+                    )
+                )
+            }
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -85,11 +127,16 @@ class MainActivity : ComponentActivity() {
         pendingNotificationIntent = intent
         pendingNotificationId = intent.getStringExtra("notification_id")
 
+        // 처음 앱이 켜질 때 서비스로부터 전달받은 인텐트가 있는지 검사
+        checkIntentAndRequestPermissions(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // 처음 앱이 켜질 때 서비스로부터 전달받은 인텐트가 있는지 검사
+        checkIntentAndRequestPermissions(intent)
 
         // App Check 디버그 환경 구성 설정
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
@@ -97,7 +144,7 @@ class MainActivity : ComponentActivity() {
         )
 
         // 앱 수명 주기 관찰자 등록
-        ProcessLifecycleOwner.get().lifecycle.addObserver(appLifecycleObserver)
+        ProcessLifecycleOwner.get().lifecycle.addObserver(lifeCycleManager)
 
         // 알림 클릭으로 온 Intent인지 구분
         pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null

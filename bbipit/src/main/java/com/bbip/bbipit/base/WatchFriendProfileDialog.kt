@@ -151,7 +151,7 @@ fun WatchFriendProfileDialog(
 
                     // 하단 가이드 문구
                     Text(
-                        text = "아래로 밀어서 닫기",
+                        text = "옆으로 밀어서 닫기",
                         fontSize = 11.sp,
                         color = Color.Black.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center

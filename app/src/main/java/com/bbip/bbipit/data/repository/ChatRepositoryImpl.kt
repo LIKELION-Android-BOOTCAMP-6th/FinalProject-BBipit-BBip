@@ -1,10 +1,7 @@
 package com.bbip.bbipit.data.repository
 
 import android.util.Log
-import androidx.navigation.NavController
-import com.bbip.bbipit.core.base.AppLifecycleObserver
 import com.bbip.bbipit.core.base.LifeCycleManager
-import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.source.remote.chat.ChatRemoteDataSource
 import com.bbip.bbipit.domain.entity.ChatRoom
