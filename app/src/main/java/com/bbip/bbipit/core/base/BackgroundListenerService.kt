@@ -180,6 +180,11 @@ class BackgroundListenerService : Service() {
         }
         messageClient.addListener(messageListener)
 
+        lifeCycleManager.onAppForegroundStatusChanged = { isInForeground ->
+            Log.d(TAG, "📱 모바일 포어그라운드 상태 변경 감지 -> 포어그라운드 여부: $isInForeground")
+            manageSessionByState()
+        }
+
         // 사용자 데이터 및 위치 관찰 가동
         authRepository.getCurrentUserUid()?.let { myUid ->
             friendRepository.startObservingFriends(myUid)
@@ -195,6 +200,29 @@ class BackgroundListenerService : Service() {
             observeVoiceMessages()
         }
         observeNotifications()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "🔴 BackgroundListenerService onDestroy 호출 - 자원 및 세션 정리")
+
+        // 워치 통신 리스너 해제
+        if (::channelClient.isInitialized) {
+            channelClient.unregisterChannelCallback(channelCallback)
+        }
+        messageClient.removeListener(messageListener)
+
+        // 위치 추적 리스너 안전 해제
+        if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        }
+
+        // 백그라운드 코루틴 작업 취소
+        serviceJob.cancel()
+
+        // 라이프사이클 매니저 콜백 해제 및 실시간 세션 강제 종료
+        lifeCycleManager.onAppForegroundStatusChanged = null
+        lifeCycleManager.stopSession()
     }
 
     /**
@@ -704,10 +732,10 @@ class BackgroundListenerService : Service() {
             val channel = NotificationChannel(
                 channelId,
                 "워치 무전 수신 상주 서비스",
-                NotificationManager.IMPORTANCE_LOW // ◀ IMPORTANCE_LOW로 수정하여 무음 처리
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 setShowBadge(false)
-                setSound(null, null) // ◀ 명시적 무음 처리 추가
+                setSound(null, null)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
@@ -718,12 +746,13 @@ class BackgroundListenerService : Service() {
             .setContentText("워치로부터 음성 신호를 받을 준비가 되었습니다.")
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW) // ◀ 빌더 Priority도 LOW로 수정
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
+                // 모든 백그라운드 무전/위치 동기화 타입으로 완벽 기동 시도
                 startForeground(
                     1, notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
@@ -731,8 +760,25 @@ class BackgroundListenerService : Service() {
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                 )
-            } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
-                startForeground(1, notification)
+                Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
+            } catch (e: Exception) {
+                Log.w(TAG, "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}")
+                try {
+                    // DATA_SYNC 단독 타입으로 기동
+                    startForeground(
+                        1, notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                    )
+                } catch (e2: Exception) {
+                    Log.w(TAG, "⚠️ DATA_SYNC 타입 가동 실패, 기본 무타입 포어그라운드로 최종 전환합니다: ${e2.message}")
+                    try {
+                        //무타입 기본 포어그라운드로 최종 폴백
+                        startForeground(1, notification)
+                    } catch (e3: Exception) {
+                        Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
+                        throw e3
+                    }
+                }
             }
         } else {
             startForeground(1, notification)

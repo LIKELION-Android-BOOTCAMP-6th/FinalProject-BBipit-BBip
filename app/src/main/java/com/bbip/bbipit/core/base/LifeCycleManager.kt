@@ -48,6 +48,8 @@ class LifeCycleManager @Inject constructor(
     var isAppInForeground: Boolean = false
         private set
 
+    var onAppForegroundStatusChanged: ((Boolean) -> Unit)? = null
+
     /**
      * 현재 활성화된 채팅방 정보 갱신 및 상태 전송 함수
      */
@@ -65,6 +67,8 @@ class LifeCycleManager @Inject constructor(
     override fun onStart(owner: LifecycleOwner) {
         // 활성화 상태 플래그 변경
         isAppInForeground = true
+
+        onAppForegroundStatusChanged?.invoke(true)
     }
 
     /**
@@ -73,6 +77,8 @@ class LifeCycleManager @Inject constructor(
     override fun onStop(owner: LifecycleOwner) {
         // 활성화 상태 플래그 변경
         isAppInForeground = false
+
+        onAppForegroundStatusChanged?.invoke(true)
     }
 
     /**
