@@ -157,7 +157,7 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                     onValueChange = { viewModel.onSearchQueryChanged(it) },
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp),
+                        .height(55.dp),
                     placeholder = { Text("이름 검색...", style = Typography.bodySmall) },
                     shape = RoundedCornerShape(26.dp),
                     singleLine = true,

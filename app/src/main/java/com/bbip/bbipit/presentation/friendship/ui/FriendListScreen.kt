@@ -415,7 +415,7 @@ fun AddFriendDialog(
                 OutlinedTextField(
                     value = uid,
                     onValueChange = { uid = it },
-                    placeholder = { Text("UID 입력 (예: 12345678)", style = Typography.bodyMedium, fontWeight = FontWeight.Bold) },
+                    placeholder = { Text("UID 입력\n(예: 12345678)", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.LightGray) },
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
