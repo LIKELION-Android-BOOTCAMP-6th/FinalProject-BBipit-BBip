@@ -110,8 +110,7 @@ fun NotificationScreen(
                     } else {
                         viewModel.onReadAllClick()
                     }
-                },
-                onAddTestClick = { type -> viewModel.createTestNotification(type) }
+                }
             )
             Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -130,88 +129,110 @@ fun NotificationScreen(
                 }
             }
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(
-                    bottom = innerPadding.calculateBottomPadding()
-                )
-            ) {
-                items(items = filteredList, key = { it.id }) { item ->
-                    @Suppress("DEPRECATION")
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.markAsReadAndDelete(item.id)
-                                true
-                            } else false
-                        }
+            if (filteredList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "알림이 없습니다.",
+                        style = Typography.bodyMedium,
+                        color = Color.Gray
                     )
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                val progress = dismissState.progress
-                                val isSwiping = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
-
-                                if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
-
-                                val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
-                                val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
-
-                                Box(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            Color.Red.copy(alpha = bgAlpha),
-                                            RoundedCornerShape(20.dp)
-                                        )
-                                        .padding(start = 20.dp, end = 20.dp),
-                                    contentAlignment = Alignment.CenterEnd
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = null,
-                                        tint = Color.White.copy(alpha = iconAlpha)
-                                    )
-                                }
-                            },
-                            enableDismissFromStartToEnd = false
-                        ) {
-                            NotificationCard(
-                                item = item,
-                                currentTime = currentTime,
-                                readAllClicked = isReadAllClicked,
-//                                isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
-                                onClick = {
-                                    if (item.type == "DM") {
-                                        viewModel.markAsRead(item.id)
-                                        navController.navigate(Routes.ChatRoom(roomId = item.roomId, receiverId = item.senderId ?: ""))
-                                    }
-                                    else if (item.type == "WALKIE") {
-                                        viewModel.markAsRead(item.id)
-                                        viewModel.onClickAudioNotification(item.id, item.audioId)
-                                    }
-                                    else if (item.type == "REQ") {
-                                        viewModel.markAsRead(item.id)
-                                        navController.navigate(Routes.FriendRequestList)
-                                    }
-                                    else if (item.type == "ACP") {
-                                        viewModel.markAsRead(item.id)
-                                        navController.navigate(Routes.FriendList)
-                                    }
-
-                                }
-                            )
-                        }
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 20.dp),
-                            thickness = 0.5.dp,
-                            color = Color.LightGray.copy(alpha = 0.4f)
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(
+                        bottom = innerPadding.calculateBottomPadding()
+                    )
+                ) {
+                    items(items = filteredList, key = { it.id }) { item ->
+                        @Suppress("DEPRECATION")
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = {
+                                if (it == SwipeToDismissBoxValue.EndToStart) {
+                                    viewModel.markAsReadAndDelete(item.id)
+                                    true
+                                } else false
+                            }
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    val progress = dismissState.progress
+                                    val isSwiping =
+                                        dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+
+                                    if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
+
+                                    val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
+                                    val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
+
+                                    Box(
+                                        Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Color.Red.copy(alpha = bgAlpha),
+                                                RoundedCornerShape(20.dp)
+                                            )
+                                            .padding(start = 20.dp, end = 20.dp),
+                                        contentAlignment = Alignment.CenterEnd
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = iconAlpha)
+                                        )
+                                    }
+                                },
+                                enableDismissFromStartToEnd = false
+                            ) {
+                                NotificationCard(
+                                    item = item,
+                                    currentTime = currentTime,
+                                    readAllClicked = isReadAllClicked,
+//                                isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
+                                    onClick = {
+                                        if (item.type == "DM") {
+                                            Log.d("NotificationScreen", "DM 클릭 - id: ${item.id}")
+                                            viewModel.markAsRead(item.id)
+                                            navController.navigate(
+                                                Routes.ChatRoom(
+                                                    roomId = item.roomId,
+                                                    receiverId = item.senderId ?: ""
+                                                )
+                                            )
+                                        } else if (item.type == "WALKIE") {
+                                            viewModel.markAsRead(item.id)
+                                            viewModel.onClickAudioNotification(
+                                                item.id,
+                                                item.audioId
+                                            )
+                                        } else if (item.type == "REQ") {
+                                            viewModel.markAsRead(item.id)
+                                            navController.navigate(Routes.FriendRequestList)
+                                        } else if (item.type == "ACP") {
+                                            viewModel.markAsRead(item.id)
+                                            navController.navigate(Routes.FriendList)
+                                        }
+
+                                    }
+                                )
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                thickness = 0.5.dp,
+                                color = Color.LightGray.copy(alpha = 0.4f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                     }
                 }
             }
@@ -353,7 +374,7 @@ fun StatusBadge(text: String, color: Color) {
 }
 
 @Composable
-fun NotificationHeader(onReadAll: () -> Unit, onAddTestClick: (String) -> Unit) {
+fun NotificationHeader(onReadAll: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent,
