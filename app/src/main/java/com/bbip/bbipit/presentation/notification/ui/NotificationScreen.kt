@@ -66,9 +66,14 @@ fun NotificationScreen(
         derivedStateOf {
             val baseList = if (selectedFilter == "전체") notification
             else notification.filter { mapFilterToType(selectedFilter, it.type) }
-            baseList.sortedWith(compareBy<Notification> { it.isRead }.thenByDescending { it.createdAt })
+            baseList.sortedWith(
+                compareBy<Notification> {
+                    it.isRead || (it.type == "WALKIE" && (it.isExpired || it.isPlayed))
+                }.thenByDescending { it.createdAt }
+            )
         }
     }
+
 
     // 확인하지 않은 무전이 있는지 체크하는 상태
     var showWalkieDialog by remember { mutableStateOf(false) }
@@ -365,17 +370,6 @@ fun NotificationHeader(onReadAll: () -> Unit, onAddTestClick: (String) -> Unit) 
                     fontWeight = FontWeight.Bold,
                     color = primary
                 )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(text = "[+ DM 추가]", color = Color.Blue, fontSize = 15.sp, modifier = Modifier.clickable { onAddTestClick("DM") })
-                Text(text = "[+ 무전 추가]", color = Color.Magenta, fontSize = 15.sp, modifier = Modifier.clickable { onAddTestClick("WALKIE") })
-                Text(text = "[+ 친구 추가]", color = Color.DarkGray, fontSize = 15.sp, modifier = Modifier.clickable { onAddTestClick("REQ") })
             }
         }
     }
