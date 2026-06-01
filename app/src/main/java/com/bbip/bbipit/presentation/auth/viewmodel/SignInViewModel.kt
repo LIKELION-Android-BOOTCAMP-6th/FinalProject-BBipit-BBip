@@ -139,6 +139,7 @@ class SignInViewModel @Inject constructor(
                     authRepository.signInWithCustomToken(idToken, type)
                         .onSuccess {
                             _eventChannel.send(SignInEvent.NavigateToHome)
+                            getFcmToken()
                             updateState { copy(isLoading = false) }
                         }
                         .onFailure {exception ->
