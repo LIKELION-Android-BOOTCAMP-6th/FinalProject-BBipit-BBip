@@ -142,9 +142,17 @@ class SignUpViewModel @Inject constructor(
             _event.send(SignUpEvent.NavigateToSignIn)
         }
     }
-    private fun isValidPassword(password: String): Boolean {
-        val regex = Regex("^(?=.*[a-z])(?=.*[0-9])(?=.*[!@#\$%^&*()_+\\-=]).{8,}$")
-        return regex.matches(password)
+    fun isValidPassword(password: String): Boolean {
+        val specChars = """!@#$%^&*()_+\-=\[\]{};':",.<>/?~`|\\""" //특수문자
+
+        val hasLowerCase = "(?=.*[a-z])"
+        val hasDigit = "(?=.*[0-9])"
+        val hasSpecialChar = "(?=.*[$specChars])"
+        val allowedCharsAndLength = "[a-zA-Z0-9$specChars]{8,16}"
+
+        val regExp = "^$hasLowerCase$hasDigit$hasSpecialChar$allowedCharsAndLength$"
+
+        return password.matches(regExp.toRegex())
     }
     private fun isValidEmail(email: String): Boolean
     = email.isNotBlank() && Patterns.EMAIL_ADDRESS.matcher(email).matches()

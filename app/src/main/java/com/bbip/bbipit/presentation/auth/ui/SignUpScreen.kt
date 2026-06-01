@@ -146,7 +146,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             InputField(
                 value = uiState.password,
                 onValueChange = { viewModel.onUpdatePassword(it) },
-                placeholder = "비밀번호, 소문자+특수문자 혼합 8자리 이상",
+                placeholder = "비밀번호, 소문자+특수문자 혼합 8자리 이상 16자리 이하",
                 isPassword = true,
                 keyboardType = KeyboardType.Password,
                 errorText = uiState.pwError
