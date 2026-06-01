@@ -43,6 +43,7 @@ import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
 
 /**
  * UI State 정의
@@ -192,8 +193,7 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
                 // [일반 모드] 제목과 검색 아이콘 버튼
                 Text(
                     text = "DM",
-                    style = Typography.titleLarge,
-                    color = primary
+                    style = Typography.bodyLarge,
                 )
 
                 IconButton(
@@ -291,7 +291,6 @@ fun ChatItemRow(
             Text(
                 text = chatItem.time,
                 style = Typography.labelSmall,
-                color = Color.Gray
             )
 
             Spacer(modifier = Modifier.height(8.dp)) // 시간과 뱃지 사이 간격
@@ -321,17 +320,18 @@ fun ChatBadge(
         modifier = modifier
             .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp) // 숫자가 한 자리여도 완벽한 원형 유지
             .background(
-                color = Color.Red,
+                color = recording,
                 shape = CircleShape
             )
             .padding(horizontal = 5.dp, vertical = 2.dp) // 숫자가 늘어나면 옆으로 늘어날 수 있도록
     ) {
         Text(
             text = badgeText,
+            style = Typography.labelSmall,
             color = Color.White,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
         )
     }
 }

@@ -54,6 +54,8 @@ import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 
 /**
@@ -235,7 +237,6 @@ fun ChatDetailScreen(
                                 modifier = Modifier.padding(vertical = 18.dp),
                                 textAlign = TextAlign.Center,
                                 style = Typography.bodySmall,
-                                color = Color.Gray
                             )
                         }
                     } else {
@@ -311,7 +312,7 @@ fun ChatDetailHeader(navController: NavController, uiState: ChatDetailUiState) {
                             .size(12.dp)
                             .background(
                                 // 💡 이제 isOnline 변수를 여기에서 사용합니다.
-                                color = if (isOnline) online else Color.LightGray,
+                                color = if (isOnline) online else Color.Gray,
                                 shape = CircleShape
                             )
                             .border(2.dp, Color.White, CircleShape)
@@ -351,7 +352,7 @@ fun MessageBubble(
 
     val alignment = if (message.isMine) Alignment.End else Alignment.Start
     val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
-    val textColor = if (message.isMine) Color.White else Color.Black
+    val textColor = if (message.isMine) Color.White else fontDefault
 
     var showMenu by remember { mutableStateOf(false) }
 
@@ -380,7 +381,7 @@ fun MessageBubble(
                             Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
                                 contentDescription = "다시 전송",
-                                tint = Color.Red
+                                tint = recording
                             )
                         }
 
@@ -442,7 +443,7 @@ fun MessageBubble(
                         text = {
                             Text(
                                 "복사하기",
-                                style = Typography.labelMedium,
+                                style = Typography.labelSmall,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 13.sp,
                                 color = fontDefault,
@@ -474,7 +475,7 @@ fun MessageBubble(
     }
     if (showCopyToast) {
         // 공통 컴포넌트 호출
-        com.bbip.bbipit.presentation.base.ShowToast(message = "메시지가 복사되었습니다.")
+        ShowToast(message = "메시지가 복사되었습니다.")
         LaunchedEffect(Unit) {
             showCopyToast = false
         }
@@ -633,7 +634,6 @@ fun DateHeader(date: String) {
                 text = date,
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                 style = Typography.bodySmall,
-                color = Color.Gray
             )
         }
     }

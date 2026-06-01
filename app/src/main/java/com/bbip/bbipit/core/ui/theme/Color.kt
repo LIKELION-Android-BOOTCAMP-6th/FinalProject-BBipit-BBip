@@ -7,6 +7,8 @@ val background = Color(0xFFF8FAFC)
 //서브 백그라운드, 카드 백 다이얼로그 백 등
 val subBackground = Color(0xFFE9EAF7)
 val navBackground = Color(0xFFF1F5F9)
+val recording = Color(0xFFFF5252)
+val send = Color(0xFFFFA000)
 val backLeft = Color(0xFFE5D1FE)
 val backRight = Color(0xFFDBF2FF)
 val bottomBarBack = Color(0xC89697A5)

@@ -179,7 +179,7 @@ fun NotificationScreen(
                                         Modifier
                                             .fillMaxSize()
                                             .background(
-                                                Color.Red.copy(alpha = bgAlpha),
+                                                recording,
                                                 RoundedCornerShape(20.dp)
                                             )
                                             .padding(start = 20.dp, end = 20.dp),
@@ -304,7 +304,6 @@ fun NotificationCard(
                 Text(
                     text = item.senderName,
                     style = Typography.bodyMedium,
-                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isWalkieExpired) bottomBarBack else fontDefault,
                     overflow = TextOverflow.Ellipsis
@@ -334,7 +333,6 @@ fun NotificationCard(
                     Text(
                         text = formatExpiryTime(item.expiresAt, item.createdAt),
                         style = Typography.labelSmall,
-                        fontSize = 10.sp,
                         color = bottomBarBack.copy(alpha = 0.7f)
                     )
                 }
@@ -344,7 +342,6 @@ fun NotificationCard(
                 Text(
                     text = formatTimestamp(item.createdAt, currentTime),
                     style = Typography.labelSmall,
-                    color = Color.Gray
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -412,10 +409,11 @@ fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().height(54.dp),
         shape = RoundedCornerShape(27.dp),
-        color = background.copy(0.4f),
+        color = Color.White,
+        shadowElevation = 2.dp
     ) {
         LazyRow(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().heightIn(min = 54.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
