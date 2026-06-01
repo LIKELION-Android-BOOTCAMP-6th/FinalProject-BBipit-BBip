@@ -24,6 +24,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.online
+import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
 import com.bbip.bbipit.domain.entity.LiveStatus
 
 @Composable
@@ -34,12 +38,11 @@ fun FriendListDrawer(
     onCloseClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val mainColor = Color(0xFF956AFC)
 
     ModalDrawerSheet(
         modifier = modifier.width(280.dp),
         drawerContainerColor = Color.White,
-        drawerContentColor = Color(0xFF1E293B)
+        drawerContentColor = Color.Gray
     ) {
         // 1. HEADER 영역 (배경을 확실히 흰색으로 고정)
         Column(
@@ -58,14 +61,13 @@ fun FriendListDrawer(
                         text = "친구 위치 추적",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1E293B),
-                        letterSpacing = (-0.5).sp
+                        style = Typography.bodyMedium
                     )
                     Text(
                         text = "클릭 시 해당 위치로 이동합니다",
                         fontSize = 10.sp,
+                        style = Typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFF94A3B8),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
@@ -77,7 +79,6 @@ fun FriendListDrawer(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                         contentDescription = "닫기",
-                        tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -96,7 +97,7 @@ fun FriendListDrawer(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(Color(0xFFF8FAFC))
+                .background(Color.LightGray.copy(alpha = 0.1f))
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp) // 카드 간의 간격 확보
@@ -110,29 +111,29 @@ fun FriendListDrawer(
                 FriendDrawerItem(
                     friend = friend,
                     isSelected = isSelected,
-                    mainColor = mainColor,
+                    mainColor = primary,
                     onClick = { onFriendClick(friend) }
                 )
             }
         }
 
         // 3. FOOTER 영역
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .border(1.dp, Color(0xFFF1F5F9))
-                .padding(vertical = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "BBip Radar UI",
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFCBD5E1),
-                letterSpacing = 1.5.sp
-            )
-        }
+//        Box(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .background(Color.White)
+//                .border(1.dp, Color(0xFFF1F5F9))
+//                .padding(vertical = 16.dp),
+//            contentAlignment = Alignment.Center
+//        ) {
+//            Text(
+//                text = "BBip Radar UI",
+//                fontSize = 10.sp,
+//                fontWeight = FontWeight.Bold,
+//                color = Color(0xFFCBD5E1),
+//                letterSpacing = 1.5.sp
+//            )
+//        }
     }
 }
 
@@ -149,7 +150,7 @@ fun FriendDrawerItem(
 
     val indicatorColor = when {
         !friend.isSharing -> Color(0xFFF3F3F3)
-        else -> Color(0xFFFFFFFF)
+        else -> Color.White
     }
 
     Row(
@@ -179,7 +180,7 @@ fun FriendDrawerItem(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(CircleShape)
-                    .border(1.dp, Color(0xFFE2E8F0), CircleShape)
+                    .border(1.dp, Color.LightGray, CircleShape)
             )
 
             Box(
@@ -194,7 +195,7 @@ fun FriendDrawerItem(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
-                        .background(if (friend.isOnline) Color(0xFF22C55E) else Color(0xFF94A3B8)) // 온라인(초록), 오프라인(회색)
+                        .background(if (friend.isOnline) online else Color.Gray) // 온라인(초록), 오프라인(회색)
                 )
             }
         }
@@ -210,7 +211,7 @@ fun FriendDrawerItem(
                 text = friend.nickname,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
+                style = Typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -219,9 +220,7 @@ fun FriendDrawerItem(
                 text =  friend.status,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.Gray,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                style = Typography.bodySmall,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
@@ -234,8 +233,8 @@ fun FriendDrawerItem(
         }
 
         val subTextColor = when{
-            friend.isSharing -> Color(0xFF25B65A)
-            else -> Color(0xFFC52222)
+            friend.isSharing -> online
+            else -> recording
         }
 
         // 6. 우측 상태 레이아웃
@@ -250,15 +249,17 @@ fun FriendDrawerItem(
                     text = "추적중",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = mainColor
+                    color = mainColor,
+                    style = Typography.bodyMedium
                 )
             }
         } else {
             Text(
                 text = subText,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                color = subTextColor
+                style = Typography.bodyMedium,
+                color = subTextColor,
+                fontWeight = FontWeight.Bold
             )
         }
     }

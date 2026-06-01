@@ -1,9 +1,5 @@
 package com.bbip.bbipit.presentation.auth.ui
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -105,7 +100,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 modifier = Modifier.size(120.dp).padding(top = 20.dp)
             )
             Text("BBip-It", style = Typography.titleLarge)
-            Text("삐빗- 심장이 반응하는 거리", style = Typography.bodySmall)
+            Text("삐빗- 심장이 반응하는 거리", style = Typography.titleSmall)
             Spacer(modifier = Modifier.height(13.dp))
             InputField(
                 value = uiState.email,
@@ -130,7 +125,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 shape = RoundedCornerShape(60.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
-                Text("로그인", style = Typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                Text("로그인", style = Typography.bodyLarge, color = Color.White)
             }
 
             Row(modifier = Modifier.fillMaxWidth(),
@@ -152,7 +147,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             }
 
             Row() {
-                Text("계정이 없으신가요? ", style = Typography.bodySmall)
+                Text("계정이 없으신가요? ", style = Typography.bodySmall, fontWeight = FontWeight.Light)
                 Text("회원가입",
                     style = Typography.bodySmall,
                     color = primary,

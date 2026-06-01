@@ -33,9 +33,11 @@ import androidx.navigation.toRoute
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.PurpleGrey80
+import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
 import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.base.UserStatusType
@@ -117,7 +119,7 @@ fun EditProfileScreen(
                         text = "프로필 편집",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = fontDefault
+                        style = Typography.bodyMedium
                     )
                 },
                 navigationIcon = {
@@ -208,7 +210,7 @@ fun EditProfileScreen(
                     Text(
                         text = "닉네임",
                         fontSize = 13.sp,
-                        color = if (uiState.isNicknameError) Color.Red else PurpleGrey80,
+                        color = if (uiState.isNicknameError) recording else PurpleGrey80,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
@@ -223,7 +225,7 @@ fun EditProfileScreen(
                             unfocusedContainerColor = Color.White,
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,
-                            errorBorderColor = Color.Red // 에러 시 테두리 색상
+                            errorBorderColor = recording // 에러 시 테두리 색상
                         ),
                         singleLine = true
                     )
@@ -232,8 +234,9 @@ fun EditProfileScreen(
                     if (uiState.isNicknameError) {
                         Text(
                             text = "닉네임을 입력하세요.",
-                            color = Color.Red,
+                            color = recording,
                             fontSize = 12.sp,
+                            style = Typography.bodySmall,
                             modifier = Modifier.padding(start = 4.dp, top = 4.dp)
                         )
                     }
@@ -247,7 +250,7 @@ fun EditProfileScreen(
                         text = "상태 메시지",
                         fontSize = 13.sp,
                         color = fontDefault,
-                        fontWeight = FontWeight.Medium,
+                        style = Typography.bodyMedium,
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
                     Row(
@@ -262,8 +265,7 @@ fun EditProfileScreen(
                     ) {
                         Text(
                             text = uiState.status,
-                            fontSize = 16.sp,
-                            color = fontDefault
+                            style = Typography.bodyMedium
                         )
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
@@ -293,8 +295,8 @@ fun EditProfileScreen(
                 Text(
                     text = "변경사항 저장",
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    style = Typography.bodyMedium
                 )
             }
         }

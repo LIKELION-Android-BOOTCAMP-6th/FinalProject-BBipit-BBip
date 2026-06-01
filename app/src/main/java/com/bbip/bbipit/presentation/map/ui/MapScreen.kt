@@ -62,10 +62,18 @@ import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.createCustomMarkerBitmap
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.fontDefault
+import com.bbip.bbipit.core.ui.theme.online
+import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.core.ui.theme.send
+import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
@@ -344,16 +352,14 @@ fun MapScreen(
                         .shadow(elevation = 6.dp, shape = RoundedCornerShape(14.dp), clip = false),
                     shape = RoundedCornerShape(14.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = Color(
-                            0xFFF1F5F9
-                        )
+                        containerColor = Color.White
                     )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Autorenew,
                         contentDescription = "위치 업데이트",
                         modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF956AFC)
+                        tint = primary
                     )
                 }
             }
@@ -630,15 +636,14 @@ fun FriendListToggleButton(
             ),
         shape = buttonShape,
         colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = Color(0xFFF1F5F9),
-            contentColor = Color.White
+            containerColor = Color.White
         )
     ) {
         Icon(
             imageVector = Icons.Default.People,
             contentDescription = "친구 목록 열기",
             modifier = Modifier.size(24.dp),
-            tint = Color(0xFF956AFC)
+            tint = primary
         )
     }
 }
@@ -695,7 +700,7 @@ fun FriendProfileDialog(
                         indication = null
                     ) {},
                 shape = RoundedCornerShape(46.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F9)),
+                colors = CardDefaults.cardColors(containerColor = subBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
                 Box(
@@ -706,7 +711,7 @@ fun FriendProfileDialog(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기",
-                        tint = Color(0xFF6C727F).copy(alpha = 0.6f),
+                        tint = Color.Gray.copy(alpha = 0.6f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .size(24.dp)
@@ -759,11 +764,7 @@ fun FriendProfileDialog(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(
-                                            color = if (friend.isOnline) Color(
-                                                0xFF00E676
-                                            ) else Color(
-                                                0xFF9E9E9E
-                                            ),
+                                            color = if (friend.isOnline) online else Color.Gray,
                                             shape = CircleShape
                                         )
                                 )
@@ -774,10 +775,9 @@ fun FriendProfileDialog(
 
                         Text(
                             text = friend.nickname,
+                            style = Typography.bodyMedium,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E232C),
-                            letterSpacing = (-0.5).sp
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -786,7 +786,7 @@ fun FriendProfileDialog(
                             modifier = Modifier
                                 .fillMaxWidth(0.9f)
                                 .background(
-                                    color = Color(0xFFE2E4EE).copy(alpha = 0.6f),
+                                    color = Color.LightGray.copy(alpha = 0.3f),
                                     shape = RoundedCornerShape(24.dp)
                                 )
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -794,13 +794,11 @@ fun FriendProfileDialog(
                         ) {
                             Text(
                                 text = friend.status.ifEmpty { "등록된 한줄 메세지가 없습니다" },
+                                style = Typography.bodyMedium,
                                 fontSize = 13.sp,
-                                color = if (friend.status.isNotEmpty()) Color(0xFF5A6175) else Color(
-                                    0xFF94A3B8
-                                ),
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+//                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -817,8 +815,7 @@ fun FriendProfileDialog(
                                     .height(56.dp),
                                 shape = RoundedCornerShape(28.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color(0xFF1E232C)
+                                    containerColor = Color.White
                                 ),
                                 elevation = ButtonDefaults.buttonElevation(
                                     defaultElevation = 1.dp
@@ -827,8 +824,7 @@ fun FriendProfileDialog(
                                 Text(
                                     text = "채팅",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = Color(0xFF1E232C)
+                                    style = Typography.bodyMedium
                                 )
                             }
 
@@ -840,9 +836,9 @@ fun FriendProfileDialog(
                                     .shadow(2.dp, RoundedCornerShape(28.dp))
                                     .background(
                                         color = when {
-                                            voiceUiState.isRecording -> Color(0xFFFF5252)
-                                            voiceUiState.isUploading -> Color(0xFFFFA000)
-                                            else -> Color(0xFF9162FF)
+                                            voiceUiState.isRecording -> recording
+                                            voiceUiState.isUploading -> send
+                                            else -> primary
                                         },
                                         shape = RoundedCornerShape(28.dp)
                                     )
@@ -889,9 +885,8 @@ fun FriendProfileDialog(
                                         else -> "무전"
                                     },
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = Color.White,
-                                    textAlign = TextAlign.Center
+                                    style = Typography.bodyMedium,
+                                    color = Color.White
                                 )
                             }
                         }
@@ -955,7 +950,7 @@ fun HistoryDetailDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White.copy(alpha = 0.1f)),
+                .background(subBackground.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Card(
@@ -983,7 +978,7 @@ fun HistoryDetailDialog(
                                 imageVector = Icons.Default.LocationOn,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = Color(0xFF956AFC)
+                                tint = primary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
@@ -1076,7 +1071,7 @@ fun LocationSharingToggleButton(
 ) {
     // 상태 변경 시 부드러운 색상 전환 효과 애니메이션
     val indicatorColor by animateColorAsState(
-        targetValue = if (isSharingEnabled) Color(0xFF00E676) else Color(0xFF94A3B8),
+        targetValue = if (isSharingEnabled) online else Color.Gray,
         label = "IndicatorColor"
     )
 
@@ -1105,9 +1100,10 @@ fun LocationSharingToggleButton(
             // 2. 상태 텍스트
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
+                style = Typography.bodyMedium,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSharingEnabled) Color(0xFF1E232C) else Color(0xFF6C727F),
+                color = if (isSharingEnabled) fontDefault else Color.DarkGray,
                 letterSpacing = (-0.3).sp
             )
         }

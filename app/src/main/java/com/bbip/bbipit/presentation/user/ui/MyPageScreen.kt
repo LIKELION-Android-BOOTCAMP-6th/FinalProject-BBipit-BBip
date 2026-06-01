@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.navigation.NavController
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -142,7 +143,6 @@ fun MyPageScreen(
                             Text(
                                 text = "내 정보",
                                 style = Typography.bodyLarge,
-                                color = fontDefault
                             )
                             IconButton(
                                 onClick = {
@@ -198,7 +198,6 @@ fun MyPageScreen(
                             text = uiState.nickname,
                             style = Typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
-                            color = fontDefault
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -206,8 +205,10 @@ fun MyPageScreen(
                         // 상태 메시지 캡슐
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            color = Color.White.copy(alpha = 0.7f),
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            shadowElevation = 1.dp,
+                            tonalElevation = 0.dp,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 16.dp),
                         ) {
                             Text(
                                 text = uiState.status,
@@ -235,13 +236,14 @@ fun MyPageScreen(
                                 containerColor = primary.copy(alpha = 0.15f)
                             ),
                             shape = RoundedCornerShape(14.dp),
-                            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp)
+                            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp),
                         ) {
                             Text(
                                 text = "프로필 편집",
                                 color = primary,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                style = Typography.bodySmall
                             )
                         }
 
@@ -265,7 +267,6 @@ fun MyPageScreen(
                                     style = Typography.bodyMedium,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = fontDefault,
                                     letterSpacing = 1.5.sp
                                 )
 

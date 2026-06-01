@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.recording
 
 @Composable
 fun InputField(value: String, onValueChange: (String) -> Unit,
@@ -88,7 +89,7 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = errorText,
-                color = Color.Red,
+                color = recording,
                 style = Typography.bodySmall,
                 modifier = Modifier.padding(start = 16.dp),
                 fontWeight = FontWeight.Bold

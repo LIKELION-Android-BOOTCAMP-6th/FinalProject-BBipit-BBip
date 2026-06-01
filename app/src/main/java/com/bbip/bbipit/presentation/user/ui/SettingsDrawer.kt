@@ -48,7 +48,6 @@ import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.mypage.MyPageViewmodel
 import kotlin.math.log
 
-val title = Color(0xFF7E8C9F)
 enum class InputType{
     EMAIL, TERMS, LOGOUT
 }
@@ -71,10 +70,10 @@ fun SettingsDrawer(email: String, loginType: String, onClose: () -> Unit, modifi
             ) {
 
                 Spacer(modifier = Modifier.height(20.dp))
-                Text("내 계정 정보", style = Typography.bodySmall, color = title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp))
+                Text("내 계정 정보", style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp))
                 InfoBox(titleText = "이메일", semiText = email, type = InputType.EMAIL, loginType = LoginType.fromString(loginType)) { }
 
-                Text("기타", style = Typography.bodySmall, color = title, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp))
+                Text("기타", style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 10.dp))
                 InfoBox(titleText = "서비스 이용약관", type = InputType.TERMS,
                     onClick = {
                         Log.d("드로어", terms)
@@ -117,7 +116,7 @@ fun InfoBox(titleText: String, semiText: String? = null, type: InputType, loginT
                 Column(modifier = Modifier.fillMaxWidth().padding(17.dp),
                     horizontalAlignment = Alignment.Start) {
 
-                    Text(titleText, style = Typography.bodySmall, color = title, fontWeight = FontWeight.Bold )
+                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold )
 
                     Row(modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -140,7 +139,7 @@ fun InfoBox(titleText: String, semiText: String? = null, type: InputType, loginT
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(titleText, style = Typography.bodySmall, color = title, fontWeight = FontWeight.Bold )
+                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold )
 
                     IconButton(onClick =  {onClick()} ) {
                         Icon(imageVector = Icons.Default.ChevronRight, tint = Color.LightGray, modifier = Modifier.size(30.dp), contentDescription = "약관 보기")
@@ -154,10 +153,10 @@ fun InfoBox(titleText: String, semiText: String? = null, type: InputType, loginT
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(titleText, style = Typography.bodySmall, color = title, fontWeight = FontWeight.Bold )
+                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold )
 
                     IconButton(onClick =  {onClick()} ) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.Logout, tint = Color.LightGray, modifier = Modifier.size(30.dp), contentDescription = "로그아웃")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.Logout, tint = Color.Gray, modifier = Modifier.size(30.dp), contentDescription = "로그아웃")
                     }
                 }
             }
