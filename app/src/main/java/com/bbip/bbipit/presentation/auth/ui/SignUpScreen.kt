@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -84,7 +85,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
     val isAllEntered by remember {
         derivedStateOf {
             uiState.name.isNotBlank() && uiState.email.isNotBlank() &&
-                    uiState.password.isNotBlank() && (uiState.password == uiState.checkPw)
+                    uiState.password.isNotBlank() && uiState.password.isNotBlank() && uiState.checkPw.isNotBlank()
                     && isAgreed
         }
     }
@@ -92,7 +93,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
     Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding(),
         containerColor = background) {
         innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp)
+        Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp).fillMaxHeight()
             .verticalScroll(scrollState)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -151,10 +152,14 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
 
             InputField(
                 value = uiState.checkPw,
-                onValueChange = { viewModel.onUpdateCheckPw(it) },
+                onValueChange = {
+                    viewModel.onUpdateCheckPw(it)
+                    viewModel.validatePassword(it)
+                },
                 placeholder = "비밀번호 확인",
                 isPassword = true,
-                keyboardType = KeyboardType.Password
+                keyboardType = KeyboardType.Password,
+                errorText = uiState.checkPwError
             )
 
             Row(
