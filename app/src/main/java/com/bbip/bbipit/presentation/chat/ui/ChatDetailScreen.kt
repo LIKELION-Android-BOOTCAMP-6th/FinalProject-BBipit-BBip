@@ -54,6 +54,7 @@ import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 
 /**
  * 채팅방 UI 데이터 모델
@@ -94,7 +95,9 @@ data class ChatDetailUiState(
 @Composable
 fun ChatDetailScreen(
     navController: NavController,
-    viewModel: ChatDetailViewModel = hiltViewModel() // ViewModel 주입
+    viewModel: ChatDetailViewModel = hiltViewModel(), // ViewModel 주입
+    notificationViewModel: NotificationViewModel = hiltViewModel() //NotificationViewModel
+
 ) {
     // 인자 추출
 //    val route = navController.currentBackStackEntry?.toRoute<Routes.ChatRoom>()
@@ -140,6 +143,8 @@ fun ChatDetailScreen(
     LaunchedEffect(roomId) {
         viewModel.loadChatRoomData(roomId)
         viewModel.markAsRead(roomId)
+        // 알림 관련 추가 — 해당 roomId의 DM 알림 읽음 처리
+        notificationViewModel.markDmNotificationsAsRead(roomId)
     }
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()

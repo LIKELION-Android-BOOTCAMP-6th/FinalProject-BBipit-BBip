@@ -87,19 +87,27 @@ fun BBipItNavigation(
                 if (roomId.isNotEmpty()) {
                     val receiverId =
                         notificationIntent.getStringExtra("notification_receiver_id") ?: ""
+                    while (navController.currentBackStackEntry?.destination?.route?.contains("Notification") != true) {
+                        delay(50)
+                    }
                     navController.navigate(
-                        Routes.ChatRoom(
-                            roomId = roomId,
-                            receiverId = receiverId
-                        )
+                        Routes.ChatRoom(roomId = roomId, receiverId = receiverId)
                     )
                 }
             }
+
             "REQ" -> {
+                while (navController.currentBackStackEntry?.destination?.route?.contains("Notification") != true) {
+                    delay(50)
+                }
                 navController.navigate(Routes.FriendRequestList)
             }
+
             "ACP" -> {
                 if (notificationId.isNotEmpty()) notificationViewModel.markAsRead(notificationId)
+                while (navController.currentBackStackEntry?.destination?.route?.contains("Notification") != true) {
+                    delay(50)
+                }
                 navController.navigate(Routes.FriendList)
             }
         }

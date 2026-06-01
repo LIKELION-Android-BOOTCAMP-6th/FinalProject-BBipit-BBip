@@ -213,49 +213,10 @@ class NotificationViewModel @Inject constructor(
             }
         }
     }
-
-
-    fun createTestNotification(type: String) {
-        val userId = authRepository.getCurrentUserUid() ?: ""
-        if (userId.isEmpty()) return
-
-        val generatedId = FirebaseFirestore.getInstance()
-            .collection("Notifications")
-            .document(userId)
-            .collection("Notification")
-            .document().id
-
-        val testData = hashMapOf(
-            "type" to type,
-            "sender_name" to when (type) {
-                "DM" -> "홍길동(DM)"
-                "WALKIE" -> "김철수(무전)"
-                else -> "이영희(친구요청)"
-            },
-            "content" to when (type) {
-                "DM" -> "지금 뭐해? 메시지 보냄!"
-                "WALKIE" -> "치익- 무전을 보냈습니다."
-                else -> "친구 요청을 보냈습니다."
-            },
-            "is_read" to false,
-            "created_at" to Timestamp.Companion.now(),
-            "room_id" to if (type == "DM") "test_room_123" else null,
-            "expires_at" to if (type == "WALKIE") Timestamp(
-                Date(System.currentTimeMillis() + (3 * 60 * 60 * 1000L))
-            ) else null
-        )
-
-        FirebaseFirestore.getInstance()
-            .collection("Notifications")
-            .document(userId)
-            .collection("Notification")
-            .document(generatedId)
-            .set(testData)
-            .addOnSuccessListener {
-                Log.d("NotificationVM", "🚀 테스트 알림 ($type) 생성 성공!")
-            }
-            .addOnFailureListener { e ->
-                Log.e("NotificationVM", "❌ 테스트 알림 생성 실패: ${e.message}")
-            }
+    fun markDmNotificationsAsRead(roomId: String) {
+        val dmNotifications = _notification.value.filter {
+            it.type == "DM" && it.roomId == roomId && !it.isRead
+        }
+        dmNotifications.forEach { markAsRead(it.id) }
     }
 }

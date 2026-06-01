@@ -171,6 +171,7 @@ class MainActivity : ComponentActivity() {
 
                 val notification by notificationViewModel.notification.collectAsState()
                 val hasUnreadNotification = notification.any { !it.isRead }
+                Log.d("MainActivity", "알림 목록: ${notification.size}건, 미읽음: ${notification.count { !it.isRead }}건")
 
                 // 바텀바 노출 여부 설정
                 val isMainRoute = navBackStackEntry?.destination?.let { destination ->
