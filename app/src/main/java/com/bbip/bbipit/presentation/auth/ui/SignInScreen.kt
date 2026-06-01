@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -85,7 +87,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(background).imePadding()) {
+    Box(modifier = Modifier.fillMaxSize().background(background).imePadding().navigationBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize().padding(30.dp)
             .background(background)
             .verticalScroll(scrollState)
@@ -124,7 +126,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             Button({viewModel.signIn()},
                 enabled = isAllEntered,
                 colors = ButtonDefaults.buttonColors(primary, disabledContainerColor = Color.Gray),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                 shape = RoundedCornerShape(60.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
