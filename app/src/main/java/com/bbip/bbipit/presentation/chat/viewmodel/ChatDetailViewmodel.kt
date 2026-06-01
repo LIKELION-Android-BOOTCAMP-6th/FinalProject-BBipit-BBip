@@ -18,7 +18,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 class ChatDetailViewModel @Inject constructor(
     private val chatRepository: ChatRepository, // 리포지토리 가져오기
     private val auth: com.google.firebase.auth.FirebaseAuth,
-    private val friendRepository: FriendRepository
+    private val friendRepository: FriendRepository,
+    private val lifeCyclerManager: com.bbip.bbipit.core.base.LifeCycleManager
 ) : ViewModel() {
 
     // 현재 접속 중인 방 ID를 저장 (서버가 읽음 처리를 위해 사용)
@@ -195,7 +196,7 @@ class ChatDetailViewModel @Inject constructor(
     }
 
     fun updateCurrentRoom(roomId: String?) {
-        this.currentRoomId = roomId
+        lifeCyclerManager.updateCurrentRoom(roomId)
 
         roomUpdateJob?.cancel()
 
