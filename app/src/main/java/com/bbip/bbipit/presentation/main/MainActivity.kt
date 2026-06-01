@@ -55,7 +55,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.Lifecycle
 import com.bbip.bbipit.core.base.LifeCycleManager
-import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -156,8 +155,6 @@ class MainActivity : ComponentActivity() {
 
             val voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
             val chatListViewModel: ChatListViewModel = hiltViewModel()
-            val friendListViewModel: FriendListViewModel = hiltViewModel()
-            val requestCount by friendListViewModel.requestCount.collectAsState()
             val notificationViewModel: NotificationViewModel = hiltViewModel()
 
             val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
@@ -263,7 +260,7 @@ class MainActivity : ComponentActivity() {
                             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
                             exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
                         ) {
-                            BottomBar(navController, hasUnreadChat = hasUnreadChat, hasFriendRequest = requestCount > 0 )
+                            BottomBar(navController, hasUnreadChat = hasUnreadChat)
                         }
                     }
                 ) { innerPadding ->
