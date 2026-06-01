@@ -82,7 +82,6 @@ class NotificationRepositoryImpl @Inject constructor(
             .collection("Notifications")
             .document(userId)
             .collection("Notification")
-            .orderBy("created_at", Query.Direction.DESCENDING)
 
         listenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
