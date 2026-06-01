@@ -169,6 +169,9 @@ class MainActivity : ComponentActivity() {
                 // 미독 알림 개수(unreadCount) 존재 여부 실시간 확인 플래그
                 val hasUnreadChat = chatUiState.chatList.any { it.unreadCount > 0 }
 
+                val notification by notificationViewModel.notification.collectAsState()
+                val hasUnreadNotification = notification.any { !it.isRead }
+
                 // 바텀바 노출 여부 설정
                 val isMainRoute = navBackStackEntry?.destination?.let { destination ->
                     destination.hasRoute<Routes.Map>() ||
@@ -260,7 +263,10 @@ class MainActivity : ComponentActivity() {
                             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
                             exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
                         ) {
-                            BottomBar(navController, hasUnreadChat = hasUnreadChat)
+                            BottomBar(
+                                navController,
+                                hasUnreadChat = hasUnreadChat,
+                                hasUnreadNotification = hasUnreadNotification)
                         }
                     }
                 ) { innerPadding ->
