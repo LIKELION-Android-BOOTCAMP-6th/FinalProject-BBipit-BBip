@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -67,7 +70,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             uiState.email.isNotBlank() && uiState.password.isNotBlank()
         }
     }
-
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -82,9 +85,10 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(background)) {
+    Box(modifier = Modifier.fillMaxSize().background(background).imePadding()) {
         Column(modifier = Modifier.fillMaxSize().padding(30.dp)
             .background(background)
+            .verticalScroll(scrollState)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -101,8 +105,6 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             Text("BBip-It", style = Typography.titleLarge)
             Text("삐빗- 심장이 반응하는 거리", style = Typography.bodySmall)
             Spacer(modifier = Modifier.height(13.dp))
-//            Text("이메일", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
-            Log.d("AuthUIDebug", "Compose가 그린 에러 상태: ${uiState.emailError}")
             InputField(
                 value = uiState.email,
                 onValueChange = { viewModel.onUpdateEmail(it) },
@@ -110,7 +112,6 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 keyboardType = KeyboardType.Email,
                 errorText = uiState.emailError
             )
-//            Text("비밀번호", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
             InputField(
                 value = uiState.password,
                 onValueChange = { viewModel.onUpdatePassword(it) },
