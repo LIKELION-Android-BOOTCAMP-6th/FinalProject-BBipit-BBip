@@ -98,6 +98,10 @@ fun BBipItNavigation(
             "REQ" -> {
                 navController.navigate(Routes.FriendRequestList)
             }
+            "ACP" -> {
+                if (notificationId.isNotEmpty()) notificationViewModel.markAsRead(notificationId)
+                navController.navigate(Routes.FriendList)
+            }
         }
     }
 }
