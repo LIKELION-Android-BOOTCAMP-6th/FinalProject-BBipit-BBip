@@ -876,9 +876,10 @@ class BackgroundListenerService : Service() {
                 putExtra("notification_type", "REQ")
             }
 
-            "ACT" -> Intent(this, MainActivity::class.java).apply {
+            "ACP" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
-                putExtra("notification_type", "REQ")
+                putExtra("notification_type", "ACP")
+                putExtra("notification_id", notification.id)
             }
 
             "WALKIE" -> Intent(this, MainActivity::class.java).apply {
@@ -888,26 +889,6 @@ class BackgroundListenerService : Service() {
                 putExtra("notification_audio_id", notification.audioId)
                 putExtra("notification_sender_id", notification.senderId)
                 putExtra("notification_created_at", notification.createdAt)
-
-//                scope.launch {
-//                    // 서버에서 음성 메시지 조회
-//                    val result = voiceRepository.getVoiceMessageById(notification.audioId)
-//
-//                    when (result) {
-//                        is Result.Success -> {
-//                            notificationRepository.markVoiceNotificationAsPlayed(notification.id)
-//
-//                            val voiceMessage = result.data
-//                            Log.d("NotificationViewModel", result.data.toString())
-//                            voiceRepository.emitMobileVoiceEvent(voiceMessage)
-//                        }
-//                        is Result.Failure -> {
-//                            // 필요 시 에러 토스트 팝업이나 로그 처리 추가 가능
-//                            Log.e("NotificationViewModel", "음성 메시지 재생 실패: ${result.error}")
-//                        }
-//                    }
-//                }
-
             }
 
             else -> Intent(this, MainActivity::class.java).apply {

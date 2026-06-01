@@ -198,6 +198,11 @@ fun NotificationScreen(
                                         viewModel.markAsRead(item.id)
                                         navController.navigate(Routes.FriendRequestList)
                                     }
+                                    else if (item.type == "ACP") {
+                                        viewModel.markAsRead(item.id)
+                                        navController.navigate(Routes.FriendList)
+                                    }
+
                                 }
                             )
                         }
@@ -450,7 +455,7 @@ fun formatTimestamp(createdAt: Long, currentTime: Long): String {
 fun mapFilterToType(filter: String, type: String): Boolean = when (filter) {
     "무전" -> type == "WALKIE"
     "DM" -> type == "DM"
-    "친구 요청" -> type == "REQ"
+    "친구 요청" -> type == "REQ" || type == "ACP"
     else -> true
 }
 

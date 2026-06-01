@@ -8,14 +8,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.CheckCircle
@@ -70,6 +74,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
         }
     }
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
 
     var showAgreeDialog by remember { mutableStateOf(false) }
     var currentTermsType by remember { mutableStateOf(TermsType.PRIVACY) }
@@ -80,15 +85,16 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
     val isAllEntered by remember {
         derivedStateOf {
             uiState.name.isNotBlank() && uiState.email.isNotBlank() &&
-                    uiState.password.isNotBlank() && (uiState.password == uiState.checkPw)
+                    uiState.password.isNotBlank() && uiState.password.isNotBlank() && uiState.checkPw.isNotBlank()
                     && isAgreed
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding(),
+    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding(),
         containerColor = background) {
         innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp)
+        Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp).fillMaxHeight()
+            .verticalScroll(scrollState)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
             indication = null
@@ -146,10 +152,14 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
 
             InputField(
                 value = uiState.checkPw,
-                onValueChange = { viewModel.onUpdateCheckPw(it) },
+                onValueChange = {
+                    viewModel.onUpdateCheckPw(it)
+                    viewModel.validatePassword(it)
+                },
                 placeholder = "비밀번호 확인",
                 isPassword = true,
-                keyboardType = KeyboardType.Password
+                keyboardType = KeyboardType.Password,
+                errorText = uiState.checkPwError
             )
 
             Row(
