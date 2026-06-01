@@ -66,11 +66,13 @@ class SignInViewModel @Inject constructor(
                     _eventChannel.send(SignInEvent.NavigateToHome)
                 }
                 .onFailure { exception ->
-                    updateState { copy(isLoading = false, email = "", password = "") }
+                    updateState { copy(isLoading = false) }
                     when(exception){
-                        is AppError.Email -> updateState { copy(emailError = exception.message) }
+                        is AppError.Email -> updateState { copy(email = "", emailError = exception.message) }
                         is AppError.Password ->
-                            updateState { copy(emailError = exception.message, pwError = exception.message) }
+                            updateState { copy( email= "", password = "", emailError = exception.message, pwError = exception.message) }
+                        is AppError.Custom ->
+                            updateState { copy(password = "", pwError = exception.message) }
                         else -> updateState { copy(error = exception.message) }
                     }
                 }
