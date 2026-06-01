@@ -88,41 +88,6 @@ class SignInViewModel @Inject constructor(
         userRepository.updateProfile(fcmToken = token)
     }
 
-//    fun signInWithSocial(type : LoginType){
-//        updateState { copy(isLoading = true) }
-//        viewModelScope.launch {
-//
-//            val result = when(type){
-//                LoginType.KAKAO -> authRepository.signInWithKakao()
-////                LoginType.GOOGLE -> authRepository.signInWithGoogle(context)
-//                else -> return@launch
-//            }
-//            result.onSuccess {
-//                updateState { copy(isLoading = false) }
-//            }
-//                .onFailure { exception ->
-//                    updateState { copy(isLoading = false, error = exception.message) }
-//
-//                }
-//        }
-
-//    }
-
-//    fun signInWithSocial(idToken: String, type: LoginType) {
-//        updateState { copy(isLoading = true) }
-//
-//        viewModelScope.launch {
-//            authRepository.signInWithCustomToken(idToken, type)
-//            .onSuccess {
-//                getFcmToken()
-//                updateState { copy(isLoading = false) }
-//
-//            }.onFailure { exception ->
-//                updateState { copy(isLoading = false, error = exception.message) }
-//
-//            }
-//        }
-//    }
     fun signInWithSocial(context: Context, type: LoginType) {
         updateState { copy(isLoading = true) }
 
@@ -227,4 +192,6 @@ class SignInViewModel @Inject constructor(
             userClient.loginWithKakaoAccount(context, callback = callback)
         }
     }
+
+    fun onUpdateToast(value:String? = null) = updateState { copy(error = value) }
 }

@@ -165,5 +165,6 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
     }
     uiState.error?.let {
         ShowToast(it)
+        viewModel.onUpdateToast()
     }
 }
