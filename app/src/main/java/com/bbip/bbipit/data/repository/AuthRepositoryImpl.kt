@@ -113,9 +113,9 @@ class AuthRepositoryImpl @Inject constructor(
             Log.d("Auth", "로그인 성공: ${authResult.user?.uid}")
             Result.Success(authResult)
         } catch (e: FirebaseAuthException){
+            Log.e("이메일 에러 메세지 확인", "비번 오류 ${e.errorCode}")
             val error = when(e.errorCode){
                 "ERROR_INVALID_EMAIL" -> AppError.Email()
-                "ERROR_WRONG_PASSWORD" -> AppError.Custom("비밀번호 규칙이 올바르지 않습니다.")
                  "ERROR_USER_NOT_FOUND", "ERROR_INVALID_CREDENTIAL"
                     -> AppError.Password("이메일 또는 비밀번호가 올바르지 않습니다.")
                 else -> AppError.Auth()
