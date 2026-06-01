@@ -47,7 +47,8 @@ import com.bbip.bbipit.core.ui.theme.primary
 
 @Composable
 fun BottomBar(navController: NavController,
-              hasUnreadChat: Boolean){
+              hasUnreadChat: Boolean,
+              hasUnreadNotification: Boolean = false){
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -132,21 +133,35 @@ fun BottomBar(navController: NavController,
 
 
 
-            val isNotiSelected = currentDestination?.hasRoute<Routes.Notification>() == true
-            IconButton(
-                onClick = {
-                    if (!isNotiSelected){
-                        navController.navigate(Routes.Notification){
-                            popUpTo(Routes.Notification){ inclusive = false}
-                            launchSingleTop = true
-                        }
+            BadgedBox(
+                badge = {
+                    if (hasUnreadNotification) {
+                        Badge(
+                            containerColor = Color.Red,
+                            modifier = Modifier
+                                .offset(x = 2.dp, y = 2.dp)
+                                .size(6.dp)
+                        )
                     }
-                },
+                }
             ) {
-                Icon(imageVector = if(isNotiSelected) Icons.Default.Notifications else Icons.Outlined.Notifications,
-                    contentDescription = "알림",
-                    tint = if (isNotiSelected) primary else Color.Gray
-                )
+                val isNotiSelected = currentDestination?.hasRoute<Routes.Notification>() == true
+                IconButton(
+                    onClick = {
+                        if (!isNotiSelected) {
+                            navController.navigate(Routes.Notification) {
+                                popUpTo(Routes.Notification) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
+                ) {
+                    Icon(
+                        imageVector = if (isNotiSelected) Icons.Default.Notifications else Icons.Outlined.Notifications,
+                        contentDescription = "알림",
+                        tint = if (isNotiSelected) primary else Color.Gray
+                    )
+                }
             }
             val isMyPageSelected = currentDestination?.hasRoute<Routes.MyPage>() == true
             IconButton(
@@ -164,9 +179,6 @@ fun BottomBar(navController: NavController,
                     tint = if (isMyPageSelected) primary else Color.Gray
                 )
             }
-
         }
-
-
     }
 }
