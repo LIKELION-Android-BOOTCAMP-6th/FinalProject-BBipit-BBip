@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -90,7 +92,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding(),
+    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding().navigationBarsPadding(),
         containerColor = background) {
         innerPadding ->
         Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp).fillMaxHeight()
@@ -188,7 +190,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             Button({viewModel.signUp()},
                 enabled = isAllEntered,
                 colors = ButtonDefaults.buttonColors(primary, disabledContainerColor = Color.Gray),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                 shape = RoundedCornerShape(60.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
