@@ -524,7 +524,12 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
             // OutlinedTextField 적용
             OutlinedTextField(
                 value = inputText,
-                onValueChange = { inputText = it },
+                onValueChange = { newValue ->
+                    // 입력된 값이 500자 이하일 때만 상태를 업데이트
+                    if (newValue.length <= 500) {
+                        inputText = newValue
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     // heightIn을 제거하거나 min 높이만 설정해서 유연하게 늘어나도록
