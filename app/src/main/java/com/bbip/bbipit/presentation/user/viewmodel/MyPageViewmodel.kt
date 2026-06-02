@@ -72,7 +72,7 @@ class MyPageViewmodel @Inject constructor(
         val clip = ClipData.newPlainText("BBIP_ID", text)
         clipboard.setPrimaryClip(clip)
 
-        onUpdateToast("내 CODE가 복사되었습니다.")
+        onUpdateToast("내 CODE가 복사되었습니다. 해당 코드로 친구를 추가해보세요!")
     }
 
     /**

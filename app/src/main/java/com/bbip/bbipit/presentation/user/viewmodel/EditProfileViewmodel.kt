@@ -66,6 +66,7 @@ class EditProfileViewModel @Inject constructor(
      * 서버의 updateProfile API를 호출하여 수정사항 반영
      */
     fun saveProfileChanges(imageUri: Uri?) {
+        _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
             // 이미지 변경되었으면 firestore storage 업로드
             val profileImageUrl = if (imageUri != null) {
@@ -103,6 +104,7 @@ class EditProfileViewModel @Inject constructor(
 
                 // 서버에서 return { success: true }; 가 정상적으로 왔는지 확인
                 if (result.data is Map<*, *> && (result.data as Map<*, *>)["success"] == true) {
+                    _uiState.update { it.copy(isLoading = false) }
                     _saveSuccessEvent.emit(true) // 성공 신호 송출
                 }
             } catch (e: Exception) {
@@ -119,6 +121,7 @@ class EditProfileViewModel @Inject constructor(
                 } else {
                     "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
                 }
+                _uiState.update { it.copy(isLoading = false) }
                 sendToast(errorMessage)
                 _saveSuccessEvent.emit(false)
 
