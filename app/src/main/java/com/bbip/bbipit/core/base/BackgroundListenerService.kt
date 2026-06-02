@@ -199,18 +199,15 @@ class BackgroundListenerService : Service() {
 
             scope.launch {
                 notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
-                    if (notification.isInitial) {
-                        notifiedIds.add(notification.id)
-                    }
+                    notifiedIds.add(notification.id)
                 }
+                observeNotifications()
             }
         }
-
         // 음성 및 알림 모니터링 가동
         if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
             observeVoiceMessages()
         }
-        observeNotifications()
     }
 
     override fun onDestroy() {
@@ -809,8 +806,7 @@ class BackgroundListenerService : Service() {
             notificationRepository.notifications.collect { notifications ->
                 notifications.forEach { notification ->
                     if (!notification.isRead &&
-                        !notifiedIds.contains(notification.id) &&
-                        notification.createdAt > serviceStartTime
+                        !notifiedIds.contains(notification.id)
                     ) {
                         Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
                         notifiedIds.add(notification.id)

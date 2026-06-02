@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.base.VoicePlayerViewModel
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
@@ -61,6 +62,15 @@ fun NotificationScreen(
 
     val expiredVoiceIds by viewModel.expiredVoiceIds.collectAsState()
     val isReadAllClicked by viewModel.readAllClicked.collectAsState()
+
+    var showExpiredToast by remember { mutableStateOf(false) }
+
+    if (showExpiredToast) {
+        ShowToast(message = "만료된 무전은 재생할 수 없습니다.")
+        LaunchedEffect(Unit) {
+            showExpiredToast = false
+        }
+    }
 
     val filteredList by remember(notification, selectedFilter) {
         derivedStateOf {
@@ -212,12 +222,7 @@ fun NotificationScreen(
                                         } else if (item.type == "WALKIE") {
                                             val alreadyExpired = item.isExpired || item.isPlayed
                                             if (alreadyExpired) {
-                                                // 만료된 무전 클릭 시 토스트 메시지
-                                                Toast.makeText(
-                                                    navController.context,
-                                                    "만료된 무전은 재생할 수 없습니다.",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
+                                                showExpiredToast = true
                                             } else {
                                                 viewModel.markAsRead(item.id)
                                                 viewModel.onClickAudioNotification(item.id, item.audioId)
