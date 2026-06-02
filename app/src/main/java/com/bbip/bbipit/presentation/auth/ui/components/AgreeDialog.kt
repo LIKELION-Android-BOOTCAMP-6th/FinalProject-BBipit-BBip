@@ -65,7 +65,7 @@ fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNex
     }
 
     Dialog(onDismissRequest = {}) {
-        Card(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.8f).padding(5.dp)
+        Card(modifier = Modifier.fillMaxWidth().fillMaxHeight(if(isSignUp)0.8f else 0.9f).padding(5.dp)
             .shadow(elevation = 8.dp, shape = RoundedCornerShape(20.dp)),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
@@ -97,8 +97,8 @@ fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNex
                         TextView(context).apply {
                             textSize = Typography.bodySmall.fontSize.value
                             setTextColor(fontDefault.toArgb())
-                            setLineSpacing(Typography.bodyMedium.lineHeight.value, 1.0f)
-                            typeface = ResourcesCompat.getFont(context, R.font.pretendard_regular)
+                            setLineSpacing(Typography.bodySmall.lineHeight.value, 1.0f)
+                            typeface = ResourcesCompat.getFont(context, if(isSignUp) R.font.pretendard_regular else R.font.pretendard_light)
                             text = Html.fromHtml(terms, Html.FROM_HTML_MODE_LEGACY)
                             movementMethod = ScrollingMovementMethod()
                         }
