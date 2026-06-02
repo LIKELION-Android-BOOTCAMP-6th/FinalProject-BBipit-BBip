@@ -116,9 +116,11 @@ fun ChatDetailScreen(
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    val grouped = uiState.messages.groupBy { message ->
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
-        sdf.format(java.util.Date(message.sentAt))
+    val grouped = remember(uiState.messages) {
+        uiState.messages.groupBy { message ->
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+            sdf.format(java.util.Date(message.sentAt))
+        }
     }
 
     // uiState.errorMessage가 null이 아닐 때만
@@ -148,6 +150,7 @@ fun ChatDetailScreen(
         // 알림 관련 추가 — 해당 roomId의 DM 알림 읽음 처리
         notificationViewModel.markDmNotificationsAsRead(roomId)
     }
+
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
@@ -187,7 +190,12 @@ fun ChatDetailScreen(
                         .pointerInput(Unit) {
                             detectTapGestures(onTap = { focusManager.clearFocus() })
                         },
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 20.dp,
+                        bottom = 20.dp // 리스트 최하단에 충분한 여백 확보
+                    ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     grouped.forEach { (dateKey, messagesInDate) ->
@@ -351,7 +359,7 @@ fun MessageBubble(
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
     val alignment = if (message.isMine) Alignment.End else Alignment.Start
-    val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
+    val bubbleColor = if (message.isMine) primary else Color.White
     val textColor = if (message.isMine) Color.White else fontDefault
 
     var showMenu by remember { mutableStateOf(false) }
@@ -525,9 +533,11 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
             OutlinedTextField(
                 value = inputText,
                 onValueChange = { newValue ->
-                    // 입력된 값이 500자 이하일 때만 상태를 업데이트
-                    if (newValue.length <= 500) {
-                        inputText = newValue
+                    // 입력된 값이 300자 이하일 때만 상태를 업데이트
+                    inputText = if (newValue.length > 300) {
+                        newValue.take(300)
+                    } else {
+                        newValue
                     }
                 },
                 modifier = Modifier
@@ -581,15 +591,15 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
 //                        }
 //                    }
 //                },
-//                trailingIcon = {
-//                    IconButton(onClick = { /* 음성 인식 로직 */ }) {
-//                        Icon(
-//                            imageVector = Icons.Default.Mic,
-//                            contentDescription = "음성",
-//                            tint = Color.Gray
-//                        )
-//                    }
-//                },
+                trailingIcon = {
+                    Text(
+                        text = "${inputText.length}/300",
+                        color = if (inputText.length == 300) recording else Color.DarkGray,
+                        fontSize = 12.sp,
+                        style = Typography.labelSmall,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White.copy(alpha = 0.9f),
                     unfocusedContainerColor = Color.White.copy(alpha = 0.9f),
