@@ -37,6 +37,7 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
         val voiceMessageMap = resultMap?.get("voiceMessage") as? Map<*, *>
             ?: throw Exception("음성 메시지 데이터를 찾을 수 없습니다.")
 
+        Log.d("VoiceRemoteDataSourceImpl",voiceMessageMap.toVoiceMessageDto().toString())
         return voiceMessageMap.toVoiceMessageDto()
     }
 
@@ -73,6 +74,8 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
 
             if (snapshot == null) return@addSnapshotListener
 
+            val isFromCache = snapshot.metadata.isFromCache
+
             // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
             val isCurrentInitial = isInitialCallback
             isInitialCallback = false
@@ -91,6 +94,9 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
             if (!snapshot.isEmpty) {
                 isInitialCallback = false
             }
+
+            if(isFromCache)
+                isInitialCallback = true
         }
         awaitClose { subscription.remove() }
     }

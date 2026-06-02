@@ -91,13 +91,17 @@ class NotificationRepositoryImpl @Inject constructor(
             }
 
             if (snapshot != null) {
-                Log.d("NotificationRepo", "Firestore 스냅샷 수신! 변경된 문서 수: ${snapshot.documentChanges.size}"
-                )
-
+                val isFromCache = snapshot.metadata.isFromCache
 
                 // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
                 val isCurrentInitial = isInitialCallback
                 if (isInitialCallback) isInitialCallback = false
+
+                if (isFromCache) {
+                    Log.d("NotificationRepo", "📦 로컬 캐시 데이터를 불러왔습니다. (1차 실행)")
+                } else {
+                    Log.d("NotificationRepo", "☁️ 서버로부터 최신 데이터를 수신했습니다. (2차 실행)")
+                }
 
                 // 전체 문서를 엔티티로 변환
                 val items = snapshot.documents.mapNotNull { doc ->
@@ -113,6 +117,9 @@ class NotificationRepositoryImpl @Inject constructor(
                 if (!snapshot.isEmpty) {
                     isInitialCallback = false
                 }
+                if(isFromCache) {
+                    isInitialCallback = true
+                }
 
                 val mergedItems = items.map { newItem ->
                     val cachedItem = _notifications.value.find { it.id == newItem.id }
@@ -125,9 +132,10 @@ class NotificationRepositoryImpl @Inject constructor(
                 }
 
                 _notifications.value = mergedItems
-                _notifications.value.forEach {
+                notifications.value.forEach {
                     Log.d("NotificationRepo", "${it.isInitial}")
                 }
+
                 Log.d("NotificationRepo", "🔄 실시간 동기화 완료: ${mergedItems.size}건 갱신됨")
             }
         }

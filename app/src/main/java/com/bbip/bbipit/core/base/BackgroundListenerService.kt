@@ -195,12 +195,12 @@ class BackgroundListenerService : Service() {
             initLocationTracker()
             requestWatchStatus()
             manageSessionByState()
-            notificationRepository.startObserving(myUid)
 
             scope.launch {
-                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
-                    notifiedIds.add(notification.id)
-                }
+                notificationRepository.startObserving(myUid)
+//                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
+//                    notifiedIds.add(notification.id)
+//                }
                 observeNotifications()
             }
         }
@@ -382,6 +382,7 @@ class BackgroundListenerService : Service() {
                     voiceRepository.observeIncomingVoice(uid).collect { voiceMessage ->
                         val url = voiceMessage.voiceUrl
 
+                        Log.d(TAG, "ddsl;fk;lsdgk;sdgk")
                         Log.d(TAG, voiceMessage.toString())
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
@@ -808,7 +809,10 @@ class BackgroundListenerService : Service() {
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id)
                     ) {
-                        Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
+                        Log.d(
+                            TAG,
+                            "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}"
+                        )
                         notifiedIds.add(notification.id)
                         Log.d(
                             TAG,
