@@ -428,7 +428,12 @@ fun NotificationFilterBar(
     )
 
     val hasUnreadMap = mapOf(
-        "전체" to notifications.any { !it.isRead },
+        "전체" to notifications.any { notification ->
+            when (notification.type) {
+                "WALKIE" -> !notification.isRead && !notification.isPlayed && !notification.isExpired
+                else -> !notification.isRead
+            }
+        },
         "무전" to notifications.any {
             it.type == "WALKIE" && !it.isRead && !it.isPlayed && !it.isExpired
         },
