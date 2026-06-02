@@ -79,6 +79,8 @@ fun NotificationScreen(
             baseList.sortedByDescending { it.createdAt }
         }
     }
+    val previousSize = remember { mutableStateOf<Int>(filteredList.size) }
+
 
 
     // 확인하지 않은 무전이 있는지 체크하는 상태
@@ -131,9 +133,10 @@ fun NotificationScreen(
             val listState = rememberLazyListState()
 
             LaunchedEffect(filteredList) {
-                if (filteredList.isNotEmpty()) {
+                if (filteredList.size > previousSize.value) {
                     listState.animateScrollToItem(0)
                 }
+                previousSize.value = filteredList.size
             }
 
             if (filteredList.isEmpty()) {
