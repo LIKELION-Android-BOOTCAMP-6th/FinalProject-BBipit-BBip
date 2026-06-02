@@ -97,6 +97,7 @@ fun BBipItNavigation(
             }
 
             "REQ" -> {
+                if (notificationId.isNotEmpty()) notificationViewModel.markAsRead(notificationId)
                 while (navController.currentBackStackEntry?.destination?.route?.contains("Notification") != true) {
                     delay(50)
                 }

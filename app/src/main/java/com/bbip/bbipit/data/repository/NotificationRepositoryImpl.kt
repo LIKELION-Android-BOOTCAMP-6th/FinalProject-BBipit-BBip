@@ -65,6 +65,7 @@ class NotificationRepositoryImpl @Inject constructor(
      * 동일한 userId로 이미 구독 중이면 중복 구독 방지
      */
     override fun startObserving(userId: String) {
+        Log.d("NotificationRepo", "startObserving 호출됨 - userId: $userId, observingUserId: $observingUserId")
         // 동일 유저 중복 구독 방지
         if (observingUserId == userId) {
             Log.d("NotificationRepo", "이미 구독 중인 userId: $userId, 중복 호출 무시")
@@ -96,8 +97,7 @@ class NotificationRepositoryImpl @Inject constructor(
 
                 // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
                 val isCurrentInitial = isInitialCallback
-                isInitialCallback = false
-
+                if (isInitialCallback) isInitialCallback = false
 
                 // 전체 문서를 엔티티로 변환
                 val items = snapshot.documents.mapNotNull { doc ->

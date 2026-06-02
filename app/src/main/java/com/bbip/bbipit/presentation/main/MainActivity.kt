@@ -170,7 +170,12 @@ class MainActivity : ComponentActivity() {
                 val hasUnreadChat = chatUiState.chatList.any { it.unreadCount > 0 }
 
                 val notification by notificationViewModel.notification.collectAsState()
-                val hasUnreadNotification = notification.any { !it.isRead }
+                val hasUnreadNotification = notification.any { notification ->
+                    when (notification.type) {
+                        "WALKIE" -> !notification.isRead && !notification.isPlayed && !notification.isExpired
+                        else -> !notification.isRead
+                    }
+                }
                 Log.d("MainActivity", "알림 목록: ${notification.size}건, 미읽음: ${notification.count { !it.isRead }}건")
 
                 // 바텀바 노출 여부 설정
