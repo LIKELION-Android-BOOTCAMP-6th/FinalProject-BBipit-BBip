@@ -534,7 +534,7 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
                 value = inputText,
                 onValueChange = { newValue ->
                     // 입력된 값이 500자 이하일 때만 상태를 업데이트
-                    if (newValue.length <= 500) {
+                    if (newValue.length <= 300) {
                         inputText = newValue
                     }
                 },
@@ -591,8 +591,8 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
 //                },
                 trailingIcon = {
                     Text(
-                        text = "${inputText.length}/500",
-                        color = if (inputText.length == 500) recording else Color.DarkGray,
+                        text = "${inputText.length}/300",
+                        color = if (inputText.length == 300) recording else Color.DarkGray,
                         fontSize = 12.sp,
                         style = Typography.labelSmall,
                         modifier = Modifier.padding(end = 8.dp)
