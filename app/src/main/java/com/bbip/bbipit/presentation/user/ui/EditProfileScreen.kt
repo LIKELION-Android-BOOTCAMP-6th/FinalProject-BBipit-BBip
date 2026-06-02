@@ -68,6 +68,7 @@ fun EditProfileScreen(
     val args = remember(backStackEntry) { backStackEntry?.toRoute<Routes.EditProfile>() }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isOverInput by remember(uiState.nickname) { mutableStateOf(uiState.nickname.length > 12) } //닉네임 글자수 제한
 
     val context = LocalContext.current
 
@@ -219,7 +220,7 @@ fun EditProfileScreen(
                         onValueChange = { viewModel.updateNickname(it) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
-                        isError = uiState.isNicknameError,
+                        isError = uiState.isNicknameError || isOverInput,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
@@ -227,13 +228,22 @@ fun EditProfileScreen(
                             unfocusedBorderColor = Color.Transparent,
                             errorBorderColor = recording // 에러 시 테두리 색상
                         ),
-                        singleLine = true
+                        singleLine = true,
+                        trailingIcon = {
+                            Text(
+                                text = "${uiState.nickname.length}/12",
+                                color = if (isOverInput) recording else Color.DarkGray,
+                                fontSize = 12.sp,
+                                style = Typography.labelSmall,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
                     )
 
                     // 경고 메시지 표시
-                    if (uiState.isNicknameError) {
+                    if (uiState.isNicknameError || isOverInput ) {
                         Text(
-                            text = "닉네임을 입력하세요.",
+                            text = if(isOverInput) "닉네임은 최대 12글자 입니다." else "닉네임을 입력하세요.",
                             color = recording,
                             fontSize = 12.sp,
                             style = Typography.bodySmall,
@@ -281,7 +291,7 @@ fun EditProfileScreen(
                 onClick = {
                     viewModel.saveProfileChanges(selectedImageUri)
                 },
-                enabled = uiState.nickname.isNotBlank(),
+                enabled = uiState.nickname.isNotBlank() && !isOverInput,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
