@@ -28,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.recording
 
@@ -36,7 +37,8 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
                placeholder: String,
                isPassword: Boolean = false,
                keyboardType: KeyboardType,
-               errorText: String? = null){
+               errorText: String? = null,
+               maxLength: Int? = null){
 
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -45,7 +47,10 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
     Column(modifier = Modifier.fillMaxWidth()) {
         TextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = {
+                if(maxLength == null || it.length <= maxLength)
+                    onValueChange(it)
+            },
             textStyle = Typography.bodyMedium,
             isError = isError,
             colors = TextFieldDefaults.colors(
@@ -81,11 +86,16 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
                             tint = Color.LightGray)
                     }
                 }
+                if(maxLength != null){
+                    Text("${value.length} / $maxLength ", style = Typography.labelSmall, color = if (value.length >= maxLength) recording else Color.DarkGray,
+                        modifier = Modifier.padding(end = 7.dp))
+                }
 
             }
         )
 
         if (isError && !errorText.isNullOrBlank()) {
+
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = errorText,
@@ -94,6 +104,19 @@ fun InputField(value: String, onValueChange: (String) -> Unit,
                 modifier = Modifier.padding(start = 16.dp),
                 fontWeight = FontWeight.Bold
             )
+        }
+        maxLength?.let {
+            if(value.length >= maxLength){
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "닉네임은 최대 12자까지 입력할 수 있습니다.",
+                    color = recording,
+                    style = Typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
         }
     }
 
