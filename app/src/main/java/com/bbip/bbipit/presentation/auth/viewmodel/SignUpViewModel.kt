@@ -32,7 +32,8 @@ data class SignUpUiState(
     val emailError: String? = null,
     val pwError: String? = null,
     val error: String? = null,
-    val checkPwError: String? = null
+    val checkPwError: String? = null,
+    val isOver14: Boolean = false
 
 )
 
@@ -123,6 +124,7 @@ class SignUpViewModel @Inject constructor(
     private fun onUpdatePwError(value: String) = _uiState.update { it.copy(pwError = value) }
     private fun onUpdateEmailError(value: String) = _uiState.update { it.copy(emailError = value) }
     private fun onUpdateCheckPwError(value: String?) = _uiState.update { it.copy(checkPwError = value) }
+    fun onUpdateOver14(value: Boolean) = _uiState.update { it.copy(isOver14 = value) }
     fun validatePassword(value: String): Boolean{
         return if (_uiState.value.password != value) {
             onUpdateCheckPwError("비밀번호가 일치하지 않습니다. ")

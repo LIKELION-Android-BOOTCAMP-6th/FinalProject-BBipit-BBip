@@ -83,7 +83,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
         derivedStateOf {
             uiState.name.isNotBlank() && uiState.email.isNotBlank() &&
                     uiState.password.isNotBlank() && uiState.password.isNotBlank() && uiState.checkPw.isNotBlank()
-                    && isAgreed
+                    && isAgreed && uiState.isOver14
         }
     }
 
@@ -181,6 +181,26 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
                     style = Typography.bodySmall
                 )
             }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.onUpdateOver14(!uiState.isOver14)
+                    }
+            ) {
+                Icon(
+                    imageVector = if (uiState.isOver14) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    contentDescription = "약관 동의",
+                    tint = if (uiState.isOver14) primary else Color.LightGray,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "(필수) 만 14세 이상입니다.",
+                    style = Typography.bodySmall
+                )
+            }
 
 
             Button({viewModel.signUp()},
@@ -205,7 +225,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
 
     if (showAgreeDialog){
         AgreeDialog(
-            terms = uiState.terms, type = TermsType.PRIVACY, isSignUp = true,
+            terms = uiState.terms, type = currentTermsType, isSignUp = true,
             onNext = {
                 if (currentTermsType == TermsType.PRIVACY) {
                     currentTermsType = TermsType.SERVICE
@@ -219,6 +239,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             onDismissRequest = {
                 isAgreed = it
                 showAgreeDialog = false
+                currentTermsType = TermsType.PRIVACY
             }
         )
     }
