@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.base.VoicePlayerViewModel
 import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 import kotlinx.coroutines.delay
@@ -62,15 +63,20 @@ fun NotificationScreen(
     val expiredVoiceIds by viewModel.expiredVoiceIds.collectAsState()
     val isReadAllClicked by viewModel.readAllClicked.collectAsState()
 
+    var showExpiredToast by remember { mutableStateOf(false) }
+
+    if (showExpiredToast) {
+        ShowToast(message = "만료된 무전은 재생할 수 없습니다.")
+        LaunchedEffect(Unit) {
+            showExpiredToast = false
+        }
+    }
+
     val filteredList by remember(notification, selectedFilter) {
         derivedStateOf {
             val baseList = if (selectedFilter == "전체") notification
             else notification.filter { mapFilterToType(selectedFilter, it.type) }
-            baseList.sortedWith(
-                compareBy<Notification> {
-                    it.isRead || (it.type == "WALKIE" && (it.isExpired || it.isPlayed))
-                }.thenByDescending { it.createdAt }
-            )
+            baseList.sortedByDescending { it.createdAt }
         }
     }
 
@@ -116,14 +122,15 @@ fun NotificationScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 NotificationFilterBar(
                     selected = selectedFilter,
-                    onSelect = { selectedFilter = it }
+                    onSelect = { selectedFilter = it },
+                    notifications = notification
                 )
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
             val listState = rememberLazyListState()
 
-            LaunchedEffect(filteredList.size) {
+            LaunchedEffect(filteredList) {
                 if (filteredList.isNotEmpty()) {
                     listState.animateScrollToItem(0)
                 }
@@ -162,7 +169,10 @@ fun NotificationScreen(
                                 } else false
                             }
                         )
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateItem()) {
                             SwipeToDismissBox(
                                 state = dismissState,
                                 backgroundContent = {
@@ -210,11 +220,17 @@ fun NotificationScreen(
                                                 )
                                             )
                                         } else if (item.type == "WALKIE") {
-                                            viewModel.markAsRead(item.id)
-                                            viewModel.onClickAudioNotification(
-                                                item.id,
-                                                item.audioId
-                                            )
+                                            val alreadyExpired = item.isExpired || item.isPlayed
+                                            if (alreadyExpired) {
+                                                showExpiredToast = true
+                                            } else {
+                                                viewModel.markAsRead(item.id)
+                                                viewModel.onClickAudioNotification(item.id, item.audioId)
+                                                navController.navigate(Routes.Map) {
+                                                    popUpTo(Routes.Map) { inclusive = false }
+                                                    launchSingleTop = true
+                                                }
+                                            }
                                         } else if (item.type == "REQ") {
                                             viewModel.markAsRead(item.id)
                                             navController.navigate(Routes.FriendRequestList)
@@ -256,7 +272,7 @@ fun NotificationCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick, enabled = !isWalkieExpired),
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = background
@@ -347,7 +363,7 @@ fun NotificationCard(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 if (isWalkieExpired) {
-                    StatusBadge(text = "만료됨", color = bottomBarBack.copy(0.5f))
+                    StatusBadge(text = "만료됨", color = bottomBarBack)
                 }
             }
         }
@@ -399,13 +415,27 @@ fun NotificationHeader(onReadAll: () -> Unit) {
 }
 
 @Composable
-fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {
+fun NotificationFilterBar(
+    selected: String,
+    onSelect: (String) -> Unit,
+    notifications: List<Notification>
+) {
     val filters = listOf(
         FilterItem("전체", Icons.Default.Notifications),
         FilterItem("무전", Icons.Default.Mic),
         FilterItem("DM", Icons.Default.ChatBubble),
         FilterItem("친구 요청", Icons.Default.PersonAdd),
     )
+
+    val hasUnreadMap = mapOf(
+        "전체" to notifications.any { !it.isRead },
+        "무전" to notifications.any {
+            it.type == "WALKIE" && !it.isRead && !it.isPlayed && !it.isExpired
+        },
+        "DM" to notifications.any { it.type == "DM" && !it.isRead },
+        "친구 요청" to notifications.any { (it.type == "REQ" || it.type == "ACP") && !it.isRead }
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth().height(54.dp),
         shape = RoundedCornerShape(27.dp),
@@ -419,31 +449,45 @@ fun NotificationFilterBar(selected: String, onSelect: (String) -> Unit) {
         ) {
             items(filters) { item ->
                 val isSelected = selected == item.name
-                Surface(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable { onSelect(item.name) },
-                    color = if (isSelected) primary else Color.Transparent,
-                    shape = RoundedCornerShape(20.dp)
+                val hasUnread = hasUnreadMap[item.name] == true
+                BadgedBox(
+                    badge = {
+                        if (hasUnread && !isSelected) {
+                            Badge(
+                                containerColor = Color.Red,
+                                modifier = Modifier
+                                    .offset(x = 2.dp, y = 6.dp)
+                                    .size(5.dp)
+                            )
+                        }
+                    }
                 ) {
-                    Row(
-                        modifier = Modifier.padding(start = 10.dp, end = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { onSelect(item.name) },
+                        color = if (isSelected) primary else Color.Transparent,
+                        shape = RoundedCornerShape(20.dp)
                     ) {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (isSelected) background else primary.copy(0.8f)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = item.name,
-                            color = if (isSelected) background else fontDefault.copy(0.7f),
-                            style = Typography.bodySmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            modifier = Modifier.padding(start = 10.dp, end = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) background else primary.copy(0.8f)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = item.name,
+                                color = if (isSelected) background else fontDefault.copy(0.7f),
+                                style = Typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

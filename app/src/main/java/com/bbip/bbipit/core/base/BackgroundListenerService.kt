@@ -37,6 +37,7 @@ import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -174,6 +175,8 @@ class BackgroundListenerService : Service() {
      */
     override fun onCreate() {
         super.onCreate()
+        Log.d(TAG, "BackgroundListenerService onCreate 호출됨")
+
         // 워치 통신 리스너 등록
         channelClient = Wearable.getChannelClient(this).apply {
             registerChannelCallback(channelCallback)
@@ -193,13 +196,18 @@ class BackgroundListenerService : Service() {
             requestWatchStatus()
             manageSessionByState()
             notificationRepository.startObserving(myUid)
-        }
 
+            scope.launch {
+                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
+                    notifiedIds.add(notification.id)
+                }
+                observeNotifications()
+            }
+        }
         // 음성 및 알림 모니터링 가동
         if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
             observeVoiceMessages()
         }
-        observeNotifications()
     }
 
     override fun onDestroy() {
@@ -793,11 +801,14 @@ class BackgroundListenerService : Service() {
      */
     private fun observeNotifications() {
         scope.launch {
+            // 서비스 시작 시점 이후에 생성된 알림만 처리
+            val serviceStartTime = System.currentTimeMillis()
             notificationRepository.notifications.collect { notifications ->
                 notifications.forEach { notification ->
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id)
                     ) {
+                        Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
                         notifiedIds.add(notification.id)
                         Log.d(
                             TAG,
@@ -874,6 +885,7 @@ class BackgroundListenerService : Service() {
             "REQ" -> Intent(this, MainActivity::class.java).apply {
                 flags = safeFlags
                 putExtra("notification_type", "REQ")
+                putExtra("notification_id", notification.id)
             }
 
             "ACP" -> Intent(this, MainActivity::class.java).apply {
