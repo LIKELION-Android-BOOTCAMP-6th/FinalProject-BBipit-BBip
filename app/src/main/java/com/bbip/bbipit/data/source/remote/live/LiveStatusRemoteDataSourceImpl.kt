@@ -24,8 +24,8 @@ class LiveStatusRemoteDataSourceImpl @Inject constructor(
      * 유저 온라인 상태 및 현재 채팅방 정보 업데이트 함수
      */
     override suspend fun updateLifeCycle(currentRoomId: String?) {
-        val data = hashMapOf("isOnline" to true, "currentRoomId" to currentRoomId)
-        functions.getHttpsCallable("updateUserStatus").call(data).await()
+        val data = hashMapOf("currentRoomId" to currentRoomId)
+        functions.getHttpsCallable("updateHeartbeat").call(data).await()
     }
 
     /**

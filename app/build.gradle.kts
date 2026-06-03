@@ -104,8 +104,8 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     //functions
     implementation("com.google.firebase:firebase-functions")
-//    realtime-database
-//    implementation("com.google.firebase:firebase-database")
+    //    realtime-database
+    implementation(libs.firebase.database)
 
     //coil
     implementation(libs.coil)

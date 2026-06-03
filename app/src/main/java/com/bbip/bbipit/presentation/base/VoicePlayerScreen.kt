@@ -18,6 +18,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.primary
 
@@ -31,32 +33,46 @@ fun VoicePlayerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    AnimatedVisibility(
-        visible = uiState.isVisible,
-        enter = slideInVertically(
-            initialOffsetY = { it },
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessLow
+    // visible일 때만 Popup이 트리거되도록 처리
+    if (uiState.isVisible) {
+        Popup(
+            alignment = Alignment.BottomCenter, // 화면 하단 정렬
+            properties = PopupProperties(
+                focusable = false,          // 기존 화면 탭 및 무전 터치 방해 금지
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                clippingEnabled = false,     // 화면 밖으로 잘리지 않게
+                usePlatformDefaultWidth = false
             )
-        ) + fadeIn(animationSpec = tween(500)),
-        exit = slideOutVertically(
-            targetOffsetY = { it },
-            animationSpec = spring(
-                stiffness = Spring.StiffnessMediumLow
-            )
-        ) + fadeOut(animationSpec = tween(500)),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
-    ) {
-        VoiceReceptionCard(
-            nickname = uiState.senderName,
-            profileImageUrl = uiState.senderProfileUrl,
-            currentPosition = uiState.currentPosition,
-            totalDuration = uiState.currentVoiceMessage?.duration ?: 0,
-            onDismiss = { viewModel.dismissMessage() }
-        )
+        ) {
+            AnimatedVisibility(
+                visible = uiState.isVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ) + fadeIn(animationSpec = tween(500)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) + fadeOut(animationSpec = tween(500)),
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
+            ) {
+                VoiceReceptionCard(
+                    nickname = uiState.senderName,
+                    profileImageUrl = uiState.senderProfileUrl,
+                    currentPosition = uiState.currentPosition,
+                    totalDuration = uiState.currentVoiceMessage?.duration ?: 0,
+                    onDismiss = { viewModel.dismissMessage() }
+                )
+            }
+        }
     }
 }
 

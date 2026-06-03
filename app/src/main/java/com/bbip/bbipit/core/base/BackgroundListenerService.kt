@@ -375,15 +375,15 @@ class BackgroundListenerService : Service() {
      * 수신 음성 메시지 모니터링 및 이벤트 분기 함수
      */
     private fun observeVoiceMessages() {
+        // 기존에 돌고 있는 Job이 있다면 취소하여 중복 구독 방지
+        voiceObservationJob?.cancel()
+
         voiceObservationJob = scope.launch {
             // 인증 상태 확인 및 수신 음성메시지 구독
             authRepository.getAuthStateFlow().collect { uid ->
                 if (uid != null) {
-                    voiceRepository.observeIncomingVoice(uid).collect { voiceMessage ->
+                    voiceRepository.observeIncomingVoice(uid, serviceStartTime).collect { voiceMessage ->
                         val url = voiceMessage.voiceUrl
-
-                        Log.d(TAG, "ddsl;fk;lsdgk;sdgk")
-                        Log.d(TAG, voiceMessage.toString())
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
                         if (url.isNotEmpty() && !voiceMessage.isInitial) {

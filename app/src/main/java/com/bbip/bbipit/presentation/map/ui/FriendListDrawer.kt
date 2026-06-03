@@ -44,7 +44,7 @@ fun FriendListDrawer(
         drawerContainerColor = Color.White,
         drawerContentColor = Color.Gray
     ) {
-        // 1. HEADER 영역 (배경을 확실히 흰색으로 고정)
+        // HEADER 영역
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -91,8 +91,7 @@ fun FriendListDrawer(
             color = Color(0xFFF1F5F9)
         )
 
-        // 2. 친구 목록 영역 ★★★ [핵심 변경] ★★★
-        // 배경을 연한 회색(0xFFF8FAFC)으로 깔아주어야 흰색 카드가 입체적으로 도드라집니다.
+        // 친구 목록 영역
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -100,7 +99,7 @@ fun FriendListDrawer(
                 .background(Color.LightGray.copy(alpha = 0.1f))
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp) // 카드 간의 간격 확보
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
                 items = friends,
@@ -116,24 +115,6 @@ fun FriendListDrawer(
                 )
             }
         }
-
-        // 3. FOOTER 영역
-//        Box(
-//            modifier = Modifier
-//                .fillMaxWidth()
-//                .background(Color.White)
-//                .border(1.dp, Color(0xFFF1F5F9))
-//                .padding(vertical = 16.dp),
-//            contentAlignment = Alignment.Center
-//        ) {
-//            Text(
-//                text = "BBip Radar UI",
-//                fontSize = 10.sp,
-//                fontWeight = FontWeight.Bold,
-//                color = Color(0xFFCBD5E1),
-//                letterSpacing = 1.5.sp
-//            )
-//        }
     }
 }
 
@@ -145,9 +126,6 @@ fun FriendDrawerItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 선택되었을 때는 보라색 테두리, 아닐 때는 은은한 그림자 경계선 역할을 할 수 있도록 회색 선 부여
-    val borderColor = if (isSelected) mainColor.copy(alpha = 0.2f) else Color(0xFFF1F5F9)
-
     val indicatorColor = when {
         !friend.isSharing -> Color(0xFFF3F3F3)
         else -> Color.White
@@ -162,13 +140,13 @@ fun FriendDrawerItem(
                 clip = false
             )
             .clip(RoundedCornerShape(24.dp))
-            .background(indicatorColor) // 카드는 완전한 순백색
+            .background(indicatorColor)
             .border(1.5.dp, indicatorColor, RoundedCornerShape(24.dp))
             .clickable(enabled = friend.isSharing, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 4. 아바타 & 온라인 상태 인디케이터
+        // 아바타 & 온라인 상태 인디케이터
         Box(
             modifier = Modifier.size(44.dp),
             contentAlignment = Alignment.BottomEnd
@@ -188,21 +166,21 @@ fun FriendDrawerItem(
                     .size(13.dp)
                     .align(Alignment.BottomEnd)
                     .clip(CircleShape)
-                    .background(Color.White) // 바깥 하얀색 테두리 효과
+                    .background(Color.White)
                     .padding(2.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
-                        .background(if (friend.isOnline) online else Color.Gray) // 온라인(초록), 오프라인(회색)
+                        .background(if (friend.isOnline) online else Color.Gray)
                 )
             }
         }
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // 5. 텍스트 정보 영역
+        // 텍스트 정보 영역
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
@@ -237,7 +215,7 @@ fun FriendDrawerItem(
             else -> recording
         }
 
-        // 6. 우측 상태 레이아웃
+        // 우측 상태 레이아웃
         if (isSelected) {
             Box(
                 modifier = Modifier
