@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.Lifecycle
 import com.bbip.bbipit.core.base.LifeCycleManager
+import com.bbip.bbipit.presentation.base.NetworkWarningBanner
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -279,7 +280,6 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-//                            .padding(innerPadding)
                     ) {
                         // 배너 클릭 진입 시 알림 처리
                         LaunchedEffect(pendingNotificationId) {
@@ -312,6 +312,11 @@ class MainActivity : ComponentActivity() {
                                 .padding(
                                     bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 100.dp
                                 )
+                        )
+
+                        NetworkWarningBanner(
+                            showBottomBar = showBottomBar,
+                            innerPadding = innerPadding
                         )
                     }
                 }

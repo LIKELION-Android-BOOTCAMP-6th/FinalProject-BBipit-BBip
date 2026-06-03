@@ -71,9 +71,9 @@ class VoiceRepositoryImpl @Inject constructor(
     /**
      * 수신된 무전 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
      */
-    override fun observeIncomingVoice(myUid: String): Flow<VoiceMessage> {
+    override fun observeIncomingVoice(myUid: String, startTimestamp: Long): Flow<VoiceMessage> {
         // 데이터 수신 후 도메인 엔티티로 변환
-        return voiceRemoteDataSource.observeIncomingVoice(myUid).map { (id, dto, isInitial) ->
+        return voiceRemoteDataSource.observeIncomingVoice(myUid, startTimestamp).map { (id, dto, isInitial) ->
             VoiceMessage(
                 id = id,
                 senderId = dto.senderId,

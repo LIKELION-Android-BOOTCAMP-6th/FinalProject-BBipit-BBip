@@ -13,7 +13,11 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -110,7 +114,9 @@ fun MapScreen(
     val historyUiState by historyViewModel.uiState.collectAsState()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+//    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var isDrawerOpen by remember { mutableStateOf(false) }
+    var isDrawerRendering by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     var isHistorySheetOpen by remember { mutableStateOf(false) }
@@ -193,8 +199,17 @@ fun MapScreen(
         viewModel.fetchLiveStatusAndRefreshCache()
     }
 
-    LaunchedEffect(drawerState.isOpen) {
-        bottomBarViewModel.onUpdateDrawerShown(drawerState.isOpen)
+//    LaunchedEffect(drawerState.isOpen) {
+//        bottomBarViewModel.onUpdateDrawerShown(drawerState.isOpen)
+//    }
+    LaunchedEffect(isDrawerOpen) {
+        bottomBarViewModel.onUpdateDrawerShown(isDrawerOpen)
+    }
+    // 드로어 상태가 바뀔 때 렌더링 플래그를 동기화합니다.
+    LaunchedEffect(isDrawerOpen) {
+        if (isDrawerOpen) {
+            isDrawerRendering = true
+        }
     }
 
     LaunchedEffect(myStatus?.latitude, myStatus?.longitude) {
@@ -335,7 +350,11 @@ fun MapScreen(
 //                }
 
                 FriendListToggleButton(
-                    onClick = { scope.launch { drawerState.open() } },
+                    onClick = {
+                        scope.launch {
+                            isDrawerOpen = true
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .statusBarsPadding()
@@ -343,7 +362,20 @@ fun MapScreen(
                 )
 
                 FilledIconButton(
-                    onClick = { viewModel.refreshCurrentLocationAndSync() },
+                    onClick = {
+                        viewModel.refreshCurrentLocationAndSync()
+                        uiState.myStatus?.let { my ->
+                            scope.launch {
+                                cameraPositionState.animate(
+                                    update = newLatLngZoom(
+                                        LatLng(my.latitude, my.longitude),
+                                        16f
+                                    ),
+                                    durationMs = 500
+                                )
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .statusBarsPadding()
@@ -364,50 +396,91 @@ fun MapScreen(
                 }
             }
 
-            if (drawerState.isOpen) {
+            if (isDrawerOpen || isDrawerRendering) {
                 Popup(
                     alignment = Alignment.TopStart,
-                    onDismissRequest = { scope.launch { drawerState.close() } },
+                    onDismissRequest = { isDrawerOpen = false },
                     properties = PopupProperties(
-                        focusable = true,
+                        focusable = isDrawerOpen,
                         dismissOnBackPress = true,
                         dismissOnClickOutside = true,
-                        clippingEnabled = false
+                        clippingEnabled = false,
+                        usePlatformDefaultWidth = false
                     )
                 ) {
+                    var startAnimate by remember { mutableStateOf(false) }
+                    LaunchedEffect(isDrawerOpen) {
+                        if (isDrawerOpen) {
+                            // 가드레일 적용: Popup Window가 안드로이드 서페이스에 안착할 시간을 계산 (대략 1~2프레임)
+                            kotlinx.coroutines.delay(30)
+                            startAnimate = true
+                        } else {
+                            startAnimate = false
+                        }
+                    }
+
+                    // 2. 뒷배경 딤 애니메이션
+                    val scrimColor by animateColorAsState(
+                        targetValue = if (startAnimate) Color.Black.copy(alpha = 0.4f) else Color.Transparent,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "ScrimColor",
+                        finishedListener = {
+                            // 닫히는 애니메이션이 완전히 끝나면 팝업을 트리에서 제거
+                            if (!isDrawerOpen) {
+                                isDrawerRendering = false
+                            }
+                        }
+                    )
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Transparent)
+                            .background(scrimColor)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) {
-                                scope.launch { drawerState.close() }
+                                isDrawerOpen = false
                             }
                     ) {
-                        FriendListDrawer(
-                            friends = uiState.friendsStatuses,
-                            selectedFriendUid = clickedFriendUid,
-                            onCloseClick = { scope.launch { drawerState.close() } },
-                            onFriendClick = { friend ->
-                                scope.launch {
-                                    clickedFriendUid = friend.uid
-                                    drawerState.close()
-                                    cameraPositionState.animate(
-                                        update = newLatLngZoom(
-                                            LatLng(
-                                                friend.latitude,
-                                                friend.longitude
-                                            ), 16f
+                        val closeDurationMillis = if (clickedFriendUid != null) 0 else 300
+                        // 왼쪽에서 오른쪽으로 슬라이드 인/아웃 되는 애니메이션 효과 추가
+                        AnimatedVisibility(
+                            visible = startAnimate,
+                            enter = slideInHorizontally(
+                                initialOffsetX = { -it },
+                                animationSpec = tween(durationMillis = 300)
+                            ),
+                            exit = slideOutHorizontally(
+                                targetOffsetX = { -it },
+                                animationSpec = tween(durationMillis = closeDurationMillis)
+                            )
+                        ) {
+                            FriendListDrawer(
+                                friends = uiState.friendsStatuses,
+                                selectedFriendUid = clickedFriendUid,
+                                onCloseClick = { isDrawerOpen = false },
+                                onFriendClick = { friend ->
+                                    scope.launch {
+                                        clickedFriendUid = friend.uid
+                                        isDrawerOpen = false
+                                        cameraPositionState.animate(
+                                            update = newLatLngZoom(
+                                                LatLng(friend.latitude, friend.longitude),
+                                                16f
+                                            )
                                         )
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .width(280.dp)
-                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(280.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {}
+                            )
+                        }
                     }
                 }
             }
@@ -434,7 +507,14 @@ fun MapScreen(
             )
 
             val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
-                uiState.friendsStatuses.find { it.uid == clickedFriendUid }
+                uiState.friendsStatuses.find { it.uid == clickedFriendUid && it.isSharing }
+            }
+
+            // 선택된 친구가 위치공유를 중단한 경우 clickedFriendUid null 처리
+            LaunchedEffect(clickedFriendUid, currentClickedFriend) {
+                if (clickedFriendUid != null && currentClickedFriend == null) {
+                    clickedFriendUid = null
+                }
             }
 
             currentClickedFriend?.let { friend ->
@@ -524,21 +604,38 @@ private fun MyMarker(myStatus: LiveStatus, profileImageUrl: String) {
     val context = LocalContext.current
     var myCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
 
-    val myMarkerState = remember(myStatus.uid) {
-        MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
-    }
+//    val myMarkerState = remember(myStatus.uid) {
+//        MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
+//    }
 
-    LaunchedEffect(myStatus.latitude, myStatus.longitude) {
-        myMarkerState.position = LatLng(myStatus.latitude, myStatus.longitude)
-    }
+//    LaunchedEffect(myStatus.latitude, myStatus.longitude) {
+//        myMarkerState.position = LatLng(myStatus.latitude, myStatus.longitude)
+//    }
 
     LaunchedEffect(profileImageUrl) {
         myCustomMarkerIcon =
             createCustomMarkerBitmap(context = context, imageUrl = profileImageUrl, isOnline = true)
     }
 
-    if (myCustomMarkerIcon != null) {
-        Marker(state = myMarkerState, icon = myCustomMarkerIcon, zIndex = 0.0f, onClick = { true })
+//    if (myCustomMarkerIcon != null) {
+//        Marker(state = myMarkerState, icon = myCustomMarkerIcon, zIndex = 0.0f, onClick = { true })
+//    }
+
+    // 비트맵 상태(null -> 완성)가 바뀔 때 구글 맵이 마커를 강제로 다시 그리도록 key 지정
+    key(myStatus.uid, myCustomMarkerIcon) {
+        if (myCustomMarkerIcon != null) {
+
+            val myMarkerState = remember(myStatus.uid, myStatus.latitude, myStatus.longitude) {
+                MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
+            }
+
+            Marker(
+                state = myMarkerState,
+                icon = myCustomMarkerIcon,
+                zIndex = 0.0f,
+                onClick = { true }
+            )
+        }
     }
 }
 
@@ -547,13 +644,13 @@ private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit
     val context = LocalContext.current
     var friendCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
 
-    val friendMarkerState = remember(friend.uid) {
-        MarkerState(position = LatLng(friend.latitude, friend.longitude))
-    }
+//    val friendMarkerState = remember(friend.uid) {
+//        MarkerState(position = LatLng(friend.latitude, friend.longitude))
+//    }
 
-    LaunchedEffect(friend.latitude, friend.longitude) {
-        friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
-    }
+//    LaunchedEffect(friend.latitude, friend.longitude) {
+//        friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
+//    }
 
     LaunchedEffect(friend.profileImageUrl, friend.isOnline) {
         friendCustomMarkerIcon = createCustomMarkerBitmap(
@@ -563,16 +660,23 @@ private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit
         )
     }
 
-    if (friendCustomMarkerIcon != null) {
-        Marker(
-            state = friendMarkerState,
-            icon = friendCustomMarkerIcon,
-            zIndex = 1.0f,
-            onClick = {
-                onFriendClick(friend)
-                true
+    // 프로필 비트맵이 완전히 준비되었을 때만 지도에 마커를 등록하고 업데이트 유발
+    key(friend.uid, friendCustomMarkerIcon) {
+        if (friendCustomMarkerIcon != null) {
+            val friendMarkerState = remember(friend.uid, friend.latitude, friend.longitude) {
+                MarkerState(position = LatLng(friend.latitude, friend.longitude))
             }
-        )
+
+            Marker(
+                state = friendMarkerState,
+                icon = friendCustomMarkerIcon,
+                zIndex = 1.0f,
+                onClick = {
+                    onFriendClick(friend)
+                    true
+                }
+            )
+        }
     }
 }
 
@@ -864,7 +968,6 @@ fun FriendProfileDialog(
                                                             System.currentTimeMillis()
                                                         val totalDuration =
                                                             ((endTime - startTime) / 1000).toInt()
-                                                                .coerceAtLeast(1)
                                                         voiceViewModel.stopRecording(
                                                             totalDuration
                                                         )
