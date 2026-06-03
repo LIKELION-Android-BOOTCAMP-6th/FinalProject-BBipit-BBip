@@ -428,8 +428,7 @@ fun MessageBubble(
                         bottomStart = if (message.isMine) 24.dp else 4.dp,
                         bottomEnd = if (message.isMine) 4.dp else 24.dp
                     ),
-                    color = bubbleColor,
-                    shadowElevation = 6.dp
+                    color = bubbleColor
                 ) {
                     Text(
                         text = message.text,
