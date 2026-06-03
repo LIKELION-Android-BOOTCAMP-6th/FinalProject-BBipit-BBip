@@ -94,7 +94,7 @@ fun SettingsDrawer(email: String, loginType: String, onClose: () -> Unit, modifi
 
     termsType?.let { currentType ->
         AgreeDialog(
-            terms = terms,
+            termsContent = terms,
             type = currentType,
             onNext = {},
             onDismissRequest = { termsType = null }

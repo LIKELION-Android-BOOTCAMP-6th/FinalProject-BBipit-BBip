@@ -74,7 +74,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
     val scrollState = rememberScrollState()
 
     var showAgreeDialog by remember { mutableStateOf(false) }
-    var currentTermsType by remember { mutableStateOf(TermsType.PRIVACY) }
+    var currentTermsType by remember { mutableStateOf(TermsType.SERVICE) }
     var isAgreed by remember { mutableStateOf(false) }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -121,7 +121,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             Text("BBip-It", style = Typography.titleLarge)
             Text("정보를 입력하고 새로 BBip-It을 시작해 보세요.", style = Typography.bodySmall)
 
-            Spacer(Modifier.height(17.dp))
+            Spacer(Modifier.height(13.dp))
 
             InputField(
                 value = uiState.name,
@@ -166,7 +166,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
                     .fillMaxWidth()
                     .clickable {
                         showAgreeDialog = true
-                        viewModel.getTerms(TermsType.PRIVACY)
+                        viewModel.getTerms(currentTermsType)
                     }
             ) {
                 Icon(
@@ -177,7 +177,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "서비스 이용약관 및 개인정보 처리방침에 모두 동의합니다.",
+                    text = "서비스&위치정보 이용약관 및 개인정보 처리방침에 \n모두 동의합니다.",
                     style = Typography.bodySmall
                 )
             }
@@ -225,21 +225,29 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
 
     if (showAgreeDialog){
         AgreeDialog(
-            terms = uiState.terms, type = currentTermsType, isSignUp = true,
+            termsContent = uiState.terms, type = currentTermsType, isSignUp = true,
             onNext = {
-                if (currentTermsType == TermsType.PRIVACY) {
-                    currentTermsType = TermsType.SERVICE
-                    viewModel.getTerms(TermsType.SERVICE)
-                } else {
-                    showAgreeDialog = false
-                    isAgreed = true
+                when(currentTermsType){
+                    TermsType.SERVICE -> {
+                        currentTermsType = TermsType.PRIVACY
+                        viewModel.getTerms(currentTermsType)
+                    }
+                    TermsType.PRIVACY -> {
+                        currentTermsType = TermsType.LOCATION
+                        viewModel.getTerms(currentTermsType)
+                    }
+                    TermsType.LOCATION -> {
+                        currentTermsType = TermsType.SERVICE
+                        showAgreeDialog = false
+                        isAgreed = true
+                    }
                 }
 
             },
             onDismissRequest = {
                 isAgreed = it
                 showAgreeDialog = false
-                currentTermsType = TermsType.PRIVACY
+                currentTermsType = TermsType.SERVICE
             }
         )
     }
