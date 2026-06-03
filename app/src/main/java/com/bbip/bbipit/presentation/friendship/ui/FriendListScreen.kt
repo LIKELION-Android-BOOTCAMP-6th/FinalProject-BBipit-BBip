@@ -246,7 +246,7 @@ fun FriendListItem(
     friend: Friend,
     onMessageClick: () -> Unit,
     onDelete: () -> Unit) {
-    android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}'")
+    android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}', 현활상태: '${friend.isOnline}")
 
     val scope = rememberCoroutineScope()
     var showDeleteDialog by remember { mutableStateOf(false) }
