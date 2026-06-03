@@ -52,14 +52,16 @@ class ChatDetailViewModel @Inject constructor(
             launch {
                 friendRepository.myFriends.collect { friendsList ->
                     val partner = friendsList.find { it.uid == partnerUid }
-                    if (partner != null) {
-                        _uiState.update {
-                            it.copy(
-                                partnerName = partner.nickname,       // 💡 존재해야 함
-                                partnerImageUrl = partner.profileImageUrl, // 💡 존재해야 함
-                                partnerStatus = if (partner.isOnline) "온라인" else "오프라인" // 💡 존재해야 함
-                            )
-                        }
+
+                    val isAccepted = (partner != null) // 친구인지 여부만 판단
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            // 💡 ACCEPTED가 아니면 무조건 NONE으로 세팅
+                            friendshipStatus = if (isAccepted) "ACCEPTED" else "NONE",
+                            partnerName = if (isAccepted) partner.nickname else "알 수 없음",
+                            partnerImageUrl = if (isAccepted) partner.profileImageUrl else null,
+                            partnerStatus = if (isAccepted && partner.isOnline) "온라인" else if (isAccepted) "오프라인" else ""
+                        )
                     }
                 }
             }
@@ -108,7 +110,6 @@ class ChatDetailViewModel @Inject constructor(
                             isLoading = false,
                             messages = allMessages,      // 전체 메시지 리스트도 유지 (스크롤 위치 계산용)
                             groupedMessages = grouped,   // 💡 그룹화된 데이터 전달
-                            friendshipStatus = "ACCEPTED",
                             errorMessage = null
                         )
                     }
