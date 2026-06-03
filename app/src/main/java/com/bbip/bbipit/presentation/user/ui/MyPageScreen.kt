@@ -163,8 +163,9 @@ fun MyPageScreen(
                             modifier = Modifier
                                 .size(130.dp)
                                 .background(primary, shape = CircleShape)
-                                .padding(4.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(4.dp)
+                                ,
+                            contentAlignment = Alignment.Center,
                         ) {
                             // profileImageUrl이 비어있지 않으면 사진을, 비어있으면 아이콘을 보여줌
                             if (uiState.profileImageUrl.isNotEmpty()) {
@@ -233,10 +234,11 @@ fun MyPageScreen(
                                 )
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = primary.copy(alpha = 0.15f)
+                                containerColor = subBackground
                             ),
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp),
+                            elevation = ButtonDefaults.buttonElevation(1.dp)
                         ) {
                             Text(
                                 text = "프로필 편집",
@@ -254,7 +256,7 @@ fun MyPageScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(32.dp),
                             color = subBackground,
-                            shadowElevation = 2.dp
+                            shadowElevation = 1.dp
                         ) {
                             Column(
                                 modifier = Modifier
