@@ -36,8 +36,8 @@ import com.google.android.gms.wearable.*
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -83,6 +83,9 @@ class BackgroundListenerService : Service() {
     // 음성 메시지 구독 관리용 작업 단위
     private var voiceObservationJob: Job? = null
 
+    // 워치 연결 상태 관리 매니저
+    private lateinit var watchConnectionManager: WatchConnectionManager
+
     // 실시간 위치 추적용 클라이언트
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
@@ -99,7 +102,7 @@ class BackgroundListenerService : Service() {
     private val nodeClient by lazy { Wearable.getNodeClient(this) }
 
     // 워치 앱의 화면 활성화 여부 플래그
-    private var isWatchInForeground = false
+//    private var isWatchInForeground = false
 
     // 알림 최초 로딩 스킵용 플래그
     private var isInitialData = true
@@ -114,8 +117,6 @@ class BackgroundListenerService : Service() {
      * 웨어러블 디바이스 및 시스템 채널 식별자 통합 상수 공간
      */
     companion object {
-        // 워치 활성화 상태 전송 경로
-        const val PATH_WATCH_STATE = "/watch_state"
 
         // 워치 상태 확인 요청 경로
         const val PATH_REQUEST_WATCH_STATUS = "/request_watch_status"
@@ -146,18 +147,6 @@ class BackgroundListenerService : Service() {
     }
 
     /**
-     * 워치 상태 변경 감지 및 세션 제어 리스너
-     */
-    private val messageListener = MessageClient.OnMessageReceivedListener { messageEvent ->
-        if (messageEvent.path == PATH_WATCH_STATE) {
-            val state = String(messageEvent.data).toBoolean()
-            isWatchInForeground = state
-            Log.d(TAG, "⌚ 워치 상태 변경 감지 -> 포어그라운드 여부: $state")
-            manageSessionByState()
-        }
-    }
-
-    /**
      * 오디오 스트림 채널 감지 콜백
      */
     private val channelCallback = object : ChannelClient.ChannelCallback() {
@@ -177,15 +166,32 @@ class BackgroundListenerService : Service() {
         super.onCreate()
         Log.d(TAG, "BackgroundListenerService onCreate 호출됨")
 
+        watchConnectionManager = WatchConnectionManager(this).apply { startMonitoring() }
+
         // 워치 통신 리스너 등록
         channelClient = Wearable.getChannelClient(this).apply {
             registerChannelCallback(channelCallback)
         }
-        messageClient.addListener(messageListener)
 
-        lifeCycleManager.onAppForegroundStatusChanged = { isInForeground ->
-            Log.d(TAG, "📱 모바일 포어그라운드 상태 변경 감지 -> 포어그라운드 여부: $isInForeground")
-            manageSessionByState()
+        scope.launch {
+            combine(
+                lifeCycleManager.isAppInForeground,             // 폰 화면 활성화 상태
+                watchConnectionManager.isWatchInForeground,       // 워치 화면 활성화 상태
+                watchConnectionManager.isPhysicalConnected
+            ) { isMobileForeground, isWatchForeground, isPhysicalConnected ->
+
+                Log.d(TAG, "📱 실시간 상태 결합 감지 -> 폰 포어그라운드: $isMobileForeground, 워치 포어그라운드: $isWatchForeground, 워치 물리적 연결: $isPhysicalConnected")
+
+                // 두 상태 중 하나라도 true이면 라이프사이클 세션을 시작하고, 둘 다 꺼지면 종료
+                val isUserLoggedIn = authRepository.getCurrentUserUid() != null
+                if (!isUserLoggedIn) {
+                    lifeCycleManager.stopSession()
+                } else if (isMobileForeground || isWatchForeground) {
+                    lifeCycleManager.startSession()
+                } else {
+                    lifeCycleManager.stopSession()
+                }
+            }.collect()
         }
 
         // 사용자 데이터 및 위치 관찰 가동
@@ -194,7 +200,6 @@ class BackgroundListenerService : Service() {
             startFriendsLocationObservation(myUid)
             initLocationTracker()
             requestWatchStatus()
-            manageSessionByState()
 
             scope.launch {
                 notificationRepository.startObserving(myUid)
@@ -214,11 +219,12 @@ class BackgroundListenerService : Service() {
         super.onDestroy()
         Log.d(TAG, "🔴 BackgroundListenerService onDestroy 호출 - 자원 및 세션 정리")
 
+        watchConnectionManager.stopMonitoring()
+
         // 워치 통신 리스너 해제
         if (::channelClient.isInitialized) {
             channelClient.unregisterChannelCallback(channelCallback)
         }
-        messageClient.removeListener(messageListener)
 
         // 위치 추적 리스너 안전 해제
         if (::fusedLocationClient.isInitialized && ::locationCallback.isInitialized) {
@@ -270,8 +276,6 @@ class BackgroundListenerService : Service() {
             }
         }
 
-        // 앱 활성화 상태에 따른 세션 제어
-        manageSessionByState()
         return START_STICKY
     }
 
@@ -351,30 +355,11 @@ class BackgroundListenerService : Service() {
     }
 
     /**
-     * 모바일 및 워치 포어그라운드 상태 기반 세션 제어 함수
-     */
-    private fun manageSessionByState() {
-        val isMobileForeground = lifeCycleManager.isAppInForeground
-        val isUserLoggedIn = authRepository.getCurrentUserUid() != null
-
-        // 비로그인 상태 세션 종료
-        if (!isUserLoggedIn) {
-            lifeCycleManager.stopSession()
-            return
-        }
-
-        // 기기 활성화 생태에 따른 동기화 제어
-        if (isMobileForeground || isWatchInForeground) {
-            lifeCycleManager.startSession()
-        } else {
-            lifeCycleManager.stopSession()
-        }
-    }
-
-    /**
      * 수신 음성 메시지 모니터링 및 이벤트 분기 함수
      */
     private fun observeVoiceMessages() {
+        val isMobileForeground = lifeCycleManager.isAppInForeground.value
+        val isWatchForeground = watchConnectionManager.isWatchInForeground.value
         // 기존에 돌고 있는 Job이 있다면 취소하여 중복 구독 방지
         voiceObservationJob?.cancel()
 
@@ -389,7 +374,7 @@ class BackgroundListenerService : Service() {
                         if (url.isNotEmpty() && !voiceMessage.isInitial) {
                             val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
                             if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
-                                if (!lifeCycleManager.isAppInForeground && isWatchInForeground) {
+                                if (!isMobileForeground && isWatchForeground) {
                                     sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                                 } else {
                                     voiceRepository.emitMobileVoiceEvent(voiceMessage)
@@ -644,7 +629,8 @@ class BackgroundListenerService : Service() {
      * 최신 위치 좌표 데이터 구조체 워치 송신 함수
      */
     private fun pushLocationsToWatch(locations: List<LiveStatus>) {
-        if(!isWatchInForeground) return
+        val isWatchForeground = watchConnectionManager.isWatchInForeground.value
+        if(!isWatchForeground) return
         scope.launch {
             runCatching {
                 // 데이터를 직렬화하여 연결된 워치 기기들에 송신
@@ -823,7 +809,7 @@ class BackgroundListenerService : Service() {
                             // WALKIE 타입 최우선 분기 처리
                             if (notification.type == "WALKIE") {
                                 // 1. 앱이 켜져있을 때 (포그라운드) -> 화면 안에서 바로 무전 자동 재생
-                                if (lifeCycleManager.isAppInForeground) {
+                                if (lifeCycleManager.isAppInForeground.value) {
                                     val currentUserId =
                                         authRepository.getCurrentUserUid() ?: return@forEach
                                     scope.launch {

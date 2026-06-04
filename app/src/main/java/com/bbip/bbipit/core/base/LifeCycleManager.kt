@@ -59,8 +59,8 @@ class LifeCycleManager @Inject constructor(
     private var currentRoomId: String? = null
 
     // 앱의 현재 포어그라운드 위치 여부 플래그
-    var isAppInForeground: Boolean = false
-        private set
+    private val _isAppInForeground = MutableStateFlow(false)
+    val isAppInForeground: StateFlow<Boolean> = _isAppInForeground.asStateFlow()
 
     var onAppForegroundStatusChanged: ((Boolean) -> Unit)? = null
 
@@ -95,7 +95,7 @@ class LifeCycleManager @Inject constructor(
     override fun onStart(owner: LifecycleOwner) {
         super.onStart(owner)
         Log.d(TAG, "🏢 앱 포그라운드 진입 (ON_START)")
-        isAppInForeground = true // 플래그 업데이트
+        _isAppInForeground.value = true // 플래그 업데이트
 
         onAppForegroundStatusChanged?.invoke(true)
 
@@ -109,7 +109,7 @@ class LifeCycleManager @Inject constructor(
     override fun onStop(owner: LifecycleOwner) {
         super.onStop(owner)
         Log.d(TAG, "🏠 앱 백그라운드 진입 (ON_STOP)")
-        isAppInForeground = false // 플래그 업데이트
+        _isAppInForeground.value = false // 플래그 업데이트
 
         onAppForegroundStatusChanged?.invoke(false)
 
@@ -231,7 +231,7 @@ class LifeCycleManager @Inject constructor(
                 Log.d(TAG, "🌐 네트워크 재연결 감지!")
 
                 // 포그라운드 상태이고 로그인된 유저가 있다면 즉시 온라인 업데이트
-                if (isAppInForeground && auth.currentUser != null) {
+                if (_isAppInForeground.value && auth.currentUser != null) {
                     Log.d(TAG, "⚡ 포그라운드 상태 확인됨 -> 사용자를 즉시 온라인 상태로 전환합니다.")
                     sessionScope.launch {
                         userRepository.updateOnlineStatus(true)
