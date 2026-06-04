@@ -206,8 +206,6 @@ fun MyPageScreen(
                         // 상태 메시지 캡슐
                         Surface(
                             shape = RoundedCornerShape(16.dp),
-                            shadowElevation = 1.dp,
-                            tonalElevation = 0.dp,
                             color = Color.White,
                             modifier = Modifier.padding(horizontal = 16.dp),
                         ) {
@@ -238,7 +236,6 @@ fun MyPageScreen(
                             ),
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp),
-                            elevation = ButtonDefaults.buttonElevation(1.dp)
                         ) {
                             Text(
                                 text = "프로필 편집",
@@ -256,7 +253,6 @@ fun MyPageScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(32.dp),
                             color = subBackground,
-                            shadowElevation = 1.dp
                         ) {
                             Column(
                                 modifier = Modifier

@@ -102,7 +102,7 @@ fun SettingsDrawer(email: String, loginType: String, onClose: () -> Unit, modifi
             }
             termsType?.let { currentType ->
                 AgreeDialog(
-                    terms = terms,
+                    termsContent = terms,
                     type = currentType,
                     onNext = {},
                     onDismissRequest = { termsType = null }
@@ -115,95 +115,55 @@ fun SettingsDrawer(email: String, loginType: String, onClose: () -> Unit, modifi
 @Composable
 fun InfoBox(titleText: String, semiText: String? = null, type: InputType, loginType: LoginType? = null, onClick: () -> Unit){
 
-    when(type){
-        InputType.EMAIL -> {
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 23.dp, end = 17.dp, top = 10.dp, bottom = 5.dp),
-                horizontalAlignment = Alignment.Start) {
+    Card(modifier = Modifier.padding(start = 10.dp, top = 5.dp, end = 5.dp, bottom = 5.dp),
+        shape = RoundedCornerShape(17.dp),
+        colors = CardDefaults.cardColors(Color.White),
+        elevation = CardDefaults.elevatedCardElevation(1.dp)) {
 
-                Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold )
+        when(type){
+            InputType.EMAIL -> {
+                Column(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 17.dp, top = 10.dp, bottom = 10.dp),
+                    horizontalAlignment = Alignment.Start) {
 
-                Row(modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(semiText!!, style = Typography.bodyMedium)
+                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold )
 
-                    if (loginType != LoginType.EMAIL){
-                        Image(
-                            painter = painterResource(loginType!!.img!!),
-                            contentDescription = "로그인 타입",
-                            modifier = Modifier.size(30.dp)
-                        )
+                    Row(modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(semiText!!, style = Typography.bodyMedium)
+
+                        if (loginType != LoginType.EMAIL){
+                            Image(
+                                painter = painterResource(loginType!!.img!!),
+                                contentDescription = "로그인 타입",
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
                     }
                 }
             }
-        }
-        else -> {
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 23.dp, end = 17.dp, top = 10.dp, bottom = 5.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) { onClick() },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold, textDecoration = TextDecoration.Underline,
-                )
+            else -> {
+                Row(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 17.dp, top = 10.dp, bottom = 10.dp).heightIn(min = 30.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { onClick() },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold,
+    //                    textDecoration = TextDecoration.Underline,
+                        )
+
+    //                IconButton(onClick =  {onClick()} ) {
+    //                    Icon(imageVector = if(type == InputType.TERMS) Icons.Default.ChevronRight else Icons.AutoMirrored.Filled.Logout , tint = Color.Gray, modifier = Modifier.size(30.dp), contentDescription = "약관 보기")
+    //                }
+
+                }
             }
         }
     }
-    /**
-     카드 색상 변경 버전
-     */
-//    Card(modifier = Modifier.padding(start = 10.dp, top = 5.dp, end = 5.dp, bottom = 5.dp),
-//        shape = RoundedCornerShape(17.dp),
-//        colors = CardDefaults.cardColors(Color.White),
-//        elevation = CardDefaults.elevatedCardElevation(1.dp)) {
-//
-//        when(type){
-//            InputType.EMAIL -> {
-//                Column(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 17.dp, top = 10.dp, bottom = 5.dp),
-//                    horizontalAlignment = Alignment.Start) {
-//
-//                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold )
-//
-//                    Row(modifier = Modifier.fillMaxWidth(),
-//                        verticalAlignment = Alignment.CenterVertically,
-//                        horizontalArrangement = Arrangement.SpaceBetween
-//                    ) {
-//                        Text(semiText!!, style = Typography.bodyMedium)
-//
-//                        if (loginType != LoginType.EMAIL){
-//                            Image(
-//                                painter = painterResource(loginType!!.img!!),
-//                                contentDescription = "로그인 타입",
-//                                modifier = Modifier.size(30.dp)
-//                            )
-//                        }
-//                    }
-//                }
-//            }
-//            else -> {
-//                Row(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 17.dp, top = 10.dp, bottom = 10.dp).heightIn(min = 30.dp)
-//                    .clickable(
-//                        interactionSource = remember { MutableInteractionSource() },
-//                        indication = null
-//                    ) { onClick() },
-//                    verticalAlignment = Alignment.CenterVertically,
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//                    Text(titleText, style = Typography.bodySmall, color = Color.DarkGray, fontWeight = FontWeight.Bold,
-//    //                    textDecoration = TextDecoration.Underline,
-//                        )
-//
-//    //                IconButton(onClick =  {onClick()} ) {
-//    //                    Icon(imageVector = if(type == InputType.TERMS) Icons.Default.ChevronRight else Icons.AutoMirrored.Filled.Logout , tint = Color.Gray, modifier = Modifier.size(30.dp), contentDescription = "약관 보기")
-//    //                }
-//
-//                }
-//            }
-//        }
-//    }
 
 
 }
