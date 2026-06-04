@@ -99,6 +99,8 @@ fun SettingsDrawer(email: String, loginType: String, onClose: () -> Unit, modifi
                     termsType = TermsType.PRIVACY
                 }
                 InfoBox(titleText = "로그아웃", type = InputType.LOGOUT) { viewModel.onChangeSignOutDialog(true)}
+
+                InfoBox(titleText = "탈퇴", type = InputType.LOGOUT) { viewModel.onUpdateDeleteDialogShown(true) }
             }
             termsType?.let { currentType ->
                 AgreeDialog(

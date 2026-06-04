@@ -39,7 +39,9 @@ data class MyPageUiState(
     val email: String = "",
     val loginType: String  = "",
     val toast: String? = null,
-    val userCode: String = ""
+    val userCode: String = "",
+    val isDeleteDialogShown: Boolean = false, //이메일 회원 탈퇴
+    val token: String = ""
 )
 
 sealed class MyPageEvent{
@@ -169,6 +171,37 @@ class MyPageViewmodel @Inject constructor(
                 }
 
         }
+    }
+    fun onUpdateDeleteDialogShown(value: Boolean) = _uiState.update { it.copy(isDeleteDialogShown = value) }
+    fun onUpdateToken(value: String) = _uiState.update { it.copy(token = value) }
+    fun deleteAccount(){
+        val loginType = LoginType.fromString(_uiState.value.loginType)
+        Log.d("마이페이지", "$loginType")
+        when(loginType){
+            LoginType.EMAIL -> {
+                _uiState.value.token?.let {
+                    viewModelScope.launch {
+                        authRepository.deleteAccount(loginType, it)
+                            .onSuccess {
+                                _uiState.update { it.copy(isDeleteDialogShown = false) }
+                                onUpdateLoading(false)
+                                onUpdateToast("탈퇴 성공")
+                                _event.send(MyPageEvent.NavigateToSignIn)
+                            }
+                            .onFailure { error ->
+                                _uiState.update { it.copy(isDeleteDialogShown = false) }
+                                onUpdateLoading(false)
+                                onUpdateToast(error.message)
+                            }
+                    }
+                }
+            }
+            else -> {
+                onUpdateToast("아직 구현중")
+                _uiState.update { it.copy(isDeleteDialogShown = false) }
+                onUpdateLoading(false)
+            }
 
+        }
     }
 }

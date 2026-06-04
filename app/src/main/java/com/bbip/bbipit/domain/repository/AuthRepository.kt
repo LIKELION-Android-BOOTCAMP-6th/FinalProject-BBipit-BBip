@@ -56,4 +56,6 @@ interface AuthRepository {
      * 로그아웃 함수
      */
     suspend fun signOut(type: LoginType = LoginType.EMAIL)
+
+    suspend fun deleteAccount(type: LoginType = LoginType.EMAIL, token: String): Result<Unit>
 }
