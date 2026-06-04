@@ -8,8 +8,11 @@ import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.auth.AuthResult
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.oAuthCredential
 import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
 import kotlinx.coroutines.tasks.await
@@ -34,6 +37,28 @@ class AuthRepositoryImpl @Inject constructor(
         }
 
         firebaseAuth.signOut()
+    }
+
+    override suspend fun deleteAccount(type: LoginType, token: String ): Result<Unit> {
+        val user = firebaseAuth.currentUser!!
+        val credential = when(type){
+            LoginType.GOOGLE -> GoogleAuthProvider.getCredential(token, null)
+            LoginType.KAKAO -> {
+                val providerId = "oidc.kakao"
+                oAuthCredential(providerId) { setIdToken(token) }
+            }
+            LoginType.EMAIL -> EmailAuthProvider.getCredential(user.email!!, token)
+        }
+
+        return  try {
+            user.reauthenticate(credential).await()
+            user.delete().await()
+            Result.Success(Unit)
+        } catch (e: Exception){
+            Log.e("회원 탈퇴 실패", "탈퇴 실패 $type ${e.message}")
+            e.printStackTrace()
+            Result.Failure(AppError.Auth("탈퇴 실패"))
+        }
     }
 
     override fun isEmailVerified(): Boolean {

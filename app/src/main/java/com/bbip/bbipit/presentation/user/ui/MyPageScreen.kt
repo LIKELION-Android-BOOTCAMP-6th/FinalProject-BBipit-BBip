@@ -32,10 +32,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -45,6 +47,7 @@ import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.subBackground
+import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.LoadingBox
@@ -335,5 +338,63 @@ fun MyPageScreen(
                 viewModel.signOut()
             }
         )
+    }
+    if (uiState.isDeleteDialogShown){
+        InputDialog(
+            value = uiState.token,
+            onValueChange = {viewModel.onUpdateToken(it)},
+            onDismiss = {viewModel.onUpdateDeleteDialogShown(false)},
+            onConfirm = {
+                viewModel.onUpdateLoading(true)
+                viewModel.deleteAccount()
+
+            }
+        )
+    }
+}
+
+@Composable
+fun InputDialog(value: String, onValueChange: (String) -> Unit, error : String? = null, onDismiss : () -> Unit, onConfirm: () -> Unit){
+    Dialog(onDismissRequest = {}) {
+        Card(shape = RoundedCornerShape(30.dp),
+            colors = CardDefaults.cardColors(Color.White),
+            elevation = CardDefaults.cardElevation(3.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(22.dp)) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("회원 인증을 위해 비밀번호를 입력해주세요.", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+
+                InputField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    placeholder = "소문자, 특수문자 필수 포함 최소 8자 최대 16지",
+                    keyboardType = KeyboardType.Password,
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onDismiss,
+                        modifier = Modifier.height(50.dp).weight(1f),
+                        shape = RoundedCornerShape(40.dp),
+                        colors = ButtonDefaults.buttonColors(Color.LightGray),
+                        elevation = ButtonDefaults.buttonElevation(5.dp)) {
+                        Text("취소", style = Typography.bodyMedium)
+                    }
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    Button(onClick = onConfirm,
+                        modifier = Modifier.height(50.dp).weight(1f),
+                        shape = RoundedCornerShape(40.dp),
+                        colors = ButtonDefaults.buttonColors(primary),
+                        elevation = ButtonDefaults.buttonElevation(5.dp)) {
+                        Text("예", style = Typography.bodyMedium, color = Color.White)
+                    }
+                }
+
+            }
+        }
     }
 }
