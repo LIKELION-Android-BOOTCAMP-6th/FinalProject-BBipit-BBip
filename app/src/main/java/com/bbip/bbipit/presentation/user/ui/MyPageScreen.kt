@@ -210,7 +210,7 @@ fun MyPageScreen(
                             modifier = Modifier.padding(horizontal = 16.dp),
                         ) {
                             Text(
-                                text = uiState.status,
+                                text = uiState.status.ifBlank { "등록된 상태메세지가 없습니다." },
                                 style = Typography.bodySmall,
                                 color = primary,
                                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
