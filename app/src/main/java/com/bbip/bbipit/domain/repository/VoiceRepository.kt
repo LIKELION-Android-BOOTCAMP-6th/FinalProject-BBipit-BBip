@@ -22,7 +22,7 @@ interface VoiceRepository {
     /**
      * 수신된 무전 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
      */
-    fun observeIncomingVoice(myUid: String): Flow<VoiceMessage>
+    fun observeIncomingVoice(myUid: String, startTimestamp: Long): Flow<VoiceMessage>
 
     /**
      * 음성 파일을 스토리지에 업로드하는 함수

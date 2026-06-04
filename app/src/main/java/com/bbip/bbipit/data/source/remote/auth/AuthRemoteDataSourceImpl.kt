@@ -11,6 +11,7 @@ import com.bbip.bbipit.R
 import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.domain.type.TermsType
+import com.google.android.gms.wearable.Term
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.AuthResult
@@ -128,15 +129,8 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         awaitClose { firebaseAuth.removeAuthStateListener(listener) }
     }
 
-    override suspend fun getTerms(type: TermsType): String {
-        val rawUrl = if (type == TermsType.PRIVACY) {
-            "https://raw.githubusercontent.com/LIKELION-Android-BOOTCAMP-6th/FinalProject-BBipit-BBip/refs/heads/develop/docs/terms.md"
-        } else {
-            "https://raw.githubusercontent.com/LIKELION-Android-BOOTCAMP-6th/FinalProject-BBipit-BBip/refs/heads/develop/docs/service.md"
-        }
-        return withContext(Dispatchers.IO) {
-            URL(rawUrl).readText()
-        }
+    override suspend fun getTerms(type: TermsType): String = withContext(Dispatchers.IO) {
+        URL(type.url).readText()
     }
 
     override suspend fun reloadCurrentUser() {

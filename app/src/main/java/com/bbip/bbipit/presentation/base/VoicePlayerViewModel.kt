@@ -99,6 +99,9 @@ class VoicePlayerViewModel @Inject constructor(
             voiceRepository.voiceMessageEvent.collect { voiceMessage ->
                 val url = voiceMessage.voiceUrl
 
+                // 이전 재생 버퍼나 꼬인 세션이 있다면 강제 정지 및 초기화 수행
+                runCatching { audioPlayer.stopAudio() }
+
                 // UI 노출 및 데이터 업데이트
                 updateState {
                     copy(
@@ -110,20 +113,28 @@ class VoicePlayerViewModel @Inject constructor(
                 }
 
                 // 오디오 재생 및 완료 처리
-                audioPlayer.playFromUrl(url) {
-                    viewModelScope.launch {
-                        // 완료 시 재생 위치를 총 길이로 보정
-                        updateState { copy(currentPosition = currentVoiceMessage?.duration ?: 0) }
+                try {
+                    audioPlayer.playFromUrl(url) {
+                        viewModelScope.launch {
+                            // 완료 시 재생 위치를 총 길이로 보정
+                            updateState {
+                                copy(
+                                    currentPosition = currentVoiceMessage?.duration ?: 0
+                                )
+                            }
 
-                        // 음성 메시지 읽음 처리
-                        voiceRepository.markVoiceMessageAsRead(voiceMessage.id)
-                        delay(1000)
-                        dismissMessage()
+                            // 음성 메시지 읽음 처리
+                            voiceRepository.markVoiceMessageAsRead(voiceMessage.id)
+                            delay(1000)
+                            dismissMessage()
+                        }
                     }
+                    // 재생 성공 시진행 추적 타이머 가동
+                    startPositionTracking()
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ 재생 중 예외 발생하여 화면을 닫습니다: ${e.message}")
+                    dismissMessage()
                 }
-
-                // 재생 진행 위치 추적 시작
-                startPositionTracking()
             }
         }
     }
@@ -141,7 +152,7 @@ class VoicePlayerViewModel @Inject constructor(
     private fun startPositionTracking() {
         viewModelScope.launch {
             var waitCount = 0
-            val maxWaitAttempts = 25 // 최대 5초 대기 가드레일
+            val maxWaitAttempts = 15 // 최대 3초 대기 가드레일
 
             // 플레이어 준비 대기
             while (isActive && !audioPlayer.isPlaying() && waitCount < maxWaitAttempts) {
@@ -149,7 +160,14 @@ class VoicePlayerViewModel @Inject constructor(
                 waitCount++
             }
 
-            Log.d(TAG, "🎵 재생 감지 성공 (버퍼링 대기: ${waitCount * 200}ms) - 타이머 시작")
+            // 만약 대기 시간이 지났는데도 플레이어가 실행되지 않는다면 상태가 깨진 것으로 판단
+            if (waitCount >= maxWaitAttempts && !audioPlayer.isPlaying()) {
+                Log.w(TAG, "⚠️ 오디오 플레이어 버퍼 로딩 실패 가드레일 작동 -> 세션 종료")
+                dismissMessage()
+                return@launch
+            }
+
+            Log.d(TAG, "🎵 재생 감지 성공 - 타이머 시작")
 
             // 재생 중인 동안 실시간으로 진행 시간 업데이트
             while (isActive && audioPlayer.isPlaying()) {
@@ -158,7 +176,7 @@ class VoicePlayerViewModel @Inject constructor(
                 delay(200)
             }
 
-            Log.d(TAG, "🔇 재생이 정지되었거나 종료되어 타이머를 마칩니다.")
+            Log.d(TAG, "🔇 재생이 정지되어 타이머를 마칩니다.")
         }
     }
 
