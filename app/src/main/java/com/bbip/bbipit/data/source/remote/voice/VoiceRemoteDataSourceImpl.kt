@@ -94,8 +94,8 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     /**
      * 음성 파일을 스토리지에 업로드하는 함수
      */
-    override suspend fun uploadVoiceFile(localFileUri: android.net.Uri): String {
-        val fileName = "voices/${UUID.randomUUID()}.m4a"
+    override suspend fun uploadVoiceFile(myUid: String, localFileUri: android.net.Uri): String {
+        val fileName = "voices/$myUid/${UUID.randomUUID()}.m4a"
         val voiceRef = storage.reference.child(fileName)
         return voiceRef.putFile(localFileUri).continueWithTask { task ->
             if (!task.isSuccessful) task.exception?.let { throw it }

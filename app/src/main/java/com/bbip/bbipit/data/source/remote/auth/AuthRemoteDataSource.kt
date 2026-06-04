@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.source.remote.auth
 
+import android.net.Uri
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.domain.type.TermsType
 import com.google.firebase.auth.AuthResult
@@ -20,4 +21,6 @@ interface AuthRemoteDataSource {
     fun isAutoLogin() : Boolean
     suspend fun reloadCurrentUser()
     fun isEmailVerified(): Boolean
+    suspend fun uploadProfileImage(myUid: String, localFileUri: Uri): String
+    suspend fun deleteAccountData()
 }

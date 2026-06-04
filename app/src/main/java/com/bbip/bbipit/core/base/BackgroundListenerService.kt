@@ -166,6 +166,16 @@ class BackgroundListenerService : Service() {
         super.onCreate()
         Log.d(TAG, "BackgroundListenerService onCreate 호출됨")
 
+        scope.launch {
+            // 유저 로그인 상태를 실시간 관찰
+            authRepository.getAuthStateFlow().collect { uid ->
+                if (uid == null) {
+                    Log.d(TAG, "💡 유저 세션이 만료되었거나 탈퇴됨 -> 서비스 자체 종료(stopSelf)")
+                    stopSelf() // 유저 ID가 없으면 서비스 스스로 종료
+                }
+            }
+        }
+
         watchConnectionManager = WatchConnectionManager(this).apply { startMonitoring() }
 
         // 워치 통신 리스너 등록
@@ -596,10 +606,10 @@ class BackgroundListenerService : Service() {
      */
     private fun sendWatchAudioToServer(targetUid: String, fileUri: Uri, duration: Int) {
         scope.launch {
-            val senderUid = authRepository.getCurrentUserUid() ?: return@launch
+            val myUid = authRepository.getCurrentUserUid() ?: return@launch
 
             // 파일 업로드 성공 후 음성 메시지 최종 전송
-            voiceRepository.uploadVoiceFile(fileUri)
+            voiceRepository.uploadVoiceFile(myUid, fileUri)
                 .onSuccess { url ->
                     voiceRepository.sendVoiceMessage(targetUid, url, duration)
                 }
