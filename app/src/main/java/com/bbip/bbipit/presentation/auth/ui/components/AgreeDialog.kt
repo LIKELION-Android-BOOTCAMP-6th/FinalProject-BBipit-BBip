@@ -46,7 +46,7 @@ import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.domain.type.TermsType
 
 @Composable
-fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNext: () -> Unit, onDismissRequest: (Boolean) -> Unit, ){
+fun AgreeDialog(termsContent: String, type: TermsType, isSignUp: Boolean = false, onNext: () -> Unit, onDismissRequest: (Boolean) -> Unit, ){
     val scrollState: ScrollState = rememberScrollState()
     var isScrollEnd by remember { mutableStateOf(false) }
 
@@ -59,7 +59,7 @@ fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNex
         }
     }
     //스크롤 초기화. 다음 장으로 넘어갔을 시 최상단으로 위치 변경
-    LaunchedEffect(type, terms) {
+    LaunchedEffect(type, termsContent) {
         scrollState.scrollTo(0)
         isScrollEnd = false
     }
@@ -83,46 +83,47 @@ fun AgreeDialog(terms: String, type: TermsType, isSignUp: Boolean = false, onNex
                         tint = Color.Gray
                     )
                 }
-            }
-            Column(modifier = Modifier.fillMaxSize()) {
-                //html 스타일 그대로 적용하기 위해 안드로이드뷰 사용
-                AndroidView(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .weight(1f)
-                        .padding(16.dp)
-                        .verticalScroll(scrollState),
-                    factory = { context ->
-                        TextView(context).apply {
-                            textSize = Typography.bodySmall.fontSize.value
-                            setTextColor(fontDefault.toArgb())
-                            setLineSpacing(Typography.bodySmall.lineHeight.value, 1.0f)
-                            typeface = ResourcesCompat.getFont(context, if(isSignUp) R.font.pretendard_regular else R.font.pretendard_light)
-                            text = Html.fromHtml(terms, Html.FROM_HTML_MODE_LEGACY)
-                            movementMethod = ScrollingMovementMethod()
+                Column(modifier = Modifier.fillMaxSize().padding(end = 12.dp)) {
+                    //html 스타일 그대로 적용하기 위해 안드로이드뷰 사용
+                    AndroidView(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                            .weight(1f)
+                            .padding(16.dp)
+                            .verticalScroll(scrollState),
+                        factory = { context ->
+                            TextView(context).apply {
+                                textSize = Typography.bodySmall.fontSize.value
+                                setTextColor(fontDefault.toArgb())
+                                setLineSpacing(Typography.bodySmall.lineHeight.value, 1.0f)
+                                typeface = ResourcesCompat.getFont(context, if(isSignUp) R.font.pretendard_regular else R.font.pretendard_light)
+                                text = Html.fromHtml(termsContent, Html.FROM_HTML_MODE_LEGACY)
+                                movementMethod = ScrollingMovementMethod()
+                            }
+                        },
+                        update = { textView ->
+                            // 데이터가 변경되면 텍스트뷰 내용 갱신
+                            textView.text = Html.fromHtml(termsContent, Html.FROM_HTML_MODE_LEGACY)
+                            textView.scrollTo(0, 0)
+
                         }
-                    },
-                    update = { textView ->
-                        // 데이터가 변경되면 텍스트뷰 내용 갱신
-                        textView.text = Html.fromHtml(terms, Html.FROM_HTML_MODE_LEGACY)
-                        textView.scrollTo(0, 0)
+                    )
+                    if(isSignUp){
+                        Button(
+                            onClick = onNext,
+                            enabled = isScrollEnd,
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = primary, disabledContainerColor = Color.Gray),
 
+                            shape = RoundedCornerShape(20.dp)) {
+                            Text(if(type == TermsType.LOCATION)"동의하고 가입하기" else "동의하고 다음", style = Typography.bodyMedium, color = subBackground)
+                        }
                     }
-                )
-                if(isSignUp){
-                    Button(
-                        onClick = onNext,
-                        enabled = isScrollEnd,
-                        modifier = Modifier.fillMaxWidth().padding(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = primary, disabledContainerColor = Color.Gray),
 
-                        shape = RoundedCornerShape(20.dp)) {
-                        Text(if(type == TermsType.PRIVACY)"동의하고 다음" else "동의하고 가입하기", style = Typography.bodyMedium, color = subBackground)
-                    }
                 }
-
             }
+
         }
     }
 }
