@@ -416,7 +416,7 @@ fun AddFriendDialog(
                     onValueChange = { uid = it },
                     placeholder = { Text(
                         text = "UID 입력 (예: 12345678)",
-                        style = Typography.bodyMedium.copy(fontSize = 18.sp),
+                        style = Typography.bodySmall.copy(fontSize = 18.sp),
                         // 여기서 y축으로 원하는 만큼(예: 2.dp) 내립니다
                         modifier = Modifier.offset(y = 7.dp))
                     },
