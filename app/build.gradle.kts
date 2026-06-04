@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.firebase.appcheck.debug)
     implementation(libs.androidx.runtime)
+    implementation(libs.play.services.auth)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

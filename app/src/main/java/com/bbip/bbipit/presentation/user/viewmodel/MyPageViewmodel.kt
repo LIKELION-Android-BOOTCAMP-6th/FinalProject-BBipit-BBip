@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.mypage
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -7,8 +8,11 @@ import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.core.util.SocialTokenProvider
+import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.type.LoginType
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.log
 
 data class MyPageUiState(
     val nickname: String = "불러오는 중...",
@@ -41,7 +46,8 @@ data class MyPageUiState(
     val toast: String? = null,
     val userCode: String = "",
     val isDeleteDialogShown: Boolean = false, //이메일 회원 탈퇴
-    val token: String = ""
+    val token: String = "",
+    val isSocialDeleteDialog: Boolean = false // 소셜용 계정 삭제 시 안내 팝업
 )
 
 sealed class MyPageEvent{
@@ -52,7 +58,8 @@ sealed class MyPageEvent{
 class MyPageViewmodel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val socialTokenProvider: SocialTokenProvider
 ) : ViewModel() {
 
     // UI 상태를 관리하는 StateFlow
@@ -174,33 +181,55 @@ class MyPageViewmodel @Inject constructor(
     }
     fun onUpdateDeleteDialogShown(value: Boolean) = _uiState.update { it.copy(isDeleteDialogShown = value) }
     fun onUpdateToken(value: String) = _uiState.update { it.copy(token = value) }
-    fun deleteAccount(){
+    fun onSocialDeleted(value: Boolean) = _uiState.update { it.copy(isSocialDeleteDialog = value) }
+    fun deleteAccount(activityContext: Context? = null){
         val loginType = LoginType.fromString(_uiState.value.loginType)
         Log.d("마이페이지", "$loginType")
-        when(loginType){
-            LoginType.EMAIL -> {
-                _uiState.value.token?.let {
-                    viewModelScope.launch {
-                        authRepository.deleteAccount(loginType, it)
-                            .onSuccess {
-                                _uiState.update { it.copy(isDeleteDialogShown = false) }
-                                onUpdateLoading(false)
-                                onUpdateToast("탈퇴 성공")
-                                _event.send(MyPageEvent.NavigateToSignIn)
-                            }
-                            .onFailure { error ->
-                                _uiState.update { it.copy(isDeleteDialogShown = false) }
-                                onUpdateLoading(false)
-                                onUpdateToast(error.message)
-                            }
+
+        viewModelScope.launch {
+            val authResult = runCatching {
+                var token = _uiState.value.token
+
+                 onUpdateLoading(true)
+                when(loginType) {
+                    LoginType.GOOGLE -> {
+                        val id = socialTokenProvider.fromGoogle(activityContext!!)
+                        if (id != null) {
+                            onUpdateToken(id)
+                            token = id
+                        } else {
+                            throw AppError.Auth("구글 인증에 실패했습니다.")
+                        }
                     }
+                    LoginType.KAKAO -> {
+                        val id = socialTokenProvider.fromKakao(activityContext!!)
+                        onUpdateToken(id)
+                        token = id
+                    }
+                    else -> {}
                 }
+                token
             }
-            else -> {
-                onUpdateToast("아직 구현중")
-                _uiState.update { it.copy(isDeleteDialogShown = false) }
-                onUpdateLoading(false)
-            }
+            authResult
+                .onSuccess { token -> //토큰 발급 성공, 어스 계정 삭제 진행
+                authRepository.deleteAccount(loginType, token)
+                    .onSuccess {
+                        _uiState.update { it.copy(isDeleteDialogShown = false) }
+                        onUpdateLoading(false)
+                        onUpdateToast("탈퇴 성공")
+                        _event.send(MyPageEvent.NavigateToSignIn)
+                    }
+                    .onFailure { error ->
+                        _uiState.update { it.copy(isDeleteDialogShown = false) }
+                        onUpdateLoading(false)
+                        onUpdateToast(error.message)
+                    }
+                 }
+                .onFailure { error -> //토큰 발급 실패
+                    _uiState.update { it.copy(isDeleteDialogShown = false) }
+                    onUpdateLoading(false)
+                    onUpdateToast(error.message)
+                }
 
         }
     }
