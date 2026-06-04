@@ -23,7 +23,11 @@ import kotlinx.coroutines.tasks.await
 
 
 // 내부에 정보 저장용 데이터 클래스
-data class UserInfo(val name: String, val profileImageUrl: String?, val isOnline: Boolean)
+data class UserInfo(
+    val name: String,
+    val profileImageUrl: String?,
+    val isOnline: Boolean,
+    val friendshipStatus: String)
 
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
@@ -62,12 +66,17 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             // FriendRepository에서 실시간으로 갱신되는 리스트 구독
             friendRepository.myFriends.collect { friendsList ->
+
+                friendsList.forEach {
+                    android.util.Log.d("ChatListViewModel", "UID: ${it.uid}, 상태: ${it.friendshipStatus}")
+                }
                 // friendsList가 바뀔 때마다 userInfos 맵을 갱신
                 friendsList.forEach { friend ->
                     userInfos[friend.uid] = UserInfo(
                         name = friend.nickname,
                         profileImageUrl = friend.profileImageUrl,
-                        isOnline = friend.isOnline
+                        isOnline = friend.isOnline,
+                        friendshipStatus = friend.friendshipStatus
                     )
                 }
                 // 데이터 갱신 후 UI 리프레시
@@ -80,14 +89,23 @@ class ChatListViewModel @Inject constructor(
         // [수정] allChatList를 아예 최신 정보로 교체합니다.
         allChatList = allChatList.map { item ->
             val info = userInfos[item.receiverId]
+
+            // 1. 친구 관계 확인: 정보가 없거나 'accepted'가 아니면 "알 수 없음"
+            val isFriend = info != null && info.friendshipStatus == "accepted"
+            val displayImageUrl = if (isFriend) info?.profileImageUrl else null
+            val displayName = if (isFriend) info!!.name else "알 수 없음"
+            val displayIsOnline = if (isFriend) (info?.isOnline ?: false) else false
+
             if (info != null) {
                 item.copy(
-                    senderName = info.name,
-                    profileImageUrl = info.profileImageUrl,
-                    isOnline = info.isOnline
+                    senderName = displayName,
+                    profileImageUrl = displayImageUrl,
+                    isOnline = displayIsOnline,
+                    friendshipStatus = info.friendshipStatus
                 )
             } else {
-                item
+                // 정보가 아예 없는 경우에도 "알 수 없음" 처리
+                item.copy(senderName = "알 수 없음")
             }
         }
 
@@ -135,14 +153,25 @@ class ChatListViewModel @Inject constructor(
                     val name = userDoc.getString("nickname") ?: "이름 없음"
                     val imageUrl = userDoc.getString("profile_image_url")
                     val isOnline = userDoc.getBoolean("is_online") ?: false
+                    val friendshipStatus = userDoc.getString("friendship_status") ?: "none"
 
                     // 메모리에 저장
-                    userInfos[receiverId] = UserInfo(name, imageUrl, isOnline)
+                    userInfos[receiverId] = UserInfo(name, imageUrl, isOnline, friendshipStatus)
+
                 }
             } catch (e: Exception) { }
         }
 
         val info = userInfos[receiverId]
+
+        val isFriend = info != null && info.friendshipStatus == "accepted"
+        val displayName = if (isFriend) (info.name ?: "이름 없음") else "알 수 없음"
+        val displayImageUrl = if (isFriend) info.profileImageUrl else null
+        val displayIsOnline = if (isFriend) (info?.isOnline ?: false) else false
+
+        android.util.Log.d("ChatListViewModel",
+            "채팅방 상세 처리 -> 상대 UID: $receiverId, 이름: ${info?.name ?: "불명"}, 관계: ${info?.friendshipStatus ?: "정보없음"}"
+        )
 
         // unreadCounts 조회는 DMs 관련이므로 유지
         var myUnreadCount = 0
@@ -154,13 +183,14 @@ class ChatListViewModel @Inject constructor(
         return ChatItem(
             id = roomId,
             receiverId = receiverId,
-            senderName = info?.name ?: "불러오는 중...",
-            profileImageUrl = info?.profileImageUrl,
+            senderName = displayName,
+            profileImageUrl = displayImageUrl,
             lastMessage = room.lastMsg,
             time = formatChatTime(room.updatedAt),
             isRead = myUnreadCount <= 0,
             unreadCount = myUnreadCount,
-            isOnline = info?.isOnline ?: false,
+            isOnline = displayIsOnline,
+            friendshipStatus = info?.friendshipStatus ?: "none",
             hasImage = false
         )
     }

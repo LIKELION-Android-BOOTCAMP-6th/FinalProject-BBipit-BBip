@@ -58,7 +58,8 @@ data class ChatItem(
     val unreadCount: Int,
     val isOnline: Boolean,
     val hasImage: Boolean = false,
-    val profileImageUrl: String? = null
+    val profileImageUrl: String? = null,
+    val friendshipStatus: String = ""
 )
 
 data class ChatListUiState(
