@@ -39,12 +39,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.subBackground
@@ -100,7 +102,12 @@ fun SettingsDrawer(email: String, loginType: String, onClose: () -> Unit, modifi
                 }
                 InfoBox(titleText = "로그아웃", type = InputType.LOGOUT) { viewModel.onChangeSignOutDialog(true)}
 
-                InfoBox(titleText = "탈퇴", type = InputType.LOGOUT) { viewModel.onUpdateDeleteDialogShown(true) }
+                InfoBox(titleText = "탈퇴", type = InputType.LOGOUT) {
+                   when(LoginType.fromString(loginType)){
+                       LoginType.EMAIL -> viewModel.onUpdateDeleteDialogShown(true)
+                       else -> viewModel.onSocialDeleted(true)
+                   }
+                }
             }
             termsType?.let { currentType ->
                 AgreeDialog(

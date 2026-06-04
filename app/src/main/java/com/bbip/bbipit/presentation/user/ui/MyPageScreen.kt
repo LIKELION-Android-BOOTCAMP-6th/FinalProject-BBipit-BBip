@@ -41,6 +41,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
@@ -71,6 +72,7 @@ fun MyPageScreen(
     // 뷰모델의 UI 상태 구독
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
+    val context = LocalContext.current.findActivity()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     // 화면이 그려지자마자 내 데이터를 서버에서 가져옴
@@ -348,6 +350,18 @@ fun MyPageScreen(
                 viewModel.onUpdateLoading(true)
                 viewModel.deleteAccount()
 
+            }
+        )
+    }
+
+    if(uiState.isSocialDeleteDialog){
+        ConfirmDialog(text = "계정을 삭제하시겠습니까?", semiText = "한 번 삭제한 계정은 다시 복구되지 않습니다.",
+            onDismiss = {
+                viewModel.onSocialDeleted(false)
+            },
+            onConfirm = {
+                viewModel.onSocialDeleted(false)
+                viewModel.deleteAccount(context)
             }
         )
     }

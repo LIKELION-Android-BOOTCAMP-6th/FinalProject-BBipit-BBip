@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
@@ -7,6 +8,8 @@ import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.domain.type.TermsType
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.identity.RevokeAccessRequest
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
@@ -15,6 +18,8 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.oAuthCredential
 import com.kakao.sdk.common.model.ClientError
 import com.kakao.sdk.common.model.ClientErrorCause
+import com.kakao.sdk.user.UserApiClient
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,7 +31,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authRemoteDataSource: AuthRemoteDataSource,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    @ApplicationContext private val context: Context,
 ): AuthRepository {
 
     override suspend fun signOut(type: LoginType){
@@ -52,7 +58,29 @@ class AuthRepositoryImpl @Inject constructor(
 
         return  try {
             user.reauthenticate(credential).await()
+            when(type){
+                LoginType.GOOGLE -> {
+                    val account = android.accounts.Account(user.email!!, "com.google") //어느 계정 권한 취소할 건지
+                    val authorizationClient = Identity.getAuthorizationClient(context)
+                    val revokeRequest = RevokeAccessRequest.builder()
+                        .setAccount(account)
+                        .setScopes(listOf()) //어떤 권한을 제외하고 삭제할건지.
+                        .build()
+                    authorizationClient.revokeAccess(revokeRequest).await()
+                }
+                LoginType.KAKAO -> {
+                    UserApiClient.instance.unlink { error ->
+                        if (error != null){
+                            Log.e("카카오 탈퇴", "${error.message}")
+                            error.printStackTrace()
+                            AppError.Auth("카카오 계정 탈퇴에 실패했습니다.")
+                        }
+                    }
+                }
+                else -> {}
+            }
             user.delete().await()
+            signOut(type)
             Result.Success(Unit)
         } catch (e: Exception){
             Log.e("회원 탈퇴 실패", "탈퇴 실패 $type ${e.message}")
