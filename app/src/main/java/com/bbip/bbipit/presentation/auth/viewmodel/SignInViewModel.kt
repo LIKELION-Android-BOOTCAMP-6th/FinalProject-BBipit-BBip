@@ -2,12 +2,7 @@ package com.bbip.bbipit.presentation.auth.viewmodel
 
 import android.content.Context
 import android.util.Log
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialException
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bbip.bbipit.R
 import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
@@ -16,20 +11,13 @@ import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.domain.type.LoginType
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.kakao.sdk.auth.model.OAuthToken
-import com.kakao.sdk.common.model.ClientError
-import com.kakao.sdk.common.model.ClientErrorCause
-import com.kakao.sdk.user.UserApiClient
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import androidx.core.content.edit
 
 data class SignInUiState(
     val email: String = "",
@@ -38,7 +26,9 @@ data class SignInUiState(
     val pwError: String? = null,
     val error: String? = null,
     val isLoading: Boolean = false,
-
+    val isDuplicatedInfoDialog : Boolean = false,
+    val serverSessionId: String? = null,
+    val loginType: LoginType = LoginType.EMAIL
 )
 sealed class SignInEvent{
     object NavigateToHome: SignInEvent()
@@ -46,6 +36,7 @@ sealed class SignInEvent{
 }
 @HiltViewModel
 class SignInViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val socialTokenProvider: SocialTokenProvider
@@ -57,14 +48,34 @@ class SignInViewModel @Inject constructor(
     fun onUpdateEmail(email : String) = updateState{ copy(email =  email)}
     fun onUpdatePassword(pw: String) = updateState { copy(password = pw) }
 
+    private val prefs = context.getSharedPreferences("auth_pref", Context.MODE_PRIVATE)
+    private fun saveSessionId(sessionId: String) = prefs.edit { putString("session_id", sessionId) }
+    private fun getSessionId(): String? {
+        return prefs.getString("session_id", null)
+    }
+    private suspend fun getServerSessionId(){
+        val uid = authRepository.getCurrentUserUid()
+        uid?.let {
+            userRepository.getMyProfile(it).onSuccess { data ->
+                updateState { copy(serverSessionId = data.sessionId, loginType = LoginType.fromString(data.loginType))}
+            }
+        }
+        Log.d("auth", "받아온 세션 아이디 ${uiState.value.serverSessionId}")
+
+    }
     fun signIn(){
         updateState { copy(isLoading = true, emailError = "", pwError = "") }
         viewModelScope.launch {
             authRepository.signInWithEmail(uiState.value.email, uiState.value.password)
                 .onSuccess {
-                    updateState { copy(isLoading = false) }
-                    getFcmToken()
-                    _eventChannel.send(SignInEvent.NavigateToHome)
+                    getServerSessionId()
+
+                    if (!checkDuplicateLogin()){
+                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
+                    }else{
+                        continueLogin(true)
+                    }
+
                 }
                 .onFailure { exception ->
                     updateState { copy(isLoading = false) }
@@ -76,6 +87,20 @@ class SignInViewModel @Inject constructor(
                     }
                 }
 
+        }
+    }
+    private fun checkDuplicateLogin(): Boolean = uiState.value.serverSessionId == getSessionId()
+    fun continueLogin(isContinue: Boolean){
+        viewModelScope.launch {
+            if (isContinue){
+                saveSessionId(uiState.value.serverSessionId!!)
+                getFcmToken()
+                updateState { copy(isLoading = false) }
+                _eventChannel.send(SignInEvent.NavigateToHome)
+            }else{
+                authRepository.signOut(uiState.value.loginType)
+
+            }
         }
     }
 
@@ -121,4 +146,5 @@ class SignInViewModel @Inject constructor(
     }
 
     fun onUpdateToast(value:String? = null) = updateState { copy(error = value) }
+    fun onUpdateDuplicatedInfoDialog(value: Boolean) = updateState { copy(isDuplicatedInfoDialog = value) }
 }
