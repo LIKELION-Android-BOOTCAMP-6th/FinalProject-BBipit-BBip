@@ -8,8 +8,4 @@ import javax.inject.Inject
 class GetNotificationListUseCase @Inject constructor(
     private val repository: NotificationRepository
 ) {
-    // repository.getNotificationList(userId)가 우리가 만든 Result를 반환하므로 리턴 타입이 일치하게 됩니다.
-    suspend operator fun invoke(userId: String): Result<List<Notification>> {
-        return repository.getNotificationList(userId)
-    }
 }

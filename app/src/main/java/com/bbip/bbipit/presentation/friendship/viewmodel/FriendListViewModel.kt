@@ -55,22 +55,16 @@ class FriendListViewModel @Inject constructor(
             friendRepository.myFriends.collect { friends ->
                 // 1. accepted 상태인 친구들만 필터링하여 리스트에 할당
                 val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
-                android.util.Log.d("FriendListDebug", "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명")
+                android.util.Log.d(
+                    "FriendListDebug",
+                    "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명"
+                )
                 _friendList.value = acceptedFriends
-            }
-        }
-        // 2. 요청 개수 가져오기 (요청 목록을 별도로 가져와서 개수만 세기)
-        fetchRequestCount()
-    }
 
-    private fun fetchRequestCount() {
-        viewModelScope.launch {
-            val result = friendRepository.getPendingFriendRequests()
-            result.onSuccess { users ->
-                _requestCount.value = users.size
-                android.util.Log.d("FriendListViewModel", "요청 개수 업데이트: ${users.size}개")
-            }.onFailure {
-                android.util.Log.e("FriendListViewModel", "요청 개수 로드 실패")
+                val requestCount = friends.count { it.friendshipStatus == "requested" }
+                _requestCount.value = requestCount
+
+                android.util.Log.d("FriendListDebug", "데이터 변경 감지! 요청 개수 업데이트: $requestCount")
             }
         }
     }
@@ -78,10 +72,7 @@ class FriendListViewModel @Inject constructor(
     fun refreshAll() {
         android.util.Log.d("FriendListViewModel", "전체 데이터 새로고침 시작")
 
-        // 1. 요청 개수 갱신
-        fetchRequestCount()
-
-        // 2. 친구 목록 옵저빙 재시작 (필요한 경우)
+        // 친구 목록 옵저빙 재시작 (필요한 경우)
         val myUid = authRepository.getCurrentUserUid()
         if (myUid != null) {
             friendRepository.startObservingFriends(myUid)
