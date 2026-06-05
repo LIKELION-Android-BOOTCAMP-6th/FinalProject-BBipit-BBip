@@ -73,21 +73,6 @@ class UserRepositoryImpl @Inject constructor(
     }
 
     /**
-     * 현재 활성화된 채팅방 정보 전송 및 하트비트 발생 함수
-     */
-    override suspend fun updateHeartbeat(currentRoomId: String?): Result<Unit> {
-        return try {
-            // updateLifeCycle 통해 활성 상태 동기화
-            liveStatusRepositoryProvider.get().updateLifeCycle(currentRoomId)
-            Result.Success(Unit)
-        } catch (e: Exception) {
-            // 전송 실패 예외 처리
-            Log.e("UserRepository", "Heartbeat 업데이트 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "Heartbeat 실패"))
-        }
-    }
-
-    /**
      * 온라인 접속 상태 업데이트 함수
      */
     override suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean> {

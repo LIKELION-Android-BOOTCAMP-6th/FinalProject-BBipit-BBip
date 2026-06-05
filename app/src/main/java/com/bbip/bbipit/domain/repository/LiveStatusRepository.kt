@@ -44,7 +44,7 @@ interface LiveStatusRepository {
     /**
      * 유저 온라인 상태 및 현재 채팅방 정보 업데이트 함수
      */
-    suspend fun updateLifeCycle(currentRoomId: String?): Result<Unit>
+    suspend fun updateLifeCycle(currentRoomId: String?, currentSessionId: String?): Result<Unit>
     suspend fun updateLocationSharingState(isSharing: Boolean): Result<Unit>
     fun observeLocationSharingState(): Flow<Boolean>
     suspend fun refreshMyLiveStatusCache(): Result<String>

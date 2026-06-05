@@ -1,5 +1,7 @@
 package com.bbip.bbipit.data.source.remote.user
 
+import android.net.Uri
+
 /**
  * 사용자 정보 관련 원격 데이터 소스 인터페이스
  */
@@ -30,4 +32,6 @@ interface UserRemoteDataSource {
      */
     suspend fun getMyProfile(uid: String): Map<String, Any>?
     suspend fun getUserOnlineStatus(uid: String): Boolean?
+
+    suspend fun uploadProfileImage(myUid: String, localFileUri: Uri): String
 }
