@@ -148,7 +148,7 @@ class LiveStatusRepositoryImpl @Inject constructor(
     override suspend fun updateLifeCycle(currentRoomId: String?, currentSessionId: String?): Result<Unit> {
         return try {
             // 서버에 활성 상태 전송
-            liveStatusRemoteDataSource.updateLifeCycle(currentRoomId)
+            liveStatusRemoteDataSource.updateLifeCycle(currentRoomId, currentSessionId)
             Result.Success(Unit)
         } catch (e: Exception) {
             // 전송 실패 예외 처리
