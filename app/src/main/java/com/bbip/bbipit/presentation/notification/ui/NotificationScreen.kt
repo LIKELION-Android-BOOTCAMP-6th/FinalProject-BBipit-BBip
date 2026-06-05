@@ -185,7 +185,6 @@ fun NotificationScreen(
 
                                     if (!isSwiping || progress <= 0f) return@SwipeToDismissBox
 
-                                    val bgAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 0.7f)
                                     val iconAlpha = ((progress - 0.1f) / 0.5f).coerceIn(0f, 1f)
 
                                     Box(
@@ -211,7 +210,6 @@ fun NotificationScreen(
                                     item = item,
                                     currentTime = currentTime,
                                     readAllClicked = isReadAllClicked,
-//                                isVoiceExpiredInUi = expiredVoiceIds.contains(item.id),
                                     onClick = {
                                         if (item.type == "DM") {
                                             Log.d("NotificationScreen", "DM 클릭 - id: ${item.id}")
@@ -266,7 +264,6 @@ fun NotificationCard(
     currentTime: Long,
     onClick: () -> Unit,
     readAllClicked: Boolean = false,
-//    isVoiceExpiredInUi: Boolean = false,
     isLocalRead: Boolean = false,
     senderProfileImage: String = ""
 ) {

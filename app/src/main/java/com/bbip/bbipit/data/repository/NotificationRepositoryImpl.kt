@@ -65,7 +65,10 @@ class NotificationRepositoryImpl @Inject constructor(
      * 동일한 userId로 이미 구독 중이면 중복 구독 방지
      */
     override fun startObserving(userId: String) {
-        Log.d("NotificationRepo", "startObserving 호출됨 - userId: $userId, observingUserId: $observingUserId")
+        Log.d(
+            "NotificationRepo",
+            "startObserving 호출됨 - userId: $userId, observingUserId: $observingUserId"
+        )
         // 동일 유저 중복 구독 방지
         if (observingUserId == userId) {
             Log.d("NotificationRepo", "이미 구독 중인 userId: $userId, 중복 호출 무시")
@@ -117,7 +120,7 @@ class NotificationRepositoryImpl @Inject constructor(
                 if (!snapshot.isEmpty) {
                     isInitialCallback = false
                 }
-                if(isFromCache) {
+                if (isFromCache) {
                     isInitialCallback = true
                 }
 
@@ -150,16 +153,6 @@ class NotificationRepositoryImpl @Inject constructor(
         observingUserId = null
         Log.d("NotificationRepo", "Firestore 알림 구독 중단 및 캐시 초기화")
     }
-    // 알림 목록 조회
-    override suspend fun getNotificationList(userId: String): Result<List<Notification>> {
-        return try {
-            val response = dataSource.fetchNotification(userId)
-            Result.Success(response.map { (id, dto) -> dto.toEntity(id) })
-        } catch (e: Exception) {
-            Log.e("NotificationRepository", "알림 목록 조회 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "알림 목록을 가져오지 못했습니다."))
-        }
-    }
 
     // 알림 읽음 처리
     override suspend fun markNotificationsAsRead(
@@ -176,14 +169,14 @@ class NotificationRepositoryImpl @Inject constructor(
                 .call(data)
                 .await()
             val res = result.data as? Map<*, *>
-            
+
             // 읽음 처리 성공 시 UI 상태 반영
             if (notificationId != null) {
                 _uiReadIds.value += notificationId
             } else if (type == "all") {
                 _notifications.value = _notifications.value.map { it.copy(isRead = true) }
             }
-            
+
             Result.Success(res?.get("success") as? Boolean ?: true)
         } catch (e: Exception) {
             Log.e("NotificationRepository", "알림 읽음 처리 실패: ${e.message}")
@@ -252,27 +245,5 @@ class NotificationRepositoryImpl @Inject constructor(
             createdAt = notification.createdAt
         )
         voiceRepository.emitMobileVoiceEvent(voiceMessage)
-    }
-
-    // 무전 즉시 재생
-    override fun playWalkie(intent: android.content.Intent, receiverId: String) {
-        val audioId = intent.getStringExtra("notification_audio_id") ?: ""
-        val audioUrl = intent.getStringExtra("notification_audio_url") ?: return
-        val senderId = intent.getStringExtra("notification_sender_id") ?: ""
-        val createdAt = intent.getLongExtra("notification_created_at", 0L)
-        val duration = intent.getIntExtra("notification_duration", 0)
-
-        val voiceMessage = VoiceMessage(
-            id = audioId,
-            senderId = senderId,
-            receiverId = receiverId,
-            voiceUrl = audioUrl,
-            duration = duration,
-            isRead = false,
-            createdAt = createdAt
-        )
-        appScope.launch {
-            voiceRepository.emitMobileVoiceEvent(voiceMessage)
-        }
     }
 }

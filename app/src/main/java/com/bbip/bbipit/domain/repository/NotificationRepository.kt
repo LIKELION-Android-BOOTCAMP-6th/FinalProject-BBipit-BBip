@@ -23,9 +23,6 @@ interface NotificationRepository {
     // 로그아웃 시 캐시 완전 초기화
     fun clearCache()
 
-    // 알림 목록 조회
-    suspend fun getNotificationList(userId: String): Result<List<Notification>>
-
     // 알림 읽음 처리
     suspend fun markNotificationsAsRead(type: String, notificationId: String?): Result<Boolean>
 
@@ -39,6 +36,5 @@ interface NotificationRepository {
     suspend fun playWalkieNotification(notification: Notification, receiverId: String)
 
     // Intent에서 추출한 데이터로 무전 즉시 재생
-    fun playWalkie(intent: android.content.Intent, receiverId: String)
     suspend fun markVoiceNotificationAsPlayed(notificationId: String): Boolean
 }
