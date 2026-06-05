@@ -166,19 +166,19 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
         ShowToast(it)
         viewModel.onUpdateToast()
     }
-    if (uiState.isDuplicatedInfoDialog){
-        ConfirmDialog(
-            text = "다른 기기에서 로그인 하고 있습니다!",
-            semiText = "현재 기기로 사용하시겠습니까?",
-            onDismiss = {
-                viewModel.continueLogin(false)
-                viewModel.onUpdateDuplicatedInfoDialog(false)
-            },
-            onConfirm = {
-                viewModel.continueLogin(true)
-                viewModel.onUpdateDuplicatedInfoDialog(false)
-            }
-
-        )
-    }
+//    if (uiState.isDuplicatedInfoDialog){
+//        ConfirmDialog(
+//            text = "다른 기기에서 로그인 하고 있습니다!",
+//            semiText = "현재 기기로 사용하시겠습니까?",
+//            onDismiss = {
+//                viewModel.continueLogin(false)
+//                viewModel.onUpdateDuplicatedInfoDialog(false)
+//            },
+//            onConfirm = {
+//                viewModel.continueLogin(true)
+//                viewModel.onUpdateDuplicatedInfoDialog(false)
+//            }
+//
+//        )
+//    }
 }

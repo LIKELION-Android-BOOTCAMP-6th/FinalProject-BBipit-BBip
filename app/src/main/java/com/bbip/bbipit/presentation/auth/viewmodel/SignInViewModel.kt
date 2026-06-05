@@ -45,36 +45,39 @@ class SignInViewModel @Inject constructor(
     private val _eventChannel = Channel<SignInEvent>(Channel.BUFFERED)
     val events = _eventChannel.receiveAsFlow()
 
-    fun onUpdateEmail(email : String) = updateState{ copy(email =  email)}
-    fun onUpdatePassword(pw: String) = updateState { copy(password = pw) }
+    fun onUpdateEmail(email : String) = updateState{ copy(email =  email, emailError = null)}
+    fun onUpdatePassword(pw: String) = updateState { copy(password = pw, pwError = null) }
 
-    private val prefs = context.getSharedPreferences("auth_pref", Context.MODE_PRIVATE)
-    private fun saveSessionId(sessionId: String) = prefs.edit { putString("session_id", sessionId) }
-    private fun getSessionId(): String? {
-        return prefs.getString("session_id", null)
-    }
-    private suspend fun getServerSessionId(){
-        val uid = authRepository.getCurrentUserUid()
-        uid?.let {
-            userRepository.getMyProfile(it).onSuccess { data ->
-                updateState { copy(serverSessionId = data.sessionId, loginType = LoginType.fromString(data.loginType))}
-            }
-        }
-        Log.d("auth", "받아온 세션 아이디 ${uiState.value.serverSessionId}")
-
-    }
+//    private val prefs = context.getSharedPreferences("auth_pref", Context.MODE_PRIVATE)
+//    private fun saveSessionId(sessionId: String) = prefs.edit { putString("session_id", sessionId) }
+//    private fun getSessionId(): String? {
+//        return prefs.getString("session_id", null)
+//    }
+//    private suspend fun getServerSessionId(){
+//        val uid = authRepository.getCurrentUserUid()
+//        uid?.let {
+//            userRepository.getMyProfile(it).onSuccess { data ->
+//                updateState { copy(serverSessionId = data.sessionId, loginType = LoginType.fromString(data.loginType))}
+//            }
+//        }
+//        Log.d("auth", "받아온 세션 아이디 ${uiState.value.serverSessionId}")
+//
+//    }
     fun signIn(){
         updateState { copy(isLoading = true, emailError = "", pwError = "") }
         viewModelScope.launch {
             authRepository.signInWithEmail(uiState.value.email, uiState.value.password)
                 .onSuccess {
-                    getServerSessionId()
+//                    getServerSessionId()
 
-                    if (!checkDuplicateLogin()){
-                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
-                    }else{
-                        continueLogin(true)
-                    }
+                    getFcmToken()
+                    updateState { copy(isLoading = false) }
+                    _eventChannel.send(SignInEvent.NavigateToHome)
+//                    if (!checkDuplicateLogin()){
+//                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
+//                    }else{
+//                        continueLogin(true)
+//                    }
 
                 }
                 .onFailure { exception ->
@@ -89,20 +92,20 @@ class SignInViewModel @Inject constructor(
 
         }
     }
-    private fun checkDuplicateLogin(): Boolean = uiState.value.serverSessionId == getSessionId()
-    fun continueLogin(isContinue: Boolean){
-        viewModelScope.launch {
-            if (isContinue){
-                saveSessionId(uiState.value.serverSessionId!!)
-                getFcmToken()
-                updateState { copy(isLoading = false) }
-                _eventChannel.send(SignInEvent.NavigateToHome)
-            }else{
-                authRepository.signOut(uiState.value.loginType)
-
-            }
-        }
-    }
+//    private fun checkDuplicateLogin(): Boolean = uiState.value.serverSessionId == getSessionId()
+//    fun continueLogin(isContinue: Boolean){
+//        viewModelScope.launch {
+//            if (isContinue){
+//                saveSessionId(uiState.value.serverSessionId!!)
+//                getFcmToken()
+//                updateState { copy(isLoading = false) }
+//                _eventChannel.send(SignInEvent.NavigateToHome)
+//            }else{
+//                authRepository.signOut(uiState.value.loginType)
+//
+//            }
+//        }
+//    }
 
     fun moveToSignUp(){
         viewModelScope.launch {
