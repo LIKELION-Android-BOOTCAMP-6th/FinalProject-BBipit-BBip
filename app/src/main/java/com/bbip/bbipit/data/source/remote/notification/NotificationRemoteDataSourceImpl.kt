@@ -124,4 +124,37 @@ class NotificationRemoteDataSourceImpl @Inject constructor(
                 .await()
         }
     }
+
+    /**
+     * 특정 유저 식별자 하위 알림 서브 컬렉션 내 모든 알림 문서를 Batch를 통해 일괄 삭제하는 함수
+     */
+    override suspend fun deleteAllNotifications(userId: String) {
+        try {
+            // 해당 유저의 알림 서브 컬렉션 내 모든 문서를 가져옴
+            val snapshot = firestore
+                .collection("Notifications")
+                .document(userId)
+                .collection("Notification")
+                .get()
+                .await()
+
+            // 삭제할 문서가 없으면 바로 리턴
+            if (snapshot.isEmpty) {
+                Log.d("NotificationRemote", "삭제할 알림 문서가 없습니다.")
+                return
+            }
+
+            // 원자적 스냅샷 일괄 처리를 위한 WriteBatch를 생성
+            val batch = firestore.batch()
+            for (doc in snapshot.documents) {
+                batch.delete(doc.reference)
+            }
+
+            // 배치 커밋을 통해 모든 문서를 한 번에 영구 삭제
+            batch.commit().await()
+            Log.d("NotificationRemote", "전체 알림 삭제 완료: 총 ${snapshot.size()}건")
+        } catch (e: Exception) {
+            Log.e("NotificationRemote", "전체 알림 삭제 실패: ${e.message}")
+        }
+    }
 }

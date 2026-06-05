@@ -23,11 +23,6 @@ interface UserRepository {
     suspend fun updateProfile(nickname: String? = null, status: String? = null, profileImageUrl: String? = null, fcmToken: String? = null): Result<String>
 
     /**
-     * 현재 활성화된 채팅방 정보 전송 및 하트비트 발생 함수
-     */
-    suspend fun updateHeartbeat(currentRoomId: String?): Result<Unit>
-
-    /**
      * 온라인 접속 상태 업데이트 함수
      */
     suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean>
