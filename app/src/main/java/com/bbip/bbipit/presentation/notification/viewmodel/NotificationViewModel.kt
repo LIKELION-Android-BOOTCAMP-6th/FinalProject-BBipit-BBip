@@ -52,9 +52,6 @@ class NotificationViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             notificationRepository.notifications.collect { liveNotifications ->
-                liveNotifications.forEach {
-                    Log.d("NotificationVM", "id: ${it.id}, isRead: ${it.isRead}, type: ${it.type}")
-                }
                 if (liveNotifications.size > _notification.value.size) {
                     _readAllClicked.value = false
                 }
@@ -85,12 +82,6 @@ class NotificationViewModel @Inject constructor(
             "네트워크 연결이 원활하지 않습니다. 연결 상태를 확인해주세요.",
             Toast.LENGTH_SHORT
         ).show()
-    }
-
-    fun setVoiceExpired(id: String) {
-        val updated = _expiredVoiceIds.value + id
-        _expiredVoiceIds.value = updated
-        prefs.edit { putStringSet("expired_voice_ids", updated) }
     }
 
     // 리스트에서 완전히 삭제 (스와이프 시)
@@ -151,47 +142,6 @@ class NotificationViewModel @Inject constructor(
             }
         }
     }
-
-    // 무전 알림 클릭 시 즉시 재생 처리
-    fun playWalkieFromNotification(notification: Notification) {
-        if (notification.audioId.isEmpty()) return
-        if (notification.isExpired) return
-
-        viewModelScope.launch {
-            try {
-                val result = voiceRepository.getVoiceMessageById(notification.audioId)
-                if (result is Result.Success) {
-                    notificationRepository.playWalkieNotification(notification, currentUserId)
-                }
-            } catch (e: Exception) {
-                Log.e("NotificationVM", "알림창 무전 클릭 재생 실패: ${e.message}")
-            }
-
-            notificationRepository.markAsRead(notification.id)
-        }
-    }
-
-    // 배너 클릭 진입 시 최우선 즉시 재생 처리
-    fun playWalkie(intent: android.content.Intent) {
-        val notificationId = intent.getStringExtra("notification_id") ?: return
-        val voiceId = intent.getStringExtra("notification_audio_id") ?: ""
-
-        if (voiceId.isNotEmpty() && currentUserId.isNotEmpty()) {
-            Log.d("NotificationVM", "🔊 [배너 클릭] voice_id($voiceId) 감지 -> 레포지토리 직접 깨우기")
-
-            viewModelScope.launch {
-                val result = voiceRepository.getVoiceMessageById(voiceId)
-                if (result is Result.Success) {
-                    notificationRepository.playWalkie(intent, currentUserId)
-                }
-            }
-        }
-
-        // 기존에 작동하던 알림창 장부 정리 로직 유지
-        setVoiceExpired(notificationId)
-        markAsRead(notificationId)
-    }
-
 
     fun onClickAudioNotification(notificationId: String, voiceId: String){
         viewModelScope.launch {

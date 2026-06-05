@@ -10,10 +10,12 @@ import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.domain.type.TermsType
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.auth.api.identity.RevokeAccessRequest
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.oAuthCredential
 import com.kakao.sdk.common.model.ClientError
@@ -58,6 +60,7 @@ class AuthRepositoryImpl @Inject constructor(
 
         return  try {
             user.reauthenticate(credential).await()
+            authRemoteDataSource.deleteAccountData()
             when(type){
                 LoginType.GOOGLE -> {
                     val account = android.accounts.Account(user.email!!, "com.google") //어느 계정 권한 취소할 건지
@@ -79,10 +82,18 @@ class AuthRepositoryImpl @Inject constructor(
                 }
                 else -> {}
             }
-            user.delete().await()
             signOut(type)
             Result.Success(Unit)
-        } catch (e: Exception){
+        } catch (e: FirebaseAuthInvalidCredentialsException){
+            Log.e("회원 탈퇴 실패", "계정 재인증 실패 ${e.message}")
+            e.printStackTrace()
+            Result.Failure(AppError.Auth("계정 인증에 실패했습니다."))
+        } catch (e: FirebaseNetworkException){
+            Log.e("회원 탈퇴 실패", "네트워크 오류 ${e.message}")
+            e.printStackTrace()
+            Result.Failure(AppError.Auth("네트워크 연결이 원활하지 않습니다. 잠시 후 다시 시도해주세요."))
+        }
+        catch (e: Exception){
             Log.e("회원 탈퇴 실패", "탈퇴 실패 $type ${e.message}")
             e.printStackTrace()
             Result.Failure(AppError.Auth("탈퇴 실패"))

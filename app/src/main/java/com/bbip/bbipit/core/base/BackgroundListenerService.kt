@@ -212,7 +212,7 @@ class BackgroundListenerService : Service() {
             requestWatchStatus()
 
             scope.launch {
-                notificationRepository.startObserving(myUid)
+                notificationRepository.startObserving(myUid, serviceStartTime)
 //                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
 //                    notifiedIds.add(notification.id)
 //                }
@@ -798,8 +798,6 @@ class BackgroundListenerService : Service() {
      */
     private fun observeNotifications() {
         scope.launch {
-            // 서비스 시작 시점 이후에 생성된 알림만 처리
-            val serviceStartTime = System.currentTimeMillis()
             notificationRepository.notifications.collect { notifications ->
                 notifications.forEach { notification ->
                     if (!notification.isRead &&

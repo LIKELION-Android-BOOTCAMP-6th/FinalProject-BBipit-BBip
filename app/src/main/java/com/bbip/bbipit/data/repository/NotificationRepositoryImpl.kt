@@ -64,7 +64,7 @@ class NotificationRepositoryImpl @Inject constructor(
      * 구독 즉시 전체 문서를 수신하여 캐시에 보관
      * 동일한 userId로 이미 구독 중이면 중복 구독 방지
      */
-    override fun startObserving(userId: String) {
+    override fun startObserving(userId: String,  startTimestamp: Long) {
         Log.d("NotificationRepo", "startObserving 호출됨 - userId: $userId, observingUserId: $observingUserId")
         // 동일 유저 중복 구독 방지
         if (observingUserId == userId) {
@@ -75,9 +75,6 @@ class NotificationRepositoryImpl @Inject constructor(
         // 기존 리스너 제거 후 새로 등록
         stopObserving()
         observingUserId = userId
-
-        // 첫 번째 Snapshot Callback 여부를 추적하는 로컬 상태값
-        var isInitialCallback = true
 
         val query = firestore
             .collection("Notifications")
@@ -91,17 +88,6 @@ class NotificationRepositoryImpl @Inject constructor(
             }
 
             if (snapshot != null) {
-                val isFromCache = snapshot.metadata.isFromCache
-
-                // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
-                val isCurrentInitial = isInitialCallback
-                if (isInitialCallback) isInitialCallback = false
-
-                if (isFromCache) {
-                    Log.d("NotificationRepo", "📦 로컬 캐시 데이터를 불러왔습니다. (1차 실행)")
-                } else {
-                    Log.d("NotificationRepo", "☁️ 서버로부터 최신 데이터를 수신했습니다. (2차 실행)")
-                }
 
                 // 전체 문서를 엔티티로 변환
                 val items = snapshot.documents.mapNotNull { doc ->
@@ -114,12 +100,6 @@ class NotificationRepositoryImpl @Inject constructor(
                         null
                     }
                 }
-                if (!snapshot.isEmpty) {
-                    isInitialCallback = false
-                }
-                if(isFromCache) {
-                    isInitialCallback = true
-                }
 
                 val mergedItems = items.map { newItem ->
                     val cachedItem = _notifications.value.find { it.id == newItem.id }
@@ -128,13 +108,16 @@ class NotificationRepositoryImpl @Inject constructor(
                             (cachedItem?.isRead == true) ||
                             _uiReadIds.value.contains(newItem.id)
 
-                    newItem.copy(isRead = finalIsRead, isInitial = isCurrentInitial)
+                    // Firestore의 Timestamp를 밀리초(ms) 단위로 변환
+                    val messageSentAt = newItem.createdAt
+
+                    // 메시지 송신 시간이 서비스 시작 시간보다 이후일 때만 '신규 무전(isInitial = false)'으로 판정
+                    val isInitial = messageSentAt <= startTimestamp
+
+                    newItem.copy(isRead = finalIsRead, isInitial = isInitial)
                 }
 
                 _notifications.value = mergedItems
-                notifications.value.forEach {
-                    Log.d("NotificationRepo", "${it.isInitial}")
-                }
 
                 Log.d("NotificationRepo", "🔄 실시간 동기화 완료: ${mergedItems.size}건 갱신됨")
             }
@@ -149,16 +132,6 @@ class NotificationRepositoryImpl @Inject constructor(
         listenerRegistration = null
         observingUserId = null
         Log.d("NotificationRepo", "Firestore 알림 구독 중단 및 캐시 초기화")
-    }
-    // 알림 목록 조회
-    override suspend fun getNotificationList(userId: String): Result<List<Notification>> {
-        return try {
-            val response = dataSource.fetchNotification(userId)
-            Result.Success(response.map { (id, dto) -> dto.toEntity(id) })
-        } catch (e: Exception) {
-            Log.e("NotificationRepository", "알림 목록 조회 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "알림 목록을 가져오지 못했습니다."))
-        }
     }
 
     // 알림 읽음 처리
@@ -176,14 +149,14 @@ class NotificationRepositoryImpl @Inject constructor(
                 .call(data)
                 .await()
             val res = result.data as? Map<*, *>
-            
+
             // 읽음 처리 성공 시 UI 상태 반영
             if (notificationId != null) {
                 _uiReadIds.value += notificationId
             } else if (type == "all") {
                 _notifications.value = _notifications.value.map { it.copy(isRead = true) }
             }
-            
+
             Result.Success(res?.get("success") as? Boolean ?: true)
         } catch (e: Exception) {
             Log.e("NotificationRepository", "알림 읽음 처리 실패: ${e.message}")
@@ -252,27 +225,5 @@ class NotificationRepositoryImpl @Inject constructor(
             createdAt = notification.createdAt
         )
         voiceRepository.emitMobileVoiceEvent(voiceMessage)
-    }
-
-    // 무전 즉시 재생
-    override fun playWalkie(intent: android.content.Intent, receiverId: String) {
-        val audioId = intent.getStringExtra("notification_audio_id") ?: ""
-        val audioUrl = intent.getStringExtra("notification_audio_url") ?: return
-        val senderId = intent.getStringExtra("notification_sender_id") ?: ""
-        val createdAt = intent.getLongExtra("notification_created_at", 0L)
-        val duration = intent.getIntExtra("notification_duration", 0)
-
-        val voiceMessage = VoiceMessage(
-            id = audioId,
-            senderId = senderId,
-            receiverId = receiverId,
-            voiceUrl = audioUrl,
-            duration = duration,
-            isRead = false,
-            createdAt = createdAt
-        )
-        appScope.launch {
-            voiceRepository.emitMobileVoiceEvent(voiceMessage)
-        }
     }
 }

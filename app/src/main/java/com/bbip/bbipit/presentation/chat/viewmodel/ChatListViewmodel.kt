@@ -79,6 +79,10 @@ class ChatListViewModel @Inject constructor(
                         friendshipStatus = friend.friendshipStatus
                     )
                 }
+
+                val currentFriendUids = friendsList.map { it.uid }.toSet()
+                val keysToRemove = userInfos.keys.filter { it !in currentFriendUids }
+                keysToRemove.forEach { userInfos.remove(it) } // 삭제된 친구만 맵에서 제거
                 // 데이터 갱신 후 UI 리프레시
                 refreshChatList()
             }
