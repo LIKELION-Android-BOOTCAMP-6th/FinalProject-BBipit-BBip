@@ -13,7 +13,11 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,10 +66,18 @@ import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.createCustomMarkerBitmap
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.fontDefault
+import com.bbip.bbipit.core.ui.theme.online
+import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.core.ui.theme.send
+import com.bbip.bbipit.core.ui.theme.subBackground
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
@@ -102,7 +114,9 @@ fun MapScreen(
     val historyUiState by historyViewModel.uiState.collectAsState()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+//    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var isDrawerOpen by remember { mutableStateOf(false) }
+    var isDrawerRendering by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     var isHistorySheetOpen by remember { mutableStateOf(false) }
@@ -185,8 +199,17 @@ fun MapScreen(
         viewModel.fetchLiveStatusAndRefreshCache()
     }
 
-    LaunchedEffect(drawerState.isOpen) {
-        bottomBarViewModel.onUpdateDrawerShown(drawerState.isOpen)
+//    LaunchedEffect(drawerState.isOpen) {
+//        bottomBarViewModel.onUpdateDrawerShown(drawerState.isOpen)
+//    }
+    LaunchedEffect(isDrawerOpen) {
+        bottomBarViewModel.onUpdateDrawerShown(isDrawerOpen)
+    }
+    // 드로어 상태가 바뀔 때 렌더링 플래그를 동기화합니다.
+    LaunchedEffect(isDrawerOpen) {
+        if (isDrawerOpen) {
+            isDrawerRendering = true
+        }
     }
 
     LaunchedEffect(myStatus?.latitude, myStatus?.longitude) {
@@ -298,36 +321,40 @@ fun MapScreen(
                         .padding(top = 16.dp)
                 )
 
-                FilledIconButton(
-                    onClick = {
-                        isHistorySheetOpen = true
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .statusBarsPadding()
-                        .padding(end = 16.dp, bottom = 280.dp)
-                        .size(50.dp)
-                        .shadow(
-                            elevation = 6.dp,
-                            shape = RoundedCornerShape(14.dp),
-                            clip = false
-                        ),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = Color(0xFFF1F5F9),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_footprints_icon),
-                        contentDescription = "히스토리 바텀 시트 열기",
-                        modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF956AFC)
-                    )
-                }
+//                FilledIconButton(
+//                    onClick = {
+//                        isHistorySheetOpen = true
+//                    },
+//                    modifier = Modifier
+//                        .align(Alignment.BottomEnd)
+//                        .statusBarsPadding()
+//                        .padding(end = 16.dp, bottom = 280.dp)
+//                        .size(50.dp)
+//                        .shadow(
+//                            elevation = 6.dp,
+//                            shape = RoundedCornerShape(14.dp),
+//                            clip = false
+//                        ),
+//                    shape = RoundedCornerShape(14.dp),
+//                    colors = IconButtonDefaults.filledIconButtonColors(
+//                        containerColor = Color(0xFFF1F5F9),
+//                        contentColor = Color.White
+//                    )
+//                ) {
+//                    Icon(
+//                        painter = painterResource(id = R.drawable.ic_footprints_icon),
+//                        contentDescription = "히스토리 바텀 시트 열기",
+//                        modifier = Modifier.size(24.dp),
+//                        tint = Color(0xFF956AFC)
+//                    )
+//                }
 
                 FriendListToggleButton(
-                    onClick = { scope.launch { drawerState.open() } },
+                    onClick = {
+                        scope.launch {
+                            isDrawerOpen = true
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .statusBarsPadding()
@@ -335,7 +362,20 @@ fun MapScreen(
                 )
 
                 FilledIconButton(
-                    onClick = { viewModel.refreshCurrentLocationAndSync() },
+                    onClick = {
+                        viewModel.refreshCurrentLocationAndSync()
+                        uiState.myStatus?.let { my ->
+                            scope.launch {
+                                cameraPositionState.animate(
+                                    update = newLatLngZoom(
+                                        LatLng(my.latitude, my.longitude),
+                                        16f
+                                    ),
+                                    durationMs = 500
+                                )
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .statusBarsPadding()
@@ -344,64 +384,103 @@ fun MapScreen(
                         .shadow(elevation = 6.dp, shape = RoundedCornerShape(14.dp), clip = false),
                     shape = RoundedCornerShape(14.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = Color(
-                            0xFFF1F5F9
-                        )
+                        containerColor = Color.White
                     )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Autorenew,
                         contentDescription = "위치 업데이트",
                         modifier = Modifier.size(24.dp),
-                        tint = Color(0xFF956AFC)
+                        tint = primary
                     )
                 }
             }
 
-            if (drawerState.isOpen) {
+            if (isDrawerOpen || isDrawerRendering) {
                 Popup(
                     alignment = Alignment.TopStart,
-                    onDismissRequest = { scope.launch { drawerState.close() } },
+                    onDismissRequest = { isDrawerOpen = false },
                     properties = PopupProperties(
-                        focusable = true,
+                        focusable = isDrawerOpen,
                         dismissOnBackPress = true,
                         dismissOnClickOutside = true,
-                        clippingEnabled = false
+                        clippingEnabled = false,
+                        usePlatformDefaultWidth = false
                     )
                 ) {
+                    var startAnimate by remember { mutableStateOf(false) }
+                    LaunchedEffect(isDrawerOpen) {
+                        if (isDrawerOpen) {
+                            // 가드레일 적용: Popup Window가 안드로이드 서페이스에 안착할 시간을 계산 (대략 1~2프레임)
+                            kotlinx.coroutines.delay(30)
+                            startAnimate = true
+                        } else {
+                            startAnimate = false
+                        }
+                    }
+
+                    // 2. 뒷배경 딤 애니메이션
+                    val scrimColor by animateColorAsState(
+                        targetValue = if (startAnimate) Color.Black.copy(alpha = 0.4f) else Color.Transparent,
+                        animationSpec = tween(durationMillis = 300),
+                        label = "ScrimColor",
+                        finishedListener = {
+                            // 닫히는 애니메이션이 완전히 끝나면 팝업을 트리에서 제거
+                            if (!isDrawerOpen) {
+                                isDrawerRendering = false
+                            }
+                        }
+                    )
+
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.Transparent)
+                            .background(scrimColor)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
                             ) {
-                                scope.launch { drawerState.close() }
+                                isDrawerOpen = false
                             }
                     ) {
-                        FriendListDrawer(
-                            friends = uiState.friendsStatuses,
-                            selectedFriendUid = clickedFriendUid,
-                            onCloseClick = { scope.launch { drawerState.close() } },
-                            onFriendClick = { friend ->
-                                scope.launch {
-                                    clickedFriendUid = friend.uid
-                                    drawerState.close()
-                                    cameraPositionState.animate(
-                                        update = newLatLngZoom(
-                                            LatLng(
-                                                friend.latitude,
-                                                friend.longitude
-                                            ), 16f
+                        val closeDurationMillis = if (clickedFriendUid != null) 0 else 300
+                        // 왼쪽에서 오른쪽으로 슬라이드 인/아웃 되는 애니메이션 효과 추가
+                        AnimatedVisibility(
+                            visible = startAnimate,
+                            enter = slideInHorizontally(
+                                initialOffsetX = { -it },
+                                animationSpec = tween(durationMillis = 300)
+                            ),
+                            exit = slideOutHorizontally(
+                                targetOffsetX = { -it },
+                                animationSpec = tween(durationMillis = closeDurationMillis)
+                            )
+                        ) {
+                            FriendListDrawer(
+                                friends = uiState.friendsStatuses,
+                                selectedFriendUid = clickedFriendUid,
+                                onCloseClick = { isDrawerOpen = false },
+                                onFriendClick = { friend ->
+                                    scope.launch {
+                                        clickedFriendUid = friend.uid
+                                        isDrawerOpen = false
+                                        cameraPositionState.animate(
+                                            update = newLatLngZoom(
+                                                LatLng(friend.latitude, friend.longitude),
+                                                16f
+                                            )
                                         )
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .width(280.dp)
-                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(280.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {}
+                            )
+                        }
                     }
                 }
             }
@@ -428,7 +507,14 @@ fun MapScreen(
             )
 
             val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
-                uiState.friendsStatuses.find { it.uid == clickedFriendUid }
+                uiState.friendsStatuses.find { it.uid == clickedFriendUid && it.isSharing }
+            }
+
+            // 선택된 친구가 위치공유를 중단한 경우 clickedFriendUid null 처리
+            LaunchedEffect(clickedFriendUid, currentClickedFriend) {
+                if (clickedFriendUid != null && currentClickedFriend == null) {
+                    clickedFriendUid = null
+                }
             }
 
             currentClickedFriend?.let { friend ->
@@ -518,21 +604,38 @@ private fun MyMarker(myStatus: LiveStatus, profileImageUrl: String) {
     val context = LocalContext.current
     var myCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
 
-    val myMarkerState = remember(myStatus.uid) {
-        MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
-    }
+//    val myMarkerState = remember(myStatus.uid) {
+//        MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
+//    }
 
-    LaunchedEffect(myStatus.latitude, myStatus.longitude) {
-        myMarkerState.position = LatLng(myStatus.latitude, myStatus.longitude)
-    }
+//    LaunchedEffect(myStatus.latitude, myStatus.longitude) {
+//        myMarkerState.position = LatLng(myStatus.latitude, myStatus.longitude)
+//    }
 
     LaunchedEffect(profileImageUrl) {
         myCustomMarkerIcon =
             createCustomMarkerBitmap(context = context, imageUrl = profileImageUrl, isOnline = true)
     }
 
-    if (myCustomMarkerIcon != null) {
-        Marker(state = myMarkerState, icon = myCustomMarkerIcon, zIndex = 0.0f, onClick = { true })
+//    if (myCustomMarkerIcon != null) {
+//        Marker(state = myMarkerState, icon = myCustomMarkerIcon, zIndex = 0.0f, onClick = { true })
+//    }
+
+    // 비트맵 상태(null -> 완성)가 바뀔 때 구글 맵이 마커를 강제로 다시 그리도록 key 지정
+    key(myStatus.uid, myCustomMarkerIcon) {
+        if (myCustomMarkerIcon != null) {
+
+            val myMarkerState = remember(myStatus.uid, myStatus.latitude, myStatus.longitude) {
+                MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
+            }
+
+            Marker(
+                state = myMarkerState,
+                icon = myCustomMarkerIcon,
+                zIndex = 0.0f,
+                onClick = { true }
+            )
+        }
     }
 }
 
@@ -541,13 +644,13 @@ private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit
     val context = LocalContext.current
     var friendCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
 
-    val friendMarkerState = remember(friend.uid) {
-        MarkerState(position = LatLng(friend.latitude, friend.longitude))
-    }
+//    val friendMarkerState = remember(friend.uid) {
+//        MarkerState(position = LatLng(friend.latitude, friend.longitude))
+//    }
 
-    LaunchedEffect(friend.latitude, friend.longitude) {
-        friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
-    }
+//    LaunchedEffect(friend.latitude, friend.longitude) {
+//        friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
+//    }
 
     LaunchedEffect(friend.profileImageUrl, friend.isOnline) {
         friendCustomMarkerIcon = createCustomMarkerBitmap(
@@ -557,16 +660,23 @@ private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit
         )
     }
 
-    if (friendCustomMarkerIcon != null) {
-        Marker(
-            state = friendMarkerState,
-            icon = friendCustomMarkerIcon,
-            zIndex = 1.0f,
-            onClick = {
-                onFriendClick(friend)
-                true
+    // 프로필 비트맵이 완전히 준비되었을 때만 지도에 마커를 등록하고 업데이트 유발
+    key(friend.uid, friendCustomMarkerIcon) {
+        if (friendCustomMarkerIcon != null) {
+            val friendMarkerState = remember(friend.uid, friend.latitude, friend.longitude) {
+                MarkerState(position = LatLng(friend.latitude, friend.longitude))
             }
-        )
+
+            Marker(
+                state = friendMarkerState,
+                icon = friendCustomMarkerIcon,
+                zIndex = 1.0f,
+                onClick = {
+                    onFriendClick(friend)
+                    true
+                }
+            )
+        }
     }
 }
 
@@ -630,15 +740,14 @@ fun FriendListToggleButton(
             ),
         shape = buttonShape,
         colors = IconButtonDefaults.filledIconButtonColors(
-            containerColor = Color(0xFFF1F5F9),
-            contentColor = Color.White
+            containerColor = Color.White
         )
     ) {
         Icon(
             imageVector = Icons.Default.People,
             contentDescription = "친구 목록 열기",
             modifier = Modifier.size(24.dp),
-            tint = Color(0xFF956AFC)
+            tint = primary
         )
     }
 }
@@ -695,7 +804,7 @@ fun FriendProfileDialog(
                         indication = null
                     ) {},
                 shape = RoundedCornerShape(46.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F9)),
+                colors = CardDefaults.cardColors(containerColor = subBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
             ) {
                 Box(
@@ -706,7 +815,7 @@ fun FriendProfileDialog(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기",
-                        tint = Color(0xFF6C727F).copy(alpha = 0.6f),
+                        tint = Color.Gray.copy(alpha = 0.6f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .size(24.dp)
@@ -759,11 +868,7 @@ fun FriendProfileDialog(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(
-                                            color = if (friend.isOnline) Color(
-                                                0xFF00E676
-                                            ) else Color(
-                                                0xFF9E9E9E
-                                            ),
+                                            color = if (friend.isOnline) online else Color.Gray,
                                             shape = CircleShape
                                         )
                                 )
@@ -774,10 +879,9 @@ fun FriendProfileDialog(
 
                         Text(
                             text = friend.nickname,
+                            style = Typography.bodyMedium,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1E232C),
-                            letterSpacing = (-0.5).sp
                         )
 
                         Spacer(modifier = Modifier.height(14.dp))
@@ -786,7 +890,7 @@ fun FriendProfileDialog(
                             modifier = Modifier
                                 .fillMaxWidth(0.9f)
                                 .background(
-                                    color = Color(0xFFE2E4EE).copy(alpha = 0.6f),
+                                    color = Color.LightGray.copy(alpha = 0.3f),
                                     shape = RoundedCornerShape(24.dp)
                                 )
                                 .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -794,13 +898,11 @@ fun FriendProfileDialog(
                         ) {
                             Text(
                                 text = friend.status.ifEmpty { "등록된 한줄 메세지가 없습니다" },
+                                style = Typography.bodyMedium,
                                 fontSize = 13.sp,
-                                color = if (friend.status.isNotEmpty()) Color(0xFF5A6175) else Color(
-                                    0xFF94A3B8
-                                ),
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+//                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
@@ -817,8 +919,7 @@ fun FriendProfileDialog(
                                     .height(56.dp),
                                 shape = RoundedCornerShape(28.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color(0xFF1E232C)
+                                    containerColor = Color.White
                                 ),
                                 elevation = ButtonDefaults.buttonElevation(
                                     defaultElevation = 1.dp
@@ -827,8 +928,7 @@ fun FriendProfileDialog(
                                 Text(
                                     text = "채팅",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = Color(0xFF1E232C)
+                                    style = Typography.bodyMedium
                                 )
                             }
 
@@ -840,9 +940,9 @@ fun FriendProfileDialog(
                                     .shadow(2.dp, RoundedCornerShape(28.dp))
                                     .background(
                                         color = when {
-                                            voiceUiState.isRecording -> Color(0xFFFF5252)
-                                            voiceUiState.isUploading -> Color(0xFFFFA000)
-                                            else -> Color(0xFF9162FF)
+                                            voiceUiState.isRecording -> recording
+                                            voiceUiState.isUploading -> send
+                                            else -> primary
                                         },
                                         shape = RoundedCornerShape(28.dp)
                                     )
@@ -868,7 +968,6 @@ fun FriendProfileDialog(
                                                             System.currentTimeMillis()
                                                         val totalDuration =
                                                             ((endTime - startTime) / 1000).toInt()
-                                                                .coerceAtLeast(1)
                                                         voiceViewModel.stopRecording(
                                                             totalDuration
                                                         )
@@ -889,9 +988,8 @@ fun FriendProfileDialog(
                                         else -> "무전"
                                     },
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = Color.White,
-                                    textAlign = TextAlign.Center
+                                    style = Typography.bodyMedium,
+                                    color = Color.White
                                 )
                             }
                         }
@@ -955,7 +1053,7 @@ fun HistoryDetailDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White.copy(alpha = 0.1f)),
+                .background(subBackground.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Card(
@@ -983,7 +1081,7 @@ fun HistoryDetailDialog(
                                 imageVector = Icons.Default.LocationOn,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = Color(0xFF956AFC)
+                                tint = primary
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
@@ -1076,7 +1174,7 @@ fun LocationSharingToggleButton(
 ) {
     // 상태 변경 시 부드러운 색상 전환 효과 애니메이션
     val indicatorColor by animateColorAsState(
-        targetValue = if (isSharingEnabled) Color(0xFF00E676) else Color(0xFF94A3B8),
+        targetValue = if (isSharingEnabled) online else Color.Gray,
         label = "IndicatorColor"
     )
 
@@ -1105,9 +1203,10 @@ fun LocationSharingToggleButton(
             // 2. 상태 텍스트
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
+                style = Typography.bodyMedium,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSharingEnabled) Color(0xFF1E232C) else Color(0xFF6C727F),
+                color = if (isSharingEnabled) fontDefault else Color.DarkGray,
                 letterSpacing = (-0.3).sp
             )
         }

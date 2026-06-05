@@ -54,6 +54,9 @@ import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.presentation.base.ShowToast
+import com.bbip.bbipit.presentation.notification.viewmodel.NotificationViewModel
 
 /**
  * 채팅방 UI 데이터 모델
@@ -94,7 +97,9 @@ data class ChatDetailUiState(
 @Composable
 fun ChatDetailScreen(
     navController: NavController,
-    viewModel: ChatDetailViewModel = hiltViewModel() // ViewModel 주입
+    viewModel: ChatDetailViewModel = hiltViewModel(), // ViewModel 주입
+    notificationViewModel: NotificationViewModel = hiltViewModel() //NotificationViewModel
+
 ) {
     // 인자 추출
 //    val route = navController.currentBackStackEntry?.toRoute<Routes.ChatRoom>()
@@ -111,9 +116,11 @@ fun ChatDetailScreen(
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    val grouped = uiState.messages.groupBy { message ->
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
-        sdf.format(java.util.Date(message.sentAt))
+    val grouped = remember(uiState.messages) {
+        uiState.messages.groupBy { message ->
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+            sdf.format(java.util.Date(message.sentAt))
+        }
     }
 
     // uiState.errorMessage가 null이 아닐 때만
@@ -140,7 +147,10 @@ fun ChatDetailScreen(
     LaunchedEffect(roomId) {
         viewModel.loadChatRoomData(roomId)
         viewModel.markAsRead(roomId)
+        // 알림 관련 추가 — 해당 roomId의 DM 알림 읽음 처리
+        notificationViewModel.markDmNotificationsAsRead(roomId)
     }
+
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
 
@@ -180,7 +190,12 @@ fun ChatDetailScreen(
                         .pointerInput(Unit) {
                             detectTapGestures(onTap = { focusManager.clearFocus() })
                         },
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 20.dp,
+                        bottom = 20.dp // 리스트 최하단에 충분한 여백 확보
+                    ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     grouped.forEach { (dateKey, messagesInDate) ->
@@ -230,7 +245,6 @@ fun ChatDetailScreen(
                                 modifier = Modifier.padding(vertical = 18.dp),
                                 textAlign = TextAlign.Center,
                                 style = Typography.bodySmall,
-                                color = Color.Gray
                             )
                         }
                     } else {
@@ -306,7 +320,7 @@ fun ChatDetailHeader(navController: NavController, uiState: ChatDetailUiState) {
                             .size(12.dp)
                             .background(
                                 // 💡 이제 isOnline 변수를 여기에서 사용합니다.
-                                color = if (isOnline) online else Color.LightGray,
+                                color = if (isOnline) online else Color.Gray,
                                 shape = CircleShape
                             )
                             .border(2.dp, Color.White, CircleShape)
@@ -345,8 +359,8 @@ fun MessageBubble(
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
     val alignment = if (message.isMine) Alignment.End else Alignment.Start
-    val bubbleColor = if (message.isMine) primary else Color.White.copy(alpha = 0.9f)
-    val textColor = if (message.isMine) Color.White else Color.Black
+    val bubbleColor = if (message.isMine) primary else Color.White
+    val textColor = if (message.isMine) Color.White else fontDefault
 
     var showMenu by remember { mutableStateOf(false) }
 
@@ -375,7 +389,7 @@ fun MessageBubble(
                             Icon(
                                 imageVector = androidx.compose.material.icons.Icons.Default.Refresh,
                                 contentDescription = "다시 전송",
-                                tint = Color.Red
+                                tint = recording
                             )
                         }
 
@@ -414,8 +428,7 @@ fun MessageBubble(
                         bottomStart = if (message.isMine) 24.dp else 4.dp,
                         bottomEnd = if (message.isMine) 4.dp else 24.dp
                     ),
-                    color = bubbleColor,
-                    shadowElevation = 6.dp
+                    color = bubbleColor
                 ) {
                     Text(
                         text = message.text,
@@ -437,7 +450,7 @@ fun MessageBubble(
                         text = {
                             Text(
                                 "복사하기",
-                                style = Typography.labelMedium,
+                                style = Typography.labelSmall,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 13.sp,
                                 color = fontDefault,
@@ -469,7 +482,7 @@ fun MessageBubble(
     }
     if (showCopyToast) {
         // 공통 컴포넌트 호출
-        com.bbip.bbipit.presentation.base.ShowToast(message = "메시지가 복사되었습니다.")
+        ShowToast(message = "메시지가 복사되었습니다.")
         LaunchedEffect(Unit) {
             showCopyToast = false
         }
@@ -518,7 +531,14 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
             // OutlinedTextField 적용
             OutlinedTextField(
                 value = inputText,
-                onValueChange = { inputText = it },
+                onValueChange = { newValue ->
+                    // 입력된 값이 300자 이하일 때만 상태를 업데이트
+                    inputText = if (newValue.length > 300) {
+                        newValue.take(300)
+                    } else {
+                        newValue
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     // heightIn을 제거하거나 min 높이만 설정해서 유연하게 늘어나도록
@@ -570,15 +590,15 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
 //                        }
 //                    }
 //                },
-//                trailingIcon = {
-//                    IconButton(onClick = { /* 음성 인식 로직 */ }) {
-//                        Icon(
-//                            imageVector = Icons.Default.Mic,
-//                            contentDescription = "음성",
-//                            tint = Color.Gray
-//                        )
-//                    }
-//                },
+                trailingIcon = {
+                    Text(
+                        text = "${inputText.length}/300",
+                        color = if (inputText.length == 300) recording else Color.DarkGray,
+                        fontSize = 12.sp,
+                        style = Typography.labelSmall,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White.copy(alpha = 0.9f),
                     unfocusedContainerColor = Color.White.copy(alpha = 0.9f),
@@ -628,7 +648,6 @@ fun DateHeader(date: String) {
                 text = date,
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                 style = Typography.bodySmall,
-                color = Color.Gray
             )
         }
     }

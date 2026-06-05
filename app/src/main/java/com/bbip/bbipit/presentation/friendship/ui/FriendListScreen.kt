@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.friendship.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,6 +55,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.input.KeyboardType
+import com.bbip.bbipit.core.ui.theme.recording
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 
 @Composable
@@ -100,8 +102,7 @@ fun FriendListScreen(
         ) {
             Text(
                 text = "친구 목록",
-                fontSize = 32.sp,
-                style = Typography.titleLarge,
+                style = Typography.bodyLarge,
                 modifier = Modifier.weight(1f)
             )
 
@@ -132,9 +133,8 @@ fun FriendListScreen(
                 Text(
                     text = "친구가 없습니다.\n친구 추가를 해보세요!",
                     style = Typography.bodyMedium,
-                    fontSize = 16.sp,
                     color = Color.Gray,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    textAlign = TextAlign.Center
                 )
             }
         } else {
@@ -222,7 +222,7 @@ fun FriendRequestCard(count: Int, onClick: () -> Unit) {
         ) {
             Icon(Icons.Default.PersonAdd, contentDescription = null, tint = primary)
             Spacer(modifier = Modifier.width(12.dp))
-            Text("친구 요청", style = Typography.bodyMedium,fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("친구 요청", style = Typography.bodyMedium,fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.weight(1f))
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -246,7 +246,7 @@ fun FriendListItem(
     friend: Friend,
     onMessageClick: () -> Unit,
     onDelete: () -> Unit) {
-    android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}'")
+    android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}', 현활상태: '${friend.isOnline}")
 
     val scope = rememberCoroutineScope()
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -285,7 +285,7 @@ fun FriendListItem(
         state = dismissState,
         enableDismissFromStartToEnd = false,
         backgroundContent = {
-            val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) Color.Red else Color.Transparent
+            val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) recording else Color.Transparent
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -357,11 +357,10 @@ fun FriendListItem(
 
                     // 닉네임 및 상태 메시지 (Weight를 주어 버튼 공간 확보)
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(friend.nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(friend.nickname, style = Typography.bodyMedium)
                         Text(
                             text = friend.status.ifBlank { "상태 메시지가 없습니다." },
-                            fontSize = 13.sp,
-                            color = Color.Gray
+                            style = Typography.bodySmall
                         )
                     }
 
@@ -407,7 +406,7 @@ fun AddFriendDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Text("친구 추가", style = Typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text("친구 추가", style = Typography.bodyLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 7.dp))
                 Text("친구의 UID를 입력하여\n새로운 인연을 찾아보세요.", color = Color.Gray, textAlign = TextAlign.Center, style = Typography.bodyMedium)
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -415,17 +414,30 @@ fun AddFriendDialog(
                 OutlinedTextField(
                     value = uid,
                     onValueChange = { uid = it },
-                    placeholder = { Text("UID 입력 (예: 12345678)", style = Typography.bodyMedium, fontWeight = FontWeight.Bold) },
+                    placeholder = { Text(
+                        text = "UID 입력 (예: 12345678)",
+                        style = Typography.bodySmall.copy(fontSize = 18.sp),
+                        // 여기서 y축으로 원하는 만큼(예: 2.dp) 내립니다
+                        modifier = Modifier.offset(y = 7.dp))
+                    },
                     shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Row {
-                    TextButton(onClick = onDismiss) { Text("취소", style = Typography.bodySmall, color = Color.Gray, fontWeight = FontWeight.Bold) }
+                    Button(onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        border = BorderStroke(0.3.dp, color = Color.LightGray),
+                        modifier = Modifier.padding(end = 3.dp),
+                        elevation = ButtonDefaults.buttonElevation(0.6.dp)
+                    ) {
+                        Text("취소", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                    }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Button(onClick = { onConfirm(uid) }, colors = ButtonDefaults.buttonColors(containerColor = primary)) {
+                    Button(onClick = { onConfirm(uid) }, colors = ButtonDefaults.buttonColors(containerColor = primary),
+                        elevation = ButtonDefaults.buttonElevation(3.dp)) {
                         Text("요청 보내기", style = Typography.bodySmall, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }

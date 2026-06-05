@@ -71,9 +71,9 @@ class VoiceRepositoryImpl @Inject constructor(
     /**
      * 수신된 무전 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
      */
-    override fun observeIncomingVoice(myUid: String): Flow<VoiceMessage> {
+    override fun observeIncomingVoice(myUid: String, startTimestamp: Long): Flow<VoiceMessage> {
         // 데이터 수신 후 도메인 엔티티로 변환
-        return voiceRemoteDataSource.observeIncomingVoice(myUid).map { (id, dto, isInitial) ->
+        return voiceRemoteDataSource.observeIncomingVoice(myUid, startTimestamp).map { (id, dto, isInitial) ->
             VoiceMessage(
                 id = id,
                 senderId = dto.senderId,
@@ -91,10 +91,10 @@ class VoiceRepositoryImpl @Inject constructor(
     /**
      * 음성 파일을 스토리지에 업로드하는 함수
      */
-    override suspend fun uploadVoiceFile(localFileUri: android.net.Uri): Result<String> {
+    override suspend fun uploadVoiceFile(myUid: String, localFileUri: android.net.Uri): Result<String> {
         return try {
             // 파일 업로드 후 다운로드 URL 획득
-            val downloadUrl = voiceRemoteDataSource.uploadVoiceFile(localFileUri)
+            val downloadUrl = voiceRemoteDataSource.uploadVoiceFile(myUid, localFileUri)
             Result.Success(downloadUrl)
         } catch (e: Exception) {
             // 업로드 실패 예외 처리

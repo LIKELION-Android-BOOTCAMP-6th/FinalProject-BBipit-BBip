@@ -55,7 +55,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.Lifecycle
 import com.bbip.bbipit.core.base.LifeCycleManager
-import com.bbip.bbipit.presentation.friendship.viewmodel.FriendListViewModel
+import com.bbip.bbipit.presentation.base.NetworkWarningBanner
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -156,8 +156,6 @@ class MainActivity : ComponentActivity() {
 
             val voicePlayerViewModel: VoicePlayerViewModel = hiltViewModel()
             val chatListViewModel: ChatListViewModel = hiltViewModel()
-            val friendListViewModel: FriendListViewModel = hiltViewModel()
-            val requestCount by friendListViewModel.requestCount.collectAsState()
             val notificationViewModel: NotificationViewModel = hiltViewModel()
 
             val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
@@ -171,6 +169,15 @@ class MainActivity : ComponentActivity() {
 
                 // 미독 알림 개수(unreadCount) 존재 여부 실시간 확인 플래그
                 val hasUnreadChat = chatUiState.chatList.any { it.unreadCount > 0 }
+
+                val notification by notificationViewModel.notification.collectAsState()
+                val hasUnreadNotification = notification.any { notification ->
+                    when (notification.type) {
+                        "WALKIE" -> !notification.isRead && !notification.isPlayed && !notification.isExpired
+                        else -> !notification.isRead
+                    }
+                }
+                Log.d("MainActivity", "알림 목록: ${notification.size}건, 미읽음: ${notification.count { !it.isRead }}건")
 
                 // 바텀바 노출 여부 설정
                 val isMainRoute = navBackStackEntry?.destination?.let { destination ->
@@ -263,14 +270,16 @@ class MainActivity : ComponentActivity() {
                             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
                             exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
                         ) {
-                            BottomBar(navController, hasUnreadChat = hasUnreadChat, hasFriendRequest = requestCount > 0 )
+                            BottomBar(
+                                navController,
+                                hasUnreadChat = hasUnreadChat,
+                                hasUnreadNotification = hasUnreadNotification)
                         }
                     }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-//                            .padding(innerPadding)
                     ) {
                         // 배너 클릭 진입 시 알림 처리
                         LaunchedEffect(pendingNotificationId) {
@@ -303,6 +312,11 @@ class MainActivity : ComponentActivity() {
                                 .padding(
                                     bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else 100.dp
                                 )
+                        )
+
+                        NetworkWarningBanner(
+                            showBottomBar = showBottomBar,
+                            innerPadding = innerPadding
                         )
                     }
                 }

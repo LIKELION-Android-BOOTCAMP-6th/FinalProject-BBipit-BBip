@@ -48,9 +48,9 @@
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
 
-                <data android:host="*" android:scheme="wear" android:pathPrefix="/mark_voice_read" />
-                <data android:host="*" android:scheme="wear" android:pathPrefix="/check_phone_status" />
-                <data android:host="*" android:scheme="wear" android:pathPrefix="/request_locations" />
+                <data android:host="*" android:scheme="wear" android:path="/mark_voice_read" />
+                <data android:host="*" android:scheme="wear" android:path="/check_phone_status" />
+                <data android:host="*" android:scheme="wear" android:path="/request_locations" />
             </intent-filter>
         </service>
         <!-- fcm 토큰 자동 갱신 서비스-->
@@ -69,7 +69,9 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Bbipit">
+            android:theme="@style/Theme.Bbipit"
+            android:screenOrientation="portrait"
+            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.friendship.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -27,7 +28,6 @@ import com.bbip.bbipit.core.ui.theme.background
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.Typography
-import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.friendship.viewmodel.FriendRequestViewModel
@@ -68,7 +68,7 @@ fun FriendRequestScreen(
             IconButton(onClick = { navController.popBackStack() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
             }
-            Text("친구 요청 수락", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("친구 요청 수락", fontSize = 24.sp, style = Typography.bodyLarge)
         }
 
 
@@ -81,7 +81,7 @@ fun FriendRequestScreen(
             ) {
                 Text(
                     text = "친구 요청이 없습니다.",
-                    fontSize = 16.sp,
+                    style = Typography.bodyMedium,
                     color = Color.Gray
                 )
             }
@@ -150,13 +150,17 @@ fun FriendRequestItem(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(nickname, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("친구 요청을 보냈습니다.", fontSize = 12.sp, color = Color.Gray)
+                Text(nickname, fontWeight = FontWeight.Bold, style = Typography.bodyMedium)
+                Text("친구 요청을 보냈습니다.", style = Typography.bodySmall, fontWeight = FontWeight.ExtraLight, fontSize = 14.sp)
             }
 
-            // 버튼들은 Row 안에서 나란히 배치
-            TextButton(onClick = onReject) {
-                Text("거절", style = Typography.bodyMedium, color = fontDefault)
+            Button(onClick = onReject,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(0.3.dp, color = Color.LightGray),
+                modifier = Modifier.padding(end = 3.dp)
+            ) {
+                Text("거절", style = Typography.bodyMedium)
             }
             Button(
                 onClick = onAccept,

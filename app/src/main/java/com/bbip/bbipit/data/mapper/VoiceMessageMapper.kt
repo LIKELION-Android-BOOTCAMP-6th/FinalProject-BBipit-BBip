@@ -20,7 +20,6 @@ fun Map<*, *>.toVoiceMessageDto(): VoiceMessageDto {
         duration = (this["duration"] as? Number)?.toInt() ?: 0,
         receiverId = this["receiver_id"] as? String ?: "",
         createdAt = timestamp,
-        isRead = this["is_read"] as? Boolean ?: false,
         isInitial = this["is_initial"] as? Boolean ?: false
     )
 }

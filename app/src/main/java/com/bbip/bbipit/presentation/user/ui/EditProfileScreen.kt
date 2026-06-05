@@ -33,10 +33,13 @@ import androidx.navigation.toRoute
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.PurpleGrey80
+import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.fontDefault
 import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.recording
 import com.bbip.bbipit.core.ui.theme.subBackground
+import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.base.UserStatusType
 
@@ -46,7 +49,8 @@ data class EditProfileUiState(
     val status: String = "",
     val profileImageUrl: String = "",
     val isBottomSheetVisible: Boolean = false,
-    val isNicknameError: Boolean = false // 예외처리 위함 공백일 경우
+    val isNicknameError: Boolean = false, // 예외처리 위함 공백일 경우
+    val isLoading: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,6 +70,7 @@ fun EditProfileScreen(
     val args = remember(backStackEntry) { backStackEntry?.toRoute<Routes.EditProfile>() }
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isOverInput by remember(uiState.nickname) { mutableStateOf(uiState.nickname.length > 12) } //닉네임 글자수 제한
 
     val context = LocalContext.current
 
@@ -117,7 +122,7 @@ fun EditProfileScreen(
                         text = "프로필 편집",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
-                        color = fontDefault
+                        style = Typography.bodyMedium
                     )
                 },
                 navigationIcon = {
@@ -208,7 +213,7 @@ fun EditProfileScreen(
                     Text(
                         text = "닉네임",
                         fontSize = 13.sp,
-                        color = if (uiState.isNicknameError) Color.Red else PurpleGrey80,
+                        color = if (uiState.isNicknameError) recording else PurpleGrey80,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
@@ -217,23 +222,33 @@ fun EditProfileScreen(
                         onValueChange = { viewModel.updateNickname(it) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
-                        isError = uiState.isNicknameError,
+                        isError = uiState.isNicknameError || isOverInput,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White,
                             unfocusedContainerColor = Color.White,
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,
-                            errorBorderColor = Color.Red // 에러 시 테두리 색상
+                            errorBorderColor = recording // 에러 시 테두리 색상
                         ),
-                        singleLine = true
+                        singleLine = true,
+                        trailingIcon = {
+                            Text(
+                                text = "${uiState.nickname.length}/12",
+                                color = if (isOverInput) recording else Color.DarkGray,
+                                fontSize = 12.sp,
+                                style = Typography.labelSmall,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                        }
                     )
 
                     // 경고 메시지 표시
-                    if (uiState.isNicknameError) {
+                    if (uiState.isNicknameError || isOverInput ) {
                         Text(
-                            text = "닉네임을 입력하세요.",
-                            color = Color.Red,
+                            text = if(isOverInput) "닉네임은 최대 12글자 입니다." else "닉네임을 입력하세요.",
+                            color = recording,
                             fontSize = 12.sp,
+                            style = Typography.bodySmall,
                             modifier = Modifier.padding(start = 4.dp, top = 4.dp)
                         )
                     }
@@ -247,7 +262,7 @@ fun EditProfileScreen(
                         text = "상태 메시지",
                         fontSize = 13.sp,
                         color = fontDefault,
-                        fontWeight = FontWeight.Medium,
+                        style = Typography.bodyMedium,
                         modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                     )
                     Row(
@@ -262,8 +277,7 @@ fun EditProfileScreen(
                     ) {
                         Text(
                             text = uiState.status,
-                            fontSize = 16.sp,
-                            color = fontDefault
+                            style = Typography.bodyMedium
                         )
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
@@ -279,7 +293,7 @@ fun EditProfileScreen(
                 onClick = {
                     viewModel.saveProfileChanges(selectedImageUri)
                 },
-                enabled = uiState.nickname.isNotBlank(),
+                enabled = uiState.nickname.isNotBlank() && !isOverInput,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -293,10 +307,13 @@ fun EditProfileScreen(
                 Text(
                     text = "변경사항 저장",
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    style = Typography.bodyMedium
                 )
             }
+        }
+        if (uiState.isLoading){
+            LoadingBox()
         }
     }
 

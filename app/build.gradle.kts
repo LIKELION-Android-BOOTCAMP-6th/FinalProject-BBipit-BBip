@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.firebase.appcheck.debug)
     implementation(libs.androidx.runtime)
+    implementation(libs.play.services.auth)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -104,8 +105,8 @@ dependencies {
     implementation("com.google.firebase:firebase-storage")
     //functions
     implementation("com.google.firebase:firebase-functions")
-//    realtime-database
-//    implementation("com.google.firebase:firebase-database")
+    //    realtime-database
+    implementation(libs.firebase.database)
 
     //coil
     implementation(libs.coil)

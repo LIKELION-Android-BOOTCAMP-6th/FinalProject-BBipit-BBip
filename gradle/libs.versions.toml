@@ -46,6 +46,7 @@ firebaseAppcheckDebug = "19.0.2"
 material3Android = "1.4.0"
 composeMaterialVersion = "1.6.2"
 runtime = "1.11.2"
+playServicesAuth = "21.6.0"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -61,6 +62,7 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+firebase-database = { module = "com.google.firebase:firebase-database" }
 
 # Geofire
 firebase-geofire = { module = "com.firebase:geofire-android-common", version.ref = "geofire" }
@@ -109,6 +111,7 @@ firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appc
 androidx-compose-material3-android = { group = "androidx.compose.material3", name = "material3-android", version.ref = "material3Android" }
 compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "composeMaterialVersion" }
 androidx-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "runtime" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

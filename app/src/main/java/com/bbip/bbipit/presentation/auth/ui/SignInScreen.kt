@@ -1,9 +1,5 @@
 package com.bbip.bbipit.presentation.auth.ui
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,12 +12,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +52,7 @@ import com.bbip.bbipit.domain.type.LoginType
 import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInViewModel
+import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 
@@ -67,7 +68,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             uiState.email.isNotBlank() && uiState.password.isNotBlank()
         }
     }
-
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -82,9 +83,10 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(background)) {
+    Box(modifier = Modifier.fillMaxSize().background(background).imePadding().navigationBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize().padding(30.dp)
             .background(background)
+            .verticalScroll(scrollState)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -99,10 +101,8 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 modifier = Modifier.size(120.dp).padding(top = 20.dp)
             )
             Text("BBip-It", style = Typography.titleLarge)
-            Text("삐빗- 심장이 반응하는 거리", style = Typography.bodySmall)
+            Text("삐빗- 심장이 반응하는 거리", style = Typography.titleSmall)
             Spacer(modifier = Modifier.height(13.dp))
-//            Text("이메일", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
-            Log.d("AuthUIDebug", "Compose가 그린 에러 상태: ${uiState.emailError}")
             InputField(
                 value = uiState.email,
                 onValueChange = { viewModel.onUpdateEmail(it) },
@@ -110,7 +110,6 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                 keyboardType = KeyboardType.Email,
                 errorText = uiState.emailError
             )
-//            Text("비밀번호", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
             InputField(
                 value = uiState.password,
                 onValueChange = { viewModel.onUpdatePassword(it) },
@@ -123,11 +122,11 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             Button({viewModel.signIn()},
                 enabled = isAllEntered,
                 colors = ButtonDefaults.buttonColors(primary, disabledContainerColor = Color.Gray),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                 shape = RoundedCornerShape(60.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
-                Text("로그인", style = Typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                Text("로그인", style = Typography.bodyLarge, color = Color.White)
             }
 
             Row(modifier = Modifier.fillMaxWidth(),
@@ -149,7 +148,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             }
 
             Row() {
-                Text("계정이 없으신가요? ", style = Typography.bodySmall)
+                Text("계정이 없으신가요? ", style = Typography.bodySmall, fontWeight = FontWeight.Light)
                 Text("회원가입",
                     style = Typography.bodySmall,
                     color = primary,
@@ -166,5 +165,20 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
     uiState.error?.let {
         ShowToast(it)
         viewModel.onUpdateToast()
+    }
+    if (uiState.isDuplicatedInfoDialog){
+        ConfirmDialog(
+            text = "다른 기기에서 로그인 하고 있습니다!",
+            semiText = "현재 기기로 사용하시겠습니까?",
+            onDismiss = {
+                viewModel.continueLogin(false)
+                viewModel.onUpdateDuplicatedInfoDialog(false)
+            },
+            onConfirm = {
+                viewModel.continueLogin(true)
+                viewModel.onUpdateDuplicatedInfoDialog(false)
+            }
+
+        )
     }
 }

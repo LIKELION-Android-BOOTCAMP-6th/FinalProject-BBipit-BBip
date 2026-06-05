@@ -37,6 +37,7 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
         val voiceMessageMap = resultMap?.get("voiceMessage") as? Map<*, *>
             ?: throw Exception("음성 메시지 데이터를 찾을 수 없습니다.")
 
+        Log.d("VoiceRemoteDataSourceImpl",voiceMessageMap.toVoiceMessageDto().toString())
         return voiceMessageMap.toVoiceMessageDto()
     }
 
@@ -56,14 +57,11 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     /**
      * 수신된 음성 메시지를 실시간으로 구독(관찰)하는 Flow 생성 함수
      */
-    override fun observeIncomingVoice(myUid: String): Flow<Triple<String, VoiceMessageDto, Boolean>> = callbackFlow {
+    override fun observeIncomingVoice(myUid: String, startTimestamp: Long): Flow<Triple<String, VoiceMessageDto, Boolean>> = callbackFlow {
         val query = firestore.collection("VoiceMessages")
             .document(myUid)
             .collection("Messages")
             .orderBy("sent_at", Query.Direction.ASCENDING)
-
-        // 첫 번째 Snapshot Callback 여부를 추적하는 로컬 상태값
-        var isInitialCallback = true
 
         val subscription = query.addSnapshotListener { snapshot, e ->
             if (e != null) {
@@ -73,23 +71,21 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
 
             if (snapshot == null) return@addSnapshotListener
 
-            // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
-            val isCurrentInitial = isInitialCallback
-            isInitialCallback = false
-
             // 새로 추가된 문서만 필터링하여 전달
             snapshot.documentChanges.forEach { dc ->
                 if (dc.type == DocumentChange.Type.ADDED) {
                     val dto = dc.document.toObject(VoiceMessageDto::class.java)
                     if (dto != null && dto.voiceUrl.isNotEmpty()) {
-                        trySend(Triple(dc.document.id, dto, isCurrentInitial))
-                        Log.d("Try Send", isCurrentInitial.toString())
+                        // Firestore의 Timestamp를 밀리초(ms) 단위로 변환
+                        val messageSentAt = dto.createdAt?.toDate()?.time ?: 0L
+
+                        // 메시지 송신 시간이 서비스 시작 시간보다 이후일 때만 '신규 무전(isInitial = false)'으로 판정
+                        val isInitial = messageSentAt <= startTimestamp
+
+                        trySend(Triple(dc.document.id, dto, isInitial))
+                        Log.d("VoiceRemoteDataSource", "MessageId: ${dc.document.id}, IsInitial: $isInitial")
                     }
                 }
-            }
-
-            if (!snapshot.isEmpty) {
-                isInitialCallback = false
             }
         }
         awaitClose { subscription.remove() }
@@ -98,8 +94,8 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     /**
      * 음성 파일을 스토리지에 업로드하는 함수
      */
-    override suspend fun uploadVoiceFile(localFileUri: android.net.Uri): String {
-        val fileName = "voices/${UUID.randomUUID()}.m4a"
+    override suspend fun uploadVoiceFile(myUid: String, localFileUri: android.net.Uri): String {
+        val fileName = "voices/$myUid/${UUID.randomUUID()}.m4a"
         val voiceRef = storage.reference.child(fileName)
         return voiceRef.putFile(localFileUri).continueWithTask { task ->
             if (!task.isSuccessful) task.exception?.let { throw it }

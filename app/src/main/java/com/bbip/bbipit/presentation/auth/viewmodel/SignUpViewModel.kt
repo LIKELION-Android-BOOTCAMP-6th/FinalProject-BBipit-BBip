@@ -31,7 +31,9 @@ data class SignUpUiState(
     val isNotiShown: Boolean = false,
     val emailError: String? = null,
     val pwError: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val checkPwError: String? = null,
+    val isOver14: Boolean = false
 
 )
 
@@ -68,6 +70,7 @@ class SignUpViewModel @Inject constructor(
     fun signUp(){
         viewModelScope.launch {
             onUpdateLoading(true)
+            validatePassword(_uiState.value.checkPw)
             clearErrorMessage()
             if (!isValidEmail(_uiState.value.email)){
                 onUpdateEmailError("이메일 형식이 일치하지 않습니다.")
@@ -120,6 +123,20 @@ class SignUpViewModel @Inject constructor(
     fun onUpdateNotiShown(value: Boolean) = _uiState.update { it.copy(isNotiShown = value) }
     private fun onUpdatePwError(value: String) = _uiState.update { it.copy(pwError = value) }
     private fun onUpdateEmailError(value: String) = _uiState.update { it.copy(emailError = value) }
+    private fun onUpdateCheckPwError(value: String?) = _uiState.update { it.copy(checkPwError = value) }
+    fun onUpdateOver14(value: Boolean) = _uiState.update { it.copy(isOver14 = value) }
+    fun validatePassword(value: String): Boolean{
+        return if (_uiState.value.password != value) {
+            onUpdateCheckPwError("비밀번호가 일치하지 않습니다. ")
+            onUpdatePwError("비밀번호가 일치하지 않습니다.")
+            false
+        }else{
+            onUpdateCheckPwError(null)
+            onUpdatePwError("")
+            true
+        }
+
+    }
 
     fun clearErrorMessage() = _uiState.update { it.copy(emailError = null, pwError = null) }
     fun moveToSignIn(){
@@ -127,9 +144,17 @@ class SignUpViewModel @Inject constructor(
             _event.send(SignUpEvent.NavigateToSignIn)
         }
     }
-    private fun isValidPassword(password: String): Boolean {
-        val regex = Regex("^(?=.*[a-z])(?=.*[0-9])(?=.*[!@#\$%^&*()_+\\-=]).{8,}$")
-        return regex.matches(password)
+    fun isValidPassword(password: String): Boolean {
+        val specChars = """!@#$%^&*()_+\-=\[\]{};':",.<>/?~`|\\""" //특수문자
+
+        val hasLowerCase = "(?=.*[a-z])"
+        val hasDigit = "(?=.*[0-9])"
+        val hasSpecialChar = "(?=.*[$specChars])"
+        val allowedCharsAndLength = "[a-zA-Z0-9$specChars]{8,16}"
+
+        val regExp = "^$hasLowerCase$hasDigit$hasSpecialChar$allowedCharsAndLength$"
+
+        return password.matches(regExp.toRegex())
     }
     private fun isValidEmail(email: String): Boolean
     = email.isNotBlank() && Patterns.EMAIL_ADDRESS.matcher(email).matches()

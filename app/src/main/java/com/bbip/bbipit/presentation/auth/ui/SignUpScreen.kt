@@ -8,21 +8,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -38,25 +43,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.bbip.bbipit.core.navigation.Routes
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.domain.type.TermsType
 import com.bbip.bbipit.presentation.auth.ui.components.AgreeDialog
 import com.bbip.bbipit.presentation.auth.ui.components.InputField
-import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignUpEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignUpViewModel
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.LoadingBox
-import com.bbip.bbipit.presentation.base.ShowToast
 
 
 @Composable
@@ -70,9 +71,10 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
         }
     }
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
 
     var showAgreeDialog by remember { mutableStateOf(false) }
-    var currentTermsType by remember { mutableStateOf(TermsType.PRIVACY) }
+    var currentTermsType by remember { mutableStateOf(TermsType.SERVICE) }
     var isAgreed by remember { mutableStateOf(false) }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -80,15 +82,16 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
     val isAllEntered by remember {
         derivedStateOf {
             uiState.name.isNotBlank() && uiState.email.isNotBlank() &&
-                    uiState.password.isNotBlank() && (uiState.password == uiState.checkPw)
-                    && isAgreed
+                    uiState.password.isNotBlank() && uiState.password.isNotBlank() && uiState.checkPw.isNotBlank()
+                    && isAgreed && uiState.isOver14
         }
     }
 
-    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding(),
+    Scaffold(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding().navigationBarsPadding(),
         containerColor = background) {
         innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp)
+        Column(modifier = Modifier.padding(innerPadding).padding(vertical = 35.dp, horizontal = 23.dp).fillMaxHeight()
+            .verticalScroll(scrollState)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
             indication = null
@@ -118,13 +121,14 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             Text("BBip-It", style = Typography.titleLarge)
             Text("정보를 입력하고 새로 BBip-It을 시작해 보세요.", style = Typography.bodySmall)
 
-            Spacer(Modifier.height(17.dp))
+            Spacer(Modifier.height(13.dp))
 
             InputField(
                 value = uiState.name,
                 onValueChange = { viewModel.onUpdateName(it) },
                 placeholder = "닉네임",
-                keyboardType = KeyboardType.Text
+                keyboardType = KeyboardType.Text,
+                maxLength = 12
             )
 
             InputField(
@@ -138,7 +142,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             InputField(
                 value = uiState.password,
                 onValueChange = { viewModel.onUpdatePassword(it) },
-                placeholder = "비밀번호, 소문자+특수문자 혼합 8자리 이상",
+                placeholder = "비밀번호, 소문자+특수문자 혼합 8자리 이상 16자리 이하",
                 isPassword = true,
                 keyboardType = KeyboardType.Password,
                 errorText = uiState.pwError
@@ -146,10 +150,14 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
 
             InputField(
                 value = uiState.checkPw,
-                onValueChange = { viewModel.onUpdateCheckPw(it) },
+                onValueChange = {
+                    viewModel.onUpdateCheckPw(it)
+                    viewModel.validatePassword(it)
+                },
                 placeholder = "비밀번호 확인",
                 isPassword = true,
-                keyboardType = KeyboardType.Password
+                keyboardType = KeyboardType.Password,
+                errorText = uiState.checkPwError
             )
 
             Row(
@@ -158,7 +166,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
                     .fillMaxWidth()
                     .clickable {
                         showAgreeDialog = true
-                        viewModel.getTerms(TermsType.PRIVACY)
+                        viewModel.getTerms(currentTermsType)
                     }
             ) {
                 Icon(
@@ -169,7 +177,27 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "서비스 이용약관 및 개인정보 처리방침에 모두 동의합니다.",
+                    text = "서비스&위치정보 이용약관 및 개인정보 처리방침에 \n모두 동의합니다.",
+                    style = Typography.bodySmall
+                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        viewModel.onUpdateOver14(!uiState.isOver14)
+                    }
+            ) {
+                Icon(
+                    imageVector = if (uiState.isOver14) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                    contentDescription = "약관 동의",
+                    tint = if (uiState.isOver14) primary else Color.LightGray,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "(필수) 만 14세 이상입니다.",
                     style = Typography.bodySmall
                 )
             }
@@ -178,7 +206,7 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
             Button({viewModel.signUp()},
                 enabled = isAllEntered,
                 colors = ButtonDefaults.buttonColors(primary, disabledContainerColor = Color.Gray),
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                 shape = RoundedCornerShape(60.dp),
                 elevation = ButtonDefaults.buttonElevation(8.dp)
             ) {
@@ -197,20 +225,29 @@ fun SignUpScreen(navController: NavController, viewModel: SignUpViewModel = hilt
 
     if (showAgreeDialog){
         AgreeDialog(
-            terms = uiState.terms, type = TermsType.PRIVACY, isSignUp = true,
+            termsContent = uiState.terms, type = currentTermsType, isSignUp = true,
             onNext = {
-                if (currentTermsType == TermsType.PRIVACY) {
-                    currentTermsType = TermsType.SERVICE
-                    viewModel.getTerms(TermsType.SERVICE)
-                } else {
-                    showAgreeDialog = false
-                    isAgreed = true
+                when(currentTermsType){
+                    TermsType.SERVICE -> {
+                        currentTermsType = TermsType.PRIVACY
+                        viewModel.getTerms(currentTermsType)
+                    }
+                    TermsType.PRIVACY -> {
+                        currentTermsType = TermsType.LOCATION
+                        viewModel.getTerms(currentTermsType)
+                    }
+                    TermsType.LOCATION -> {
+                        currentTermsType = TermsType.SERVICE
+                        showAgreeDialog = false
+                        isAgreed = true
+                    }
                 }
 
             },
             onDismissRequest = {
                 isAgreed = it
                 showAgreeDialog = false
+                currentTermsType = TermsType.SERVICE
             }
         )
     }
