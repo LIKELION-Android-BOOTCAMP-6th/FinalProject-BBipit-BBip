@@ -181,8 +181,7 @@ class LifeCycleManager @Inject constructor(
         userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
 
         sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(null)
-            userRepository.updateOnlineStatus(false)
+            liveStatusRepository.updateLifeCycle(null, null)
         }
     }
 
@@ -195,7 +194,7 @@ class LifeCycleManager @Inject constructor(
 
         // 현재 채팅방 위치 및 활성 상태를 서버에 전송
         sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(currentRoomId)
+            liveStatusRepository.updateLifeCycle(currentRoomId, null)
         }
     }
 
