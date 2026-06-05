@@ -355,7 +355,7 @@ fun MyPageScreen(
     }
 
     if(uiState.isSocialDeleteDialog){
-        ConfirmDialog(text = "계정을 삭제하시겠습니까?", semiText = "한 번 삭제한 계정은 다시 복구되지 않습니다.",
+        ConfirmDialog(text = "계정을 삭제하시겠습니까?", semiText = "한 번 삭제한 계정은 다시 복구되지 않습니다.\n탈퇴를 진행하려면 예를 눌러 계정 인증을 진행해주세요.",
             onDismiss = {
                 viewModel.onSocialDeleted(false)
             },
