@@ -55,12 +55,18 @@ class FriendListViewModel @Inject constructor(
             friendRepository.myFriends.collect { friends ->
                 // 1. accepted 상태인 친구들만 필터링하여 리스트에 할당
                 val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
-                android.util.Log.d("FriendListDebug", "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명")
+                android.util.Log.d(
+                    "FriendListDebug",
+                    "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명"
+                )
                 _friendList.value = acceptedFriends
+
+                val requestCount = friends.count { it.friendshipStatus == "requested" }
+                _requestCount.value = requestCount
+
+                android.util.Log.d("FriendListDebug", "데이터 변경 감지! 요청 개수 업데이트: $requestCount")
             }
         }
-        // 2. 요청 개수 가져오기 (요청 목록을 별도로 가져와서 개수만 세기)
-        fetchRequestCount()
     }
 
     private fun fetchRequestCount() {
