@@ -40,7 +40,6 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firebaseAuth: FirebaseAuth,
     private val credentialManager: CredentialManager,
-    private val storage: FirebaseStorage,
     private val functions: FirebaseFunctions,
 ) : AuthRemoteDataSource {
 
@@ -141,21 +140,6 @@ class AuthRemoteDataSourceImpl @Inject constructor(
         val provider = user.providerData.map { it.providerId }
         return if (provider.contains(LoginType.GOOGLE.provider) || provider.contains(LoginType.KAKAO.provider)) true
         else user.isEmailVerified
-    }
-
-    /**
-     * 프로필 이미지를 사용자의 UID 폴더 밑에 단 하나만 존재하도록 업로드하는 함수
-     * 파일명을 'profile.jpg'로 고정하여 업로드 시 자동으로 덮어쓰기
-     */
-    override suspend fun uploadProfileImage(myUid: String, localFileUri: Uri): String {
-        // ✨ 핵심: 파일명을 고정하여 단 하나의 파일만 유지 (profiles/{uid}/profile.jpg)
-        val fileName = "profiles/$myUid/profile.jpg"
-        val profileRef = storage.reference.child(fileName)
-
-        return profileRef.putFile(localFileUri).continueWithTask { task ->
-            if (!task.isSuccessful) task.exception?.let { throw it }
-            profileRef.downloadUrl
-        }.await().toString()
     }
 
     /**

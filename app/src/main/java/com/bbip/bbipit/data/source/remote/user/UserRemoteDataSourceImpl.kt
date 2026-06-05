@@ -1,9 +1,11 @@
 package com.bbip.bbipit.data.source.remote.user
 
+import android.net.Uri
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.messaging.FirebaseMessaging
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,7 +18,8 @@ import javax.inject.Singleton
 class UserRemoteDataSourceImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseFunctions: FirebaseFunctions,
-    private val firebaseMessaging: FirebaseMessaging
+    private val firebaseMessaging: FirebaseMessaging,
+    private val storage: FirebaseStorage,
 ) : UserRemoteDataSource {
 
     /**
@@ -35,6 +38,21 @@ class UserRemoteDataSourceImpl @Inject constructor(
             Log.e("UserRemoteDataSource", "온라인 상태 조회 실패: ${e.message}")
             null
         }
+    }
+
+    /**
+     * 프로필 이미지를 사용자의 UID 폴더 밑에 단 하나만 존재하도록 업로드하는 함수
+     * 파일명을 'profile.jpg'로 고정하여 업로드 시 자동으로 덮어쓰기
+     */
+    override suspend fun uploadProfileImage(myUid: String, localFileUri: Uri): String {
+        // ✨ 핵심: 파일명을 고정하여 단 하나의 파일만 유지 (profiles/{uid}/profile.jpg)
+        val fileName = "profiles/$myUid/profile.jpg"
+        val profileRef = storage.reference.child(fileName)
+
+        return profileRef.putFile(localFileUri).continueWithTask { task ->
+            if (!task.isSuccessful) task.exception?.let { throw it }
+            profileRef.downloadUrl
+        }.await().toString()
     }
 
     /**

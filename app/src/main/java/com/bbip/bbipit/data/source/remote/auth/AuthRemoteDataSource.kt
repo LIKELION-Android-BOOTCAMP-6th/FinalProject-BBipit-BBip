@@ -21,6 +21,5 @@ interface AuthRemoteDataSource {
     fun isAutoLogin() : Boolean
     suspend fun reloadCurrentUser()
     fun isEmailVerified(): Boolean
-    suspend fun uploadProfileImage(myUid: String, localFileUri: Uri): String
     suspend fun deleteAccountData()
 }
