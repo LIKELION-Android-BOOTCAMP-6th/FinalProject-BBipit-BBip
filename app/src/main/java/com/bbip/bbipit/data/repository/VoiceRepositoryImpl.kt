@@ -91,10 +91,10 @@ class VoiceRepositoryImpl @Inject constructor(
     /**
      * 음성 파일을 스토리지에 업로드하는 함수
      */
-    override suspend fun uploadVoiceFile(localFileUri: android.net.Uri): Result<String> {
+    override suspend fun uploadVoiceFile(myUid: String, localFileUri: android.net.Uri): Result<String> {
         return try {
             // 파일 업로드 후 다운로드 URL 획득
-            val downloadUrl = voiceRemoteDataSource.uploadVoiceFile(localFileUri)
+            val downloadUrl = voiceRemoteDataSource.uploadVoiceFile(myUid, localFileUri)
             Result.Success(downloadUrl)
         } catch (e: Exception) {
             // 업로드 실패 예외 처리

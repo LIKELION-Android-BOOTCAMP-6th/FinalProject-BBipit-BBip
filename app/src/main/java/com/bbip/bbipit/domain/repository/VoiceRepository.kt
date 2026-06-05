@@ -27,7 +27,7 @@ interface VoiceRepository {
     /**
      * 음성 파일을 스토리지에 업로드하는 함수
      */
-    suspend fun uploadVoiceFile(localFileUri: android.net.Uri): Result<String>
+    suspend fun uploadVoiceFile(myUid: String, localFileUri: android.net.Uri): Result<String>
 
     /**
      * 음성 메시지를 상대방에게 직접 전송하는 함수

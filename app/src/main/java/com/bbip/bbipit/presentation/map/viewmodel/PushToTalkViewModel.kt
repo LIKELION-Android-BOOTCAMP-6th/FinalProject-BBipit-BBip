@@ -73,6 +73,9 @@ class PushToTalkViewModel @Inject constructor(
         val correctedDuration = duration + 1
 
         viewModelScope.launch {
+            if(authRepository.getCurrentUserUid() == null) return@launch
+            val myUid = authRepository.getCurrentUserUid()
+
             // 파일 기록 안정화를 위해 대기
             kotlinx.coroutines.delay(500)
 
@@ -98,7 +101,7 @@ class PushToTalkViewModel @Inject constructor(
             }
 
             // 스토리지 파일 업로드
-            val uploadResult = voiceRepository.uploadVoiceFile(uri)
+            val uploadResult = voiceRepository.uploadVoiceFile(myUid!!,uri)
 
             uploadResult.onSuccess { url ->
                 Log.d("Voice", "Storage upload success: $url")
