@@ -206,7 +206,12 @@ class MyPageViewmodel @Inject constructor(
                         onUpdateToken(id)
                         token = id
                     }
-                    else -> {}
+                    else -> {
+                        if (token.isNullOrBlank()){
+                            onUpdateToast("비밀번호를 입력해주세요.")
+                            return@launch
+                        }
+                    }
                 }
                 token
             }
