@@ -69,25 +69,10 @@ class FriendListViewModel @Inject constructor(
         }
     }
 
-    private fun fetchRequestCount() {
-        viewModelScope.launch {
-            val result = friendRepository.getPendingFriendRequests()
-            result.onSuccess { users ->
-                _requestCount.value = users.size
-                android.util.Log.d("FriendListViewModel", "요청 개수 업데이트: ${users.size}개")
-            }.onFailure {
-                android.util.Log.e("FriendListViewModel", "요청 개수 로드 실패")
-            }
-        }
-    }
-
     fun refreshAll() {
         android.util.Log.d("FriendListViewModel", "전체 데이터 새로고침 시작")
 
-        // 1. 요청 개수 갱신
-        fetchRequestCount()
-
-        // 2. 친구 목록 옵저빙 재시작 (필요한 경우)
+        // 친구 목록 옵저빙 재시작 (필요한 경우)
         val myUid = authRepository.getCurrentUserUid()
         if (myUid != null) {
             friendRepository.startObservingFriends(myUid)
