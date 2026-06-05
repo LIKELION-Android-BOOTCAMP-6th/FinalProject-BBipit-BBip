@@ -233,7 +233,7 @@ class LifeCycleManager @Inject constructor(
                 if (_isAppInForeground.value && auth.currentUser != null) {
                     Log.d(TAG, "⚡ 포그라운드 상태 확인됨 -> 사용자를 즉시 온라인 상태로 전환합니다.")
                     sessionScope.launch {
-                        userRepository.updateOnlineStatus(true)
+//                        userRepository.updateOnlineStatus(true)
                     }
                     startSession()
                 }
