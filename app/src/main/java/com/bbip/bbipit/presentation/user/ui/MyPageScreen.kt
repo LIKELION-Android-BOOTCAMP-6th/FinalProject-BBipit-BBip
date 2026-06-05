@@ -345,7 +345,10 @@ fun MyPageScreen(
         InputDialog(
             value = uiState.token,
             onValueChange = {viewModel.onUpdateToken(it)},
-            onDismiss = {viewModel.onUpdateDeleteDialogShown(false)},
+            onDismiss = {
+                viewModel.onUpdateLoading(false)
+                viewModel.onUpdateDeleteDialogShown(false)
+            },
             onConfirm = {
                 viewModel.onUpdateLoading(true)
                 viewModel.deleteAccount()
