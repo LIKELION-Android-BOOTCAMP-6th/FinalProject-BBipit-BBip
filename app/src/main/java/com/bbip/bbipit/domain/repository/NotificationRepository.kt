@@ -15,7 +15,7 @@ interface NotificationRepository {
 
 
     // 구독 즉시 전체 문서를 수신하여 캐시에 보관
-    fun startObserving(userId: String)
+    fun startObserving(userId: String, startTimestamp: Long)
 
     // 구독 중단 (로그아웃 시 호출)
     fun stopObserving()

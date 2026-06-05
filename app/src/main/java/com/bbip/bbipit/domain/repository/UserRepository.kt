@@ -25,7 +25,7 @@ interface UserRepository {
     /**
      * 온라인 접속 상태 업데이트 함수
      */
-    suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean>
+//    suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean>
 
     /**
      * 다른 유저의 프로필 정보 조회 함수

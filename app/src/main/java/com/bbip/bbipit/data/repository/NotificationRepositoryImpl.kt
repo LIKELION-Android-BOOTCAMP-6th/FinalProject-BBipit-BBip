@@ -64,11 +64,8 @@ class NotificationRepositoryImpl @Inject constructor(
      * 구독 즉시 전체 문서를 수신하여 캐시에 보관
      * 동일한 userId로 이미 구독 중이면 중복 구독 방지
      */
-    override fun startObserving(userId: String) {
-        Log.d(
-            "NotificationRepo",
-            "startObserving 호출됨 - userId: $userId, observingUserId: $observingUserId"
-        )
+    override fun startObserving(userId: String,  startTimestamp: Long) {
+        Log.d("NotificationRepo", "startObserving 호출됨 - userId: $userId, observingUserId: $observingUserId")
         // 동일 유저 중복 구독 방지
         if (observingUserId == userId) {
             Log.d("NotificationRepo", "이미 구독 중인 userId: $userId, 중복 호출 무시")
@@ -78,9 +75,6 @@ class NotificationRepositoryImpl @Inject constructor(
         // 기존 리스너 제거 후 새로 등록
         stopObserving()
         observingUserId = userId
-
-        // 첫 번째 Snapshot Callback 여부를 추적하는 로컬 상태값
-        var isInitialCallback = true
 
         val query = firestore
             .collection("Notifications")
@@ -94,17 +88,6 @@ class NotificationRepositoryImpl @Inject constructor(
             }
 
             if (snapshot != null) {
-                val isFromCache = snapshot.metadata.isFromCache
-
-                // 첫 번째 콜백은 무조건 최초 데이터를 포함하므로 true, 이후엔 false로 전환
-                val isCurrentInitial = isInitialCallback
-                if (isInitialCallback) isInitialCallback = false
-
-                if (isFromCache) {
-                    Log.d("NotificationRepo", "📦 로컬 캐시 데이터를 불러왔습니다. (1차 실행)")
-                } else {
-                    Log.d("NotificationRepo", "☁️ 서버로부터 최신 데이터를 수신했습니다. (2차 실행)")
-                }
 
                 // 전체 문서를 엔티티로 변환
                 val items = snapshot.documents.mapNotNull { doc ->
@@ -117,12 +100,6 @@ class NotificationRepositoryImpl @Inject constructor(
                         null
                     }
                 }
-                if (!snapshot.isEmpty) {
-                    isInitialCallback = false
-                }
-                if (isFromCache) {
-                    isInitialCallback = true
-                }
 
                 val mergedItems = items.map { newItem ->
                     val cachedItem = _notifications.value.find { it.id == newItem.id }
@@ -131,13 +108,16 @@ class NotificationRepositoryImpl @Inject constructor(
                             (cachedItem?.isRead == true) ||
                             _uiReadIds.value.contains(newItem.id)
 
-                    newItem.copy(isRead = finalIsRead, isInitial = isCurrentInitial)
+                    // Firestore의 Timestamp를 밀리초(ms) 단위로 변환
+                    val messageSentAt = newItem.createdAt
+
+                    // 메시지 송신 시간이 서비스 시작 시간보다 이후일 때만 '신규 무전(isInitial = false)'으로 판정
+                    val isInitial = messageSentAt <= startTimestamp
+
+                    newItem.copy(isRead = finalIsRead, isInitial = isInitial)
                 }
 
                 _notifications.value = mergedItems
-                notifications.value.forEach {
-                    Log.d("NotificationRepo", "${it.isInitial}")
-                }
 
                 Log.d("NotificationRepo", "🔄 실시간 동기화 완료: ${mergedItems.size}건 갱신됨")
             }

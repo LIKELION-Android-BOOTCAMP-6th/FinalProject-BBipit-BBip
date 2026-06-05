@@ -75,17 +75,17 @@ class UserRepositoryImpl @Inject constructor(
     /**
      * 온라인 접속 상태 업데이트 함수
      */
-    override suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean> {
-        return try {
-            // 원격 서버에 온라인 상태 저장
-            val isSuccess = userRemoteDataSource.updateOnlineStatus(isOnline)
-            Result.Success(isSuccess)
-        } catch (e: Exception) {
-            // 상태 변경 실패 예외 처리
-            Log.e("UserRepository", "온라인 상태 업데이트 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "상태 업데이트 실패"))
-        }
-    }
+//    override suspend fun updateOnlineStatus(isOnline: Boolean): Result<Boolean> {
+//        return try {
+//            // 원격 서버에 온라인 상태 저장
+//            val isSuccess = userRemoteDataSource.updateOnlineStatus(isOnline)
+//            Result.Success(isSuccess)
+//        } catch (e: Exception) {
+//            // 상태 변경 실패 예외 처리
+//            Log.e("UserRepository", "온라인 상태 업데이트 실패: ${e.message}")
+//            Result.Failure(AppError.Unknown(e.message ?: "상태 업데이트 실패"))
+//        }
+//    }
 
     /**
      * 다른 유저의 프로필 정보 조회 함수
