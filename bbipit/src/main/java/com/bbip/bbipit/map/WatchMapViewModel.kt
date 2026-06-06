@@ -1,16 +1,14 @@
 package com.bbip.bbipit.map
 
-import android.app.Application
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.base.WatchBaseViewModel
-import com.bbip.bbipit.models.MobileServiceStatus
 import com.bbip.bbipit.models.WatchLiveStatus
-import com.bbip.bbipit.service.WatchCentralService
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import android.content.Context
+import com.bbip.bbipit.data.WatchDataRepository
 
 /**
  * 지도 UI 상태 데이터 클래스
@@ -24,14 +22,15 @@ data class WatchMapUiState(
 /**
  * 워치 지도 상태 관리 뷰모델
  */
-class WatchMapViewModel: WatchBaseViewModel<WatchMapUiState>(WatchMapUiState()) {
-
+class WatchMapViewModel:
+    WatchBaseViewModel<WatchMapUiState>(WatchMapUiState())
+{
     val TAG = "WatchMapViewModel"
 
     init {
         // 위치 이벤트 버스 구독 및 상태 업데이트
         viewModelScope.launch {
-            WatchCentralService.locationEventBus.collect { decryptedList ->
+            WatchDataRepository.liveStatusList.collect { decryptedList ->
                 updateState {
                     copy(liveStatusList = decryptedList)
                 }
