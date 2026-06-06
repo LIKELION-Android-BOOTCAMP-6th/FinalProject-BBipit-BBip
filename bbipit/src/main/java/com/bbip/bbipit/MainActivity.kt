@@ -19,7 +19,6 @@ import com.bbip.bbipit.base.WatchIncomingVoiceDialog
 import com.bbip.bbipit.base.WatchServiceRestrictedScreen
 import com.bbip.bbipit.map.WatchMapScreen
 import com.bbip.bbipit.models.MobileServiceStatus
-import com.bbip.bbipit.service.WatchCentralService
 import com.bbip.bbipit.theme.BbipitTheme
 
 /**
@@ -56,7 +55,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         // 포그라운드 활성화 상태 선언
-        WatchCentralService.isWatchActiveInForeground = true
+        viewModel.isWatchActiveInForeground = true
 
         viewModel.checkPhoneServiceStatus()
     }
@@ -64,7 +63,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         // 포그라운드 비활성화 상태 선언
-        WatchCentralService.isWatchActiveInForeground = false
+        viewModel.isWatchActiveInForeground = false
     }
 }
 

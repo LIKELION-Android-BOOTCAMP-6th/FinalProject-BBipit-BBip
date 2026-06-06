@@ -370,6 +370,7 @@ class BackgroundListenerService : Service() {
     private fun observeVoiceMessages() {
         val isMobileForeground = lifeCycleManager.isAppInForeground.value
         val isWatchForeground = watchConnectionManager.isWatchInForeground.value
+        val isPhysicalConnected = watchConnectionManager.isPhysicalConnected.value
         // 기존에 돌고 있는 Job이 있다면 취소하여 중복 구독 방지
         voiceObservationJob?.cancel()
 
@@ -384,7 +385,7 @@ class BackgroundListenerService : Service() {
                         if (url.isNotEmpty() && !voiceMessage.isInitial) {
                             val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
                             if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
-                                if (!isMobileForeground && isWatchForeground) {
+                                if (!isMobileForeground && isPhysicalConnected) {
                                     sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
                                 } else {
                                     voiceRepository.emitMobileVoiceEvent(voiceMessage)
@@ -639,8 +640,7 @@ class BackgroundListenerService : Service() {
      * 최신 위치 좌표 데이터 구조체 워치 송신 함수
      */
     private fun pushLocationsToWatch(locations: List<LiveStatus>) {
-        val isWatchForeground = watchConnectionManager.isWatchInForeground.value
-        if(!isWatchForeground) return
+        if (!watchConnectionManager.isPhysicalConnected.value) return
         scope.launch {
             runCatching {
                 // 데이터를 직렬화하여 연결된 워치 기기들에 송신
