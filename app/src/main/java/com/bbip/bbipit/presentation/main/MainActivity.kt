@@ -140,9 +140,9 @@ class MainActivity : ComponentActivity() {
         checkIntentAndRequestPermissions(intent)
 
         // App Check 디버그 환경 구성 설정
-        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-            DebugAppCheckProviderFactory.getInstance()
-        )
+//        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
+//            DebugAppCheckProviderFactory.getInstance()
+//        )
 
         // 앱 수명 주기 관찰자 등록
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifeCycleManager)
