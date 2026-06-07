@@ -1,0 +1,545 @@
+package com.bbip.bbipit.presentation.map.ui
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.bbip.bbipit.R
+import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.domain.entity.History
+import com.bbip.bbipit.domain.entity.HistoryComment
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+// 단일 이미지 단위 타임라인 조각 모델
+data class StoryItem(
+    val history: History,
+    val imageUrl: String?,
+    val imageIndex: Int,
+    val totalImagesInHistory: Int
+)
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun HistoryViewerScreen(
+    myUid: String,
+    histories: List<History>, // 전체 히스토리 리스트
+    initialHistoryId: String, // 초기 진입 히스토리 식별자
+    comments: List<HistoryComment>,
+    onHistoryChanged: (String) -> Unit, // 히스토리 변경 콜백 (댓글 리스너 갱신용)
+    onDismiss: () -> Unit,
+    onLikeToggle: (History) -> Unit,
+    onCommentSubmit: (String, String) -> Unit,
+    onDeleteClick: (String) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    // 전체 히스토리의 이미지 목록 평탄화 및 타임라인 데이터 변환
+    val storyTimeline = remember(histories) {
+        histories.flatMap { history ->
+            if (history.imageUrls.isEmpty()) {
+                listOf(StoryItem(history, null, 0, 1))
+            } else {
+                history.imageUrls.mapIndexed { index, url ->
+                    StoryItem(history, url, index, history.imageUrls.size)
+                }
+            }
+        }
+    }
+
+    // 진입 히스토리 식별자 기준 초기 페이지 인덱스 계산
+    val startIndex = remember(storyTimeline, initialHistoryId) {
+        val index = storyTimeline.indexOfFirst { it.history.id == initialHistoryId }
+        if (index != -1) index else 0
+    }
+
+    val totalPages = storyTimeline.size.coerceAtLeast(1)
+    val pagerState = rememberPagerState(
+        initialPage = startIndex,
+        pageCount = { totalPages }
+    )
+
+    // 현재 페이지 타임라인 및 히스토리 데이터 추출
+    val currentStory = storyTimeline.getOrNull(pagerState.currentPage)
+    val currentHistory = currentStory?.history
+
+    var isPaused by remember { mutableStateOf(false) }
+    var commentInput by remember { mutableStateOf("") }
+    val storyDuration = 3000
+    var progressTicks by remember { mutableStateOf(0) }
+    val isKeyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
+    // 현재 히스토리 식별자 변경 감지 및 상위 레이어 보고
+    LaunchedEffect(currentHistory?.id) {
+        currentHistory?.id?.let { id ->
+            onHistoryChanged(id)
+        }
+    }
+
+    LaunchedEffect(isKeyboardVisible) {
+        if (!isKeyboardVisible) {
+            focusManager.clearFocus(force = true)
+            isPaused = false
+        }
+    }
+
+    // 3초 타이머 기반 페이지 자동 전환 제어
+    LaunchedEffect(pagerState.currentPage, isPaused) {
+        if (!isPaused) {
+            progressTicks = 0
+            while (progressTicks < storyDuration) {
+                delay(30)
+                progressTicks += 30
+            }
+
+            // 다음 페이지 이동 또는 첫 페이지 루프 처리
+            if (pagerState.currentPage < totalPages - 1) {
+                scope.launch {
+                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                }
+            } else {
+                scope.launch {
+                    pagerState.animateScrollToPage(0)
+                }
+            }
+        }
+    }
+
+    BackHandler(enabled = true) {
+        if (isPaused) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+            isPaused = false
+        } else {
+            onDismiss()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = false
+        ) { page ->
+            val story = storyTimeline.getOrNull(page)
+            if (story?.imageUrl != null) {
+                AsyncImage(
+                    model = story.imageUrl,
+                    contentDescription = "스토리 이미지",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(Color(0xFF1E1E24)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_footprints_icon),
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.1f),
+                        modifier = Modifier.size(120.dp)
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.5f),
+                        Color.Transparent,
+                        Color.Black.copy(alpha = 0.7f)
+                    )
+                )
+            )
+        )
+
+        // 제스처 마스크 영역 격리
+        Box(
+            modifier = Modifier.fillMaxSize().padding(bottom = 340.dp).pointerInput(totalPages) {
+                detectTapGestures(
+                    onPress = {
+                        try {
+                            isPaused = true
+                            awaitRelease()
+                        } finally {
+                            isPaused = false
+                        }
+                    },
+                    onTap = { offset ->
+                        val isLeft = offset.x < size.width * 0.5f
+                        if (isLeft) {
+                            if (pagerState.currentPage > 0) {
+                                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                            }
+                        } else {
+                            if (pagerState.currentPage < totalPages - 1) {
+                                scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                            } else {
+                                scope.launch { pagerState.animateScrollToPage(0) }
+                            }
+                        }
+                        keyboardController?.hide()
+                    }
+                )
+            }
+        )
+
+        // 상단 인디케이터 제어바
+        Column(
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                repeat(totalPages) { index ->
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = when {
+                            index < pagerState.currentPage -> 1f
+                            index == pagerState.currentPage -> progressTicks.toFloat() / storyDuration
+                            else -> 0f
+                        },
+                        animationSpec = tween(durationMillis = 30, easing = LinearEasing),
+                        label = "StoryBarProgress"
+                    )
+
+                    Box(
+                        modifier = Modifier.weight(1f).height(3.dp).background(Color.White.copy(alpha = 0.3f), CircleShape)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxHeight().fillMaxWidth(animatedProgress).background(Color.White, CircleShape)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (currentHistory != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        AsyncImage(
+                            model = currentHistory.userProfileImage.ifEmpty { "https://via.placeholder.com/150" },
+                            contentDescription = "유저 프로필 이미지",
+                            modifier = Modifier.size(36.dp).clip(CircleShape).border(2.dp, Color.White, CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Column {
+                            Text(
+                                text = currentHistory.userNickname,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = (-0.3).sp
+                            )
+                            Text(
+                                text = "실시간 발자취",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 본인 작성 히스토리 검증 기반 삭제 기능 활성화
+                    if (currentHistory != null && currentHistory.userId == myUid) {
+                        IconButton(
+                            onClick = {
+                                isPaused = true // 삭제 팝업 노출 시 진행 상태 일시정지
+                                onDeleteClick(currentHistory.id)
+                            },
+                            modifier = Modifier.size(32.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "내 발자취 삭제",
+                                tint = recording, // 빨간색 강조 디자인 활용
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { isPaused = !isPaused },
+                        modifier = Modifier.size(25.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = "일시정지 토글",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp).background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "스토리 닫기",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 하단 복합 메타 패널
+        if (currentHistory != null) {
+            Column(
+                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(horizontal = 16.dp).padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 댓글 수집 패널
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 110.dp).background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(16.dp)).border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp)).padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "COMMENTS",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White.copy(alpha = 0.5f),
+                        letterSpacing = 1.sp
+                    )
+
+                    if (comments.isEmpty()) {
+                        Text(
+                            text = "첫 코멘트를 남겨보세요! 💬",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(comments) { comment ->
+                                Row(
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = comment.userNickname,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF956AFC),
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Text(
+                                        text = comment.text,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White.copy(alpha = 0.95f),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 카드 본문 컨텐츠 레이아웃
+                Card(
+                    shape = RoundedCornerShape(32.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(32.dp))
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val (iconResId, bgColor, iconColor) = when (currentHistory.category) {
+                                    "무전" -> Triple(R.drawable.ic_walkie_talkie_icon, Color(0xFFFAF5FF), Color(0xFFA855F7))
+                                    "카페" -> Triple(R.drawable.ic_cafe_icon, Color(0xFFFFFBEB), Color(0xFFD97706))
+                                    "음식" -> Triple(R.drawable.ic_restaurant_icon, Color(0xFFFFF1F2), Color(0xFFF43F5E))
+                                    "운동" -> Triple(R.drawable.ic_exercise_icon, Color(0xFFECFDF5), Color(0xFF10B981))
+                                    else -> Triple(R.drawable.ic_daily_icon, Color(0xFFEEF2FF), Color(0xFF6366F1))
+                                }
+
+                                Row(
+                                    modifier = Modifier.background(bgColor, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = iconResId),
+                                        contentDescription = null,
+                                        tint = iconColor,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Text(
+                                        text = currentHistory.category,
+                                        color = iconColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+
+                                Text(
+                                    text = "📍 ${currentHistory.placeName}",
+                                    color = Color.White.copy(alpha = 0.95f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier.size(36.dp).background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)).clickable { onLikeToggle(currentHistory) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FavoriteBorder,
+                                    contentDescription = "좋아요",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = currentHistory.content,
+                            color = Color.White.copy(alpha = 0.95f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+
+                // 하단 인터랙션 바 배너
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.weight(1f).background(Color.Black.copy(alpha = 0.4f), CircleShape).border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape).padding(horizontal = 20.dp, vertical = 14.dp)
+                    ) {
+                        if (commentInput.isEmpty()) {
+                            Text(
+                                text = "${currentHistory.userNickname}님의 발자취에 댓글 달기...",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        BasicTextField(
+                            value = commentInput,
+                            onValueChange = { commentInput = it },
+                            textStyle = TextStyle(color = Color.White, fontSize = 13.dp.value.sp, fontWeight = FontWeight.Bold),
+                            modifier = Modifier.fillMaxWidth().onFocusChanged { focusState -> if (focusState.isFocused) isPaused = true },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(
+                                onSend = {
+                                    if (commentInput.trim().isNotEmpty()) {
+                                        onCommentSubmit(currentHistory.id, commentInput)
+                                        commentInput = ""
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus(force = true)
+                                        isPaused = false
+                                    }
+                                }
+                            )
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier.size(48.dp).background(Color.White.copy(alpha = 0.1f), CircleShape).border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape).clickable {
+                            if (commentInput.trim().isNotEmpty()) {
+                                onCommentSubmit(currentHistory.id, commentInput)
+                                commentInput = ""
+                                keyboardController?.hide()
+                                focusManager.clearFocus(force = true)
+                                isPaused = false
+                            }
+                        },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "댓글 전송",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
