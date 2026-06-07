@@ -199,6 +199,11 @@ fun MapScreen(
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.fetchLiveStatusAndRefreshCache()
+
+        // 화면이 다시 보일 때 히스토리 리스너가 죽어있다면 다시 살림
+        if (uiState.myStatus?.uid?.isNotEmpty() == true) {
+            historyViewModel.startHistoryObservation()
+        }
     }
 
 //    LaunchedEffect(drawerState.isOpen) {

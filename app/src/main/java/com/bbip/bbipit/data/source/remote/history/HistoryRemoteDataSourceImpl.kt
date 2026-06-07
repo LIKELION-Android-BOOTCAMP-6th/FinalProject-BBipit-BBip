@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.source.remote.history
 
+import android.util.Log
 import com.bbip.bbipit.data.mapper.toDomainHistory
 import com.google.firebase.firestore.Query
 import com.bbip.bbipit.domain.entity.HistoryComment
@@ -37,19 +38,22 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
 
         val listenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                Log.e("HistoryRemoteDataSource", "❌ 히스토리 관측 에러 발생: ${error.message}", error)
                 return@addSnapshotListener
             }
 
             if (snapshot != null) {
                 val histories = snapshot.documents.mapNotNull { doc ->
-                    val map = doc.data?.toMutableMap() ?: mutableMapOf<String, Any>()
-
-                    // 문서 내 id 필드가 누락되었을 경우 Firestore Document ID로 보정
-                    if (map["id"] == null || (map["id"] as? String).isNullOrEmpty()) {
-                        map["id"] = doc.id
+                    try {
+                        val map = doc.data?.toMutableMap() ?: mutableMapOf<String, Any>()
+                        if (map["id"] == null || (map["id"] as? String).isNullOrEmpty()) {
+                            map["id"] = doc.id
+                        }
+                        map.toDomainHistory()
+                    } catch (e: Exception) {
+                        Log.e("HistoryRemoteDataSource", "데이터 매핑 실패 (사진 URL 등 필드 타입 확인 필요): ${e.message}")
+                        null // 특정 문서 파싱 실패 시 리스너 전체가 죽지 않도록 null 반환 처리
                     }
-                    map.toDomainHistory()
                 }
                 trySend(histories)
             }
