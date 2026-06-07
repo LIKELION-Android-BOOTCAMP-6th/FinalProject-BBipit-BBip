@@ -30,7 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,14 +54,21 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.map.ui.HistoryViewerScreen
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 
 @Composable
 fun FriendListScreen(
     navController: NavController,
-    viewModel: FriendListViewModel = hiltViewModel()
+    viewModel: FriendListViewModel = hiltViewModel(),
+    historyViewModel: HistoryViewModel = hiltViewModel()
 ) {
     val friendList by viewModel.friendList.collectAsStateWithLifecycle()
 
@@ -84,6 +91,14 @@ fun FriendListScreen(
 
     var showToastMessage by remember { mutableStateOf<String?>(null) }
 
+    // 전체 히스토리 목록 및 UI 상태 관측
+    val allHistories by viewModel.allHistories.collectAsStateWithLifecycle()
+    val historyUiState by historyViewModel.uiState.collectAsStateWithLifecycle()
+
+    // 히스토리 뷰어 화면 제어용 상태 변수
+    var isFriendViewerOpen by remember { mutableStateOf(false) }
+    var targetHistoryId by remember { mutableStateOf("") }
+    var viewerHistoriesSource by remember { mutableStateOf<List<History>>(emptyList()) }
 
     Column(
         modifier = Modifier
@@ -174,9 +189,61 @@ fun FriendListScreen(
                                 }
                             )
                             android.util.Log.d("FriendList", "${friend.nickname} 삭제 요청")
+                        },
+                        onClick = {
+                            // 친구 아이템을 누르면 동작할 스토리 필터링 로직 바인딩
+                            val friendStories = allHistories.filter { it.userId == friend.uid }
+
+                            if (friendStories.isNotEmpty()) {
+                                viewerHistoriesSource = friendStories
+                                targetHistoryId = friendStories.first().id
+                                isFriendViewerOpen = true
+                            } else {
+                                showToastMessage = "'${friend.nickname}'님이 최근 12시간 내에 남긴 발자취가 없습니다. 👣"
+                            }
                         }
                     )
                 }
+            }
+        }
+
+        // 히스토리 뷰어 다이얼로그 표시
+        if (isFriendViewerOpen && targetHistoryId.isNotEmpty()) {
+            Dialog(
+                onDismissRequest = {
+                    isFriendViewerOpen = false
+                    targetHistoryId = ""
+                    viewerHistoriesSource = emptyList()
+                    historyViewModel.closeCommentsObservation()
+                },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false
+                )
+            ) {
+                val windowProvider = LocalView.current.parent as? DialogWindowProvider
+                windowProvider?.window?.setDimAmount(0.0f)
+
+                HistoryViewerScreen(
+                    myUid = "",
+                    histories = viewerHistoriesSource, // 필터링된 친구 히스토리 목록 전달
+                    initialHistoryId = targetHistoryId,
+                    comments = historyUiState.currentComments,
+                    onHistoryChanged = { currentId ->
+                        historyViewModel.observeComments(currentId) // 히스토리 변경 시 댓글 데이터 갱신
+                    },
+                    onDismiss = {
+                        isFriendViewerOpen = false
+                        targetHistoryId = ""
+                        viewerHistoriesSource = emptyList()
+                        historyViewModel.closeCommentsObservation()
+                    },
+                    onLikeToggle = { _ -> },
+                    onCommentSubmit = { historyId, commentText ->
+                        historyViewModel.addHistoryComment(historyId, commentText)
+                    },
+                    onDeleteClick = { _ -> }
+                )
             }
         }
 
@@ -245,7 +312,9 @@ fun FriendRequestCard(count: Int, onClick: () -> Unit) {
 fun FriendListItem(
     friend: Friend,
     onMessageClick: () -> Unit,
-    onDelete: () -> Unit) {
+    onDelete: () -> Unit,
+    onClick: () -> Unit
+) {
     android.util.Log.d("FriendListDebug", "닉네임: ${friend.nickname}, 상태메세지: '${friend.status}', 현활상태: '${friend.isOnline}")
 
     val scope = rememberCoroutineScope()
@@ -307,8 +376,9 @@ fun FriendListItem(
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 modifier = Modifier.clickable {
+                    onClick()
                     // 카드를 다시 누르면 닫힘
-                    scope.launch { dismissState.reset() }
+                    //scope.launch { dismissState.reset() }
                 },
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {

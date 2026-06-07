@@ -4,7 +4,6 @@ import com.bbip.bbipit.R
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -29,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
@@ -48,7 +46,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -61,7 +58,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.createCustomMarkerBitmap
@@ -77,7 +73,6 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
-import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
@@ -115,13 +110,15 @@ fun MapScreen(
     val historyUiState by historyViewModel.uiState.collectAsState()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
-//    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var isDrawerOpen by remember { mutableStateOf(false) }
     var isDrawerRendering by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    // 히스토리 화면 제어용 상태 변수
     var isHistorySheetOpen by remember { mutableStateOf(false) }
-    var isDetailDialogOpen by remember { mutableStateOf(false) }
+    var isHistoryViewerOpen by remember { mutableStateOf(false) }
+    var targetHistoryId by remember { mutableStateOf("") }
+    var viewerHistoriesSource by remember { mutableStateOf<List<History>>(emptyList()) }
     var selectedHistory by remember { mutableStateOf<History?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
 
@@ -130,15 +127,7 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(seoul, 15f)
     }
 
-    var lastFetchedLocation by remember { mutableStateOf<LatLng?>(null) }
     val TAG = "MapScreen"
-    val myStatus = uiState.myStatus
-
-    fun calculateDistanceInMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Float {
-        val results = FloatArray(1)
-        Location.distanceBetween(lat1, lng1, lat2, lng2, results)
-        return results[0]
-    }
 
     val checkAndStartService = {
         val hasLocation = ContextCompat.checkSelfPermission(
@@ -192,6 +181,18 @@ fun MapScreen(
         }
     }
 
+    // 내 UID 확보 시 실시간 히스토리 관측 시작
+    LaunchedEffect(uiState.myStatus?.uid.orEmpty()) {
+        if (uiState.myStatus?.uid?.isNotEmpty() != null) {
+            historyViewModel.startHistoryObservation()
+        }
+    }
+
+    // 화면 일시정지 시 히스토리 데이터 관측 해제
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        historyViewModel.closeHistoryObservation()
+    }
+
     LaunchedEffect(Unit) {
         checkAndStartService()
     }
@@ -210,30 +211,6 @@ fun MapScreen(
     LaunchedEffect(isDrawerOpen) {
         if (isDrawerOpen) {
             isDrawerRendering = true
-        }
-    }
-
-    LaunchedEffect(myStatus?.latitude, myStatus?.longitude) {
-        if (myStatus != null) {
-            val currentLat = myStatus.latitude
-            val currentLng = myStatus.longitude
-            val lastLoc = lastFetchedLocation
-
-            if (lastLoc == null) {
-                historyViewModel.fetchNearbyHistory(currentLat, currentLng)
-                lastFetchedLocation = LatLng(currentLat, currentLng)
-            } else {
-                val distance = calculateDistanceInMeters(
-                    lastLoc.latitude,
-                    lastLoc.longitude,
-                    currentLat,
-                    currentLng
-                )
-                if (distance >= 500f) {
-                    historyViewModel.fetchNearbyHistory(currentLat, currentLng)
-                    lastFetchedLocation = LatLng(currentLat, currentLng)
-                }
-            }
         }
     }
 
@@ -285,26 +262,68 @@ fun MapScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 MapContent(
                     mapUiState = uiState,
-                    histories = historyUiState.nearbyHistories,
+                    histories = historyUiState.histories,
                     cameraPositionState = cameraPositionState,
                     modifier = Modifier.fillMaxSize(),
                     onFriendClick = { friend -> clickedFriendUid = friend.uid },
                     onHistoryClick = { history ->
-                        selectedHistory = history
-                        isDetailDialogOpen = true
+                        // 마커 선택 시 히스토리 뷰어 데이터 매핑 및 표시
+                        viewerHistoriesSource = listOf(history)
+                        targetHistoryId = history.id
+                        isHistoryViewerOpen = true
                     }
                 )
 
-                if (isDetailDialogOpen && selectedHistory != null) {
-                    HistoryDetailDialog(
-                        history = selectedHistory!!,
-                        currentUserId = uiState.myStatus?.uid.orEmpty(),
-                        onDismiss = { isDetailDialogOpen = false },
-                        onDelete = { history ->
-                            historyViewModel.deleteHistory(history.id)
-                            isDetailDialogOpen = false
-                        }
-                    )
+                // 히스토리 뷰어 다이얼로그 노출 및 이벤트 제어
+                if (isHistoryViewerOpen && targetHistoryId.isNotEmpty()) {
+                    Dialog(
+                        onDismissRequest = {
+                            isHistoryViewerOpen = false
+                            targetHistoryId = ""
+                            viewerHistoriesSource = emptyList()
+                            historyViewModel.closeCommentsObservation()
+                        },
+                        properties = DialogProperties(
+                            usePlatformDefaultWidth = false,
+                            decorFitsSystemWindows = false
+                        )
+                    ) {
+                        val windowProvider = LocalView.current.parent as? DialogWindowProvider
+                        windowProvider?.window?.setDimAmount(0.0f)
+
+                        HistoryViewerScreen(
+                            myUid = uiState.myStatus?.uid.orEmpty(),
+                            histories = viewerHistoriesSource,
+                            initialHistoryId = targetHistoryId,
+                            comments = historyUiState.currentComments,
+                            onHistoryChanged = { currentId ->
+                                // 히스토리 변경에 따른 댓글 데이터 리스너 재설정
+                                historyViewModel.observeComments(currentId)
+                            },
+                            onDismiss = {
+                                isHistoryViewerOpen = false
+                                targetHistoryId = ""
+                                viewerHistoriesSource = emptyList()
+                                historyViewModel.closeCommentsObservation()
+                            },
+                            onLikeToggle = { targetHistory ->
+                                Toast.makeText(context, "좋아요 토글됨", Toast.LENGTH_SHORT).show()
+                            },
+                            onCommentSubmit = { historyId, commentText ->
+                                // 선택된 히스토리에 댓글 데이터 추가
+                                historyViewModel.addHistoryComment(historyId, commentText)
+                            },
+                            onDeleteClick = { historyId ->
+                                // 히스토리 데이터 삭제 및 뷰어 종료
+                                historyViewModel.deleteHistory(historyId)
+                                isHistoryViewerOpen = false
+                                targetHistoryId = ""
+                                viewerHistoriesSource = emptyList()
+                                historyViewModel.closeCommentsObservation()
+                                Toast.makeText(context, "발자취를 삭제했습니다.", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
                 }
 
                 LocationSharingToggleButton(
@@ -322,6 +341,7 @@ fun MapScreen(
                         .padding(top = 16.dp)
                 )
 
+                // 히스토리 작성 바텀시트 호출 버튼
                 FilledIconButton(
                     onClick = {
                         isHistorySheetOpen = true
@@ -486,15 +506,26 @@ fun MapScreen(
                 }
             }
 
+            // 히스토리 작성 바텀시트 바인딩
             HistoryWriteSheet(
                 isOpen = isHistorySheetOpen,
-                onDismissRequest = { isHistorySheetOpen = false },
+                isLoading = historyUiState.isLoading,
+                onDismissRequest = {
+                    if (!historyUiState.isLoading)
+                        isHistorySheetOpen = false
+                    historyViewModel.clearSelectedImages()
+                },
+                selectedImages = historyUiState.selectedImages,
+                onImagesSelected = { byteArrayList ->
+                    historyViewModel.updateSelectedImages(byteArrayList)
+                },
                 onSaveClick = { selectedCategory, placeName, contentText ->
                     if (contentText.trim().isEmpty()) {
                         Toast.makeText(context, "히스토리 내용을 입력해 주세요.", Toast.LENGTH_SHORT).show()
                         return@HistoryWriteSheet
                     }
                     uiState.myStatus?.let { myStatus ->
+                        // 입력 폼 데이터 기반 신규 히스토리 데이터 생성
                         historyViewModel.createNewHistory(
                             category = selectedCategory,
                             placeName = placeName.ifEmpty { "알 수 없음" },
@@ -502,10 +533,18 @@ fun MapScreen(
                             latitude = myStatus.latitude,
                             longitude = myStatus.longitude
                         )
-                        isHistorySheetOpen = false
                     }
                 }
             )
+
+            // 히스토리 등록 로딩 상태 감지 및 시트 닫기 처리
+            LaunchedEffect(historyUiState.isLoading) {
+                if (!historyUiState.isLoading && isHistorySheetOpen) {
+                    if (historyUiState.errorMessage == null) {
+                        isHistorySheetOpen = false
+                    }
+                }
+            }
 
             val currentClickedFriend = remember(clickedFriendUid, uiState.friendsStatuses) {
                 uiState.friendsStatuses.find { it.uid == clickedFriendUid && it.isSharing }
@@ -550,11 +589,11 @@ fun MapScreen(
 @Composable
 private fun MapContent(
     mapUiState: MapUiState,
-    histories: List<History>,
+    histories: List<History>, // 전체 히스토리 리스트 데이터
     cameraPositionState: CameraPositionState,
     modifier: Modifier = Modifier,
     onFriendClick: (LiveStatus) -> Unit,
-    onHistoryClick: (History) -> Unit
+    onHistoryClick: (History) -> Unit // 히스토리 선택 이벤트 콜백
 ) {
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
@@ -594,6 +633,7 @@ private fun MapContent(
                 }
             }
 
+            // 지도 상에 히스토리 커스텀 마커 리스트 표시
             histories.forEach { history ->
                 key(history.id) {
                     HistoryMarker(history = history, onHistoryClick = onHistoryClick)
@@ -684,6 +724,7 @@ private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit
     }
 }
 
+// 지도 상의 개별 히스토리 컴포저블 마커 표현식
 @OptIn(MapsComposeExperimentalApi::class)
 @Composable
 private fun HistoryMarker(history: History, onHistoryClick: (History) -> Unit) {
@@ -697,6 +738,8 @@ private fun HistoryMarker(history: History, onHistoryClick: (History) -> Unit) {
     }
 
     val bitmapKey = remember(history.id, history.category) { "${history.id}_${history.category}" }
+
+    // 카테고리 정보 기반 테마 색상 및 리소스 아이콘 반환식
     val (iconResId, bgColor, iconColor) = remember(history.category) {
         when (history.category) {
             "무전" -> Triple(R.drawable.ic_walkie_talkie_icon, Color(0xFFFAF5FF), Color(0xFFA855F7))
@@ -707,6 +750,7 @@ private fun HistoryMarker(history: History, onHistoryClick: (History) -> Unit) {
         }
     }
 
+    // 컴포즈 UI 기반 맵 마커용 비트맵 생성 및 캐싱
     val composeMarkerBitmap = rememberComposeBitmapDescriptor(bitmapKey, bitmapKey) {
         HistoryIconCircle(iconResId = iconResId, iconTint = iconColor, backgroundColor = bgColor)
     }
@@ -786,9 +830,7 @@ fun FriendProfileDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         val windowProvider = LocalView.current.parent as? DialogWindowProvider
-        windowProvider?.window?.let { window ->
-            window.setDimAmount(0.1f)
-        }
+        windowProvider?.window?.setDimAmount(0.1f)
 
         Box(
             modifier = Modifier
@@ -1004,7 +1046,7 @@ fun FriendProfileDialog(
     }
 }
 
-// 히스토리 커스텀 마커 아이콘
+// 히스토리 커스텀 마커 내부 아이콘 그래픽 레이아웃
 @Composable
 fun HistoryIconCircle(
     @DrawableRes iconResId: Int,
@@ -1035,134 +1077,6 @@ fun HistoryIconCircle(
     }
 }
 
-// 히스토리 상세 다이얼로그
-@Composable
-fun HistoryDetailDialog(
-    history: History,
-    currentUserId: String,
-    onDismiss: () -> Unit,
-    onDelete: (History) -> Unit
-) {
-    val isMyHistory = remember(history.userId, currentUserId) {
-        history.userId == currentUserId && currentUserId.isNotEmpty()
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(subBackground.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .wrapContentHeight()
-                    .clickable(enabled = false) {},
-                shape = RoundedCornerShape(32.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
-            ) {
-                Column {
-                    AsyncImage(
-                        model = history.imageUrl,
-                        contentDescription = "History Photo",
-                        modifier = Modifier
-                            .height(140.dp)
-                            .fillMaxWidth(),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    Column(modifier = Modifier.padding(24.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = primary
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = history.placeName,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                color = Color(0xFF1E293B)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = history.content,
-                            fontSize = 13.sp,
-                            color = Color(0xFF475569),
-                            lineHeight = 20.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            if (isMyHistory) {
-                                Button(
-                                    onClick = { onDelete(history) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFFFFF1F2),
-                                        contentColor = Color(0xFFF43F5E)
-                                    ),
-                                    elevation = null
-                                ) {
-                                    Text(
-                                        "삭제",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = Color.Red
-                                    )
-                                }
-                            }
-
-                            Button(
-                                onClick = onDismiss,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF956AFC),
-                                    contentColor = Color.White
-                                )
-                            ) {
-                                Text(
-                                    "확인",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = Color.White
-                                )
-                            }
-
-                            if (!isMyHistory) {
-                                Spacer(modifier = Modifier.weight(0.5f))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 /**
  * 실시간 위치 공유 상태를 토글하는 알약 모양의 커스텀 버튼
  *
@@ -1176,7 +1090,6 @@ fun LocationSharingToggleButton(
     onToggleClick: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 상태 변경 시 부드러운 색상 전환 효과 애니메이션
     val indicatorColor by animateColorAsState(
         targetValue = if (isSharingEnabled) online else Color.Gray,
         label = "IndicatorColor"
@@ -1190,21 +1103,19 @@ fun LocationSharingToggleButton(
                 clip = false
             )
             .background(Color.White, shape = RoundedCornerShape(50))
-            .clickable { onToggleClick(!isSharingEnabled) } // 현재 상태를 반전하여 이벤트 전달
+            .clickable { onToggleClick(!isSharingEnabled) }
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 1. 상태 인디케이터 점 (On: 초록색, Off: 회색)
             Box(
                 modifier = Modifier
                     .size(10.dp)
                     .background(color = indicatorColor, shape = CircleShape)
             )
 
-            // 2. 상태 텍스트
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
                 style = Typography.bodyMedium,

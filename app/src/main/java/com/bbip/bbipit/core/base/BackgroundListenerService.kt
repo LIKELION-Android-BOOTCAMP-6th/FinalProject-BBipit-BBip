@@ -22,9 +22,11 @@ import androidx.core.app.NotificationCompat
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
+import com.bbip.bbipit.domain.repository.HistoryRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.UserRepository
@@ -70,6 +72,8 @@ class BackgroundListenerService : Service() {
 
     @Inject
     lateinit var notificationRepository: NotificationRepository
+    @Inject
+    lateinit var historyRepository: HistoryRepository
 
     // 백그라운드 작업 관리용 코루틴 식별자
     private val serviceJob = SupervisorJob()
@@ -144,6 +148,8 @@ class BackgroundListenerService : Service() {
 
         // 푸시 배너 표출용 알림 채널 식별자
         const val CHANNEL_ID_ALERT = "phone_alert_channel"
+
+        const val PATH_RESPONSE_HISTORY_DATA = "/response_histories"
     }
 
     /**
@@ -211,6 +217,16 @@ class BackgroundListenerService : Service() {
             initLocationTracker()
             requestWatchStatus()
 
+            // 실시간 친구 목록 수락 상태가 변동될 때마다 히스토리의 상주 쿼리 타겟을 동적 재배정
+            historyRepository.startSharedHistoryObservation(myUid = myUid)
+
+            // 레포지토리 전역 히스토리 관측 플로우 연결
+            scope.launch {
+                historyRepository.observeSharedHistories().collect { totalHistories ->
+                    pushHistoriesToWatch(totalHistories)
+                }
+            }
+
             scope.launch {
                 notificationRepository.startObserving(myUid, serviceStartTime)
 //                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
@@ -219,6 +235,7 @@ class BackgroundListenerService : Service() {
                 observeNotifications()
             }
         }
+
         // 음성 및 알림 모니터링 가동
         if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
             observeVoiceMessages()
@@ -287,6 +304,22 @@ class BackgroundListenerService : Service() {
         }
 
         return START_STICKY
+    }
+
+    // 수집된 전역 히스토리 리스트 데이터 WearOS 전송 요청
+    private fun pushHistoriesToWatch(histories: List<History>) {
+        if (!watchConnectionManager.isPhysicalConnected.value) return
+        scope.launch {
+            runCatching {
+                val jsonPayload = Gson().toJson(histories)
+                val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_RESPONSE_HISTORY_DATA, byteArray).await()
+                }
+                Log.d(TAG, "👣 [워치 동기화] 백그라운드 발자취 ${histories.size}건 WearOS로 전송 완료")
+            }.onFailure { e -> Log.e(TAG, "❌ 워치 히스토리 푸시 에러", e) }
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -391,7 +424,7 @@ class BackgroundListenerService : Service() {
                                     voiceRepository.emitMobileVoiceEvent(voiceMessage)
                                 }
                             } else {
-                                Log.d(TAG, "사용자가 오프라인 상태이거나 상태 조회에 실패하여 이벤트를 건너뜁니다.")
+                                Log.d(TAG, "사용자가 오프라인 상태이거나 상태 조회에 실패하여 이벤트를 건너뜜")
                             }
                         }
                     }
