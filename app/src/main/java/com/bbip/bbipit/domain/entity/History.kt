@@ -8,9 +8,8 @@ data class History (
     val category: String, // 카테고리
     val placeName: String, // 장소명
     val content: String, // 본문 내용
-    val geohash: String, // 지오해시
-    val imageUrl: String, // 이미지 URL
     val latitude: Double, // 위도
     val longitude: Double, // 경도
     val createdAt: Long, // 생성 시간
+    val imageUrls: List<String>, // 사진들
 )

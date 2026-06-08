@@ -3,13 +3,11 @@ package com.bbip.bbipit.presentation.map.viewmodel
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavController
 import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
-import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -41,11 +39,8 @@ class MapViewModel @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
     private val fusedLocationClient: FusedLocationProviderClient,
     private val chatRepository: ChatRepositoryImpl,
-    private val authRepository: AuthRepository
 ): BaseViewModel<MapUiState>(MapUiState()) {
-
-    // 서버 데이터 공급 전 로컬 캐시 레이어 즉시 파싱용 백업용 Flow
-    private val cacheMyStatus = MutableStateFlow<LiveStatus?>(null)
+    private val myLiveStatus = MutableStateFlow<LiveStatus?>(null)
     private val TAG = "MapViewModel"
 
     init {
@@ -94,7 +89,7 @@ class MapViewModel @Inject constructor(
     }
 
     /**
-     * 🌟 Repository 관찰 흐름을 BaseViewModel의 상태 구조와 통합
+     * Repository 관찰 흐름을 ViewModel의 상태 구조와 연결
      */
     private fun observeLiveStatusStreams() {
         viewModelScope.launch {
@@ -102,7 +97,7 @@ class MapViewModel @Inject constructor(
                 liveStatusRepository.myLiveStatusFlow,
                 liveStatusRepository.friendsLiveStatusFlow,
                 liveStatusRepository.observeLocationSharingState(),
-                cacheMyStatus
+                myLiveStatus
             ) { myStatus, friendsStatuses, isSharingEnabled, cacheStatus ->
                 val currentMyStatus = myStatus ?: cacheStatus
                 Triple(currentMyStatus, friendsStatuses, isSharingEnabled)
@@ -141,7 +136,7 @@ class MapViewModel @Inject constructor(
     @SuppressLint("MissingPermission")
     fun refreshCurrentLocationAndSync() {
         viewModelScope.launch {
-            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
             try {
                 val locationRequest = CurrentLocationRequest.Builder()
                     .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
@@ -210,7 +205,7 @@ class MapViewModel @Inject constructor(
 
                 if (lastLocation != null) {
                     Log.d(TAG, "🎯 초기 위치 확보 성공: ${lastLocation.latitude}, ${lastLocation.longitude}")
-                    cacheMyStatus.value = LiveStatus(
+                    myLiveStatus.value = LiveStatus(
                         uid = uid,
                         latitude = lastLocation.latitude,
                         longitude = lastLocation.longitude
@@ -226,7 +221,7 @@ class MapViewModel @Inject constructor(
 
     private fun setDefaultLocation(uid: String, reason: String) {
         Log.w(TAG, "⚠️ $reason: 무한 로딩 방지를 위해 기본 앵커를 설정합니다.")
-        cacheMyStatus.value = LiveStatus(
+        myLiveStatus.value = LiveStatus(
             uid = uid,
             latitude = DEFAULT_LATITUDE,
             longitude = DEFAULT_LONGITUDE
