@@ -254,4 +254,11 @@ class ChatDetailViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    // 적던 메세지 유지
+    fun updateInputText(newText: String) {
+        _uiState.update { it.copy(inputText = newText) }
+    }
+    fun clearInputText() {
+        _uiState.update { it.copy(inputText = "") }
+    }
 }

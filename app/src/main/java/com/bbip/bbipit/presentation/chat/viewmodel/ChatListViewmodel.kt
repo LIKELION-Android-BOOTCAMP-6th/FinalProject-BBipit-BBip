@@ -3,6 +3,7 @@ package com.bbip.bbipit.presentation.chat.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.util.HangulUtils
 import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.repository.ChatRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
@@ -209,7 +210,21 @@ class ChatListViewModel @Inject constructor(
         val filteredList = if (query.isBlank()) {
             allChatList
         } else {
-            allChatList.filter { it.senderName.contains(query, ignoreCase = true) }
+            val lowerQuery = query.lowercase()
+            val queryChosung = HangulUtils.getChosungString(query)
+
+            allChatList.filter { item ->
+                val name = item.senderName
+
+                // 1. 일반 검색 (이름 포함 여부)
+                val isMatchName = name.contains(query, ignoreCase = true)
+
+                // 2. 초성 검색 (이름의 초성을 추출하여 비교)
+                val nameChosung = HangulUtils.getChosungString(name)
+                val isMatchChosung = nameChosung.contains(queryChosung)
+
+                isMatchName || isMatchChosung
+            }
         }
         _uiState.update {
             it.copy(

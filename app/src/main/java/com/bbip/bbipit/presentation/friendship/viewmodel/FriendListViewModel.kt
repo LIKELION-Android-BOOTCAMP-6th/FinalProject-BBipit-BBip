@@ -21,6 +21,8 @@ import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import java.text.Collator
+import java.util.Locale
 
 @HiltViewModel
 class FriendListViewModel @Inject constructor(
@@ -65,13 +67,24 @@ class FriendListViewModel @Inject constructor(
         viewModelScope.launch {
             // userRepository.myFriends는 이제 'accepted'된 친구들만 들어있다고 가정합니다.
             friendRepository.myFriends.collect { friends ->
-                // 1. accepted 상태인 친구들만 필터링하여 리스트에 할당
+                // accepted 상태인 친구들만 필터링하여 리스트에 할당
                 val acceptedFriends = friends.filter { it.friendshipStatus == "accepted" }
+
+                // 한국어 정렬을 위한 Collator 설정
+                val collator = Collator.getInstance(Locale.KOREAN).apply {
+                    strength = Collator.PRIMARY
+                }
+
                 android.util.Log.d(
                     "FriendListDebug",
                     "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명"
                 )
-                _friendList.value = acceptedFriends
+                val sortedFriends = acceptedFriends.sortedWith( // 1순위 온오프라인, 2순위 가나다순
+                    compareByDescending<Friend> { it.isOnline } // true가 false보다 앞에 옴
+                        .thenBy(collator) { it.nickname }
+                )
+
+                _friendList.value = sortedFriends
 
                 val requestCount = friends.count { it.friendshipStatus == "requested" }
                 _requestCount.value = requestCount

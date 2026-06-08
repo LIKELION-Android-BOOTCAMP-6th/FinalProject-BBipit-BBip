@@ -139,6 +139,17 @@ fun FriendListScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // 친구 목록이 있을 때만 "친구 (수)" 표시
+        if (friendList.isNotEmpty()) {
+            Text(
+                text = "친구 (${friendList.size})",
+                style = Typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.DarkGray,
+                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+            )
+        }
+
         // 친구 목록
         if (friendList.isEmpty()) {
             Box(
