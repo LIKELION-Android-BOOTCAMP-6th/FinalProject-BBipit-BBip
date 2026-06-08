@@ -273,7 +273,6 @@ fun MapScreen(
                     onFriendClick = { friend -> clickedFriendUid = friend.uid },
                     onHistoryClick = { history ->
                         // 마커 선택 시 히스토리 뷰어 데이터 매핑 및 표시
-                        viewerHistoriesSource = listOf(history)
                         targetHistoryId = history.id
                         isHistoryViewerOpen = true
                     }
@@ -285,7 +284,6 @@ fun MapScreen(
                         onDismissRequest = {
                             isHistoryViewerOpen = false
                             targetHistoryId = ""
-                            viewerHistoriesSource = emptyList()
                             historyViewModel.closeCommentsObservation()
                         },
                         properties = DialogProperties(
@@ -296,9 +294,11 @@ fun MapScreen(
                         val windowProvider = LocalView.current.parent as? DialogWindowProvider
                         windowProvider?.window?.setDimAmount(0.0f)
 
+                        Log.d(TAG, "targetHistoryId: $targetHistoryId")
+
                         HistoryViewerScreen(
                             myUid = uiState.myStatus?.uid.orEmpty(),
-                            histories = viewerHistoriesSource,
+                            histories = historyUiState.histories,
                             initialHistoryId = targetHistoryId,
                             comments = historyUiState.currentComments,
                             onHistoryChanged = { currentId ->
@@ -308,11 +308,11 @@ fun MapScreen(
                             onDismiss = {
                                 isHistoryViewerOpen = false
                                 targetHistoryId = ""
-                                viewerHistoriesSource = emptyList()
                                 historyViewModel.closeCommentsObservation()
                             },
                             onLikeToggle = { targetHistory ->
-                                Toast.makeText(context, "좋아요 토글됨", Toast.LENGTH_SHORT).show()
+                                // 좋아요 토글
+                                historyViewModel.toggleHistoryLike(targetHistory.id)
                             },
                             onCommentSubmit = { historyId, commentText ->
                                 // 선택된 히스토리에 댓글 데이터 추가
@@ -323,7 +323,6 @@ fun MapScreen(
                                 historyViewModel.deleteHistory(historyId)
                                 isHistoryViewerOpen = false
                                 targetHistoryId = ""
-                                viewerHistoriesSource = emptyList()
                                 historyViewModel.closeCommentsObservation()
                                 Toast.makeText(context, "발자취를 삭제했습니다.", Toast.LENGTH_SHORT).show()
                             }

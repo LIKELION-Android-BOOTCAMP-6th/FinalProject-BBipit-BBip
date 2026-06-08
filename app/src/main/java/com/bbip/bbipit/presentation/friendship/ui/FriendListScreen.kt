@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.friendship.ui
 
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,6 +64,7 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.map.ui.HistoryViewerScreen
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun FriendListScreen(
@@ -98,7 +100,6 @@ fun FriendListScreen(
     // 히스토리 뷰어 화면 제어용 상태 변수
     var isFriendViewerOpen by remember { mutableStateOf(false) }
     var targetHistoryId by remember { mutableStateOf("") }
-    var viewerHistoriesSource by remember { mutableStateOf<List<History>>(emptyList()) }
 
     Column(
         modifier = Modifier
@@ -206,9 +207,9 @@ fun FriendListScreen(
                             val friendStories = allHistories.filter { it.userId == friend.uid }
 
                             if (friendStories.isNotEmpty()) {
-                                viewerHistoriesSource = friendStories
                                 targetHistoryId = friendStories.first().id
                                 isFriendViewerOpen = true
+                                Log.d("FriendList", "onClick")
                             } else {
                                 showToastMessage = "'${friend.nickname}'님이 최근 12시간 내에 남긴 발자취가 없습니다. 👣"
                             }
@@ -224,7 +225,6 @@ fun FriendListScreen(
                 onDismissRequest = {
                     isFriendViewerOpen = false
                     targetHistoryId = ""
-                    viewerHistoriesSource = emptyList()
                     historyViewModel.closeCommentsObservation()
                 },
                 properties = DialogProperties(
@@ -236,20 +236,22 @@ fun FriendListScreen(
                 windowProvider?.window?.setDimAmount(0.0f)
 
                 HistoryViewerScreen(
-                    myUid = "",
-                    histories = viewerHistoriesSource, // 필터링된 친구 히스토리 목록 전달
+                    myUid = historyViewModel.getMyUid(),
+                    histories = allHistories,
                     initialHistoryId = targetHistoryId,
                     comments = historyUiState.currentComments,
+                    isFromFriendList = true,
                     onHistoryChanged = { currentId ->
                         historyViewModel.observeComments(currentId) // 히스토리 변경 시 댓글 데이터 갱신
                     },
                     onDismiss = {
                         isFriendViewerOpen = false
                         targetHistoryId = ""
-                        viewerHistoriesSource = emptyList()
                         historyViewModel.closeCommentsObservation()
                     },
-                    onLikeToggle = { _ -> },
+                    onLikeToggle = { targetHistory ->
+                        historyViewModel.toggleHistoryLike(targetHistory.id)
+                    },
                     onCommentSubmit = { historyId, commentText ->
                         historyViewModel.addHistoryComment(historyId, commentText)
                     },

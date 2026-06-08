@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Logout
@@ -40,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.extension.findActivity
 import com.bbip.bbipit.core.navigation.Routes
@@ -54,6 +57,8 @@ import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
+import com.bbip.bbipit.presentation.user.ui.MyHistoryGridViewerDialog
 import com.bbip.bbipit.presentation.user.ui.SettingsDrawer
 import com.google.firebase.auth.FirebaseAuth
 
@@ -64,6 +69,7 @@ val KakaoYellow = Color(0xFFFEE500)
 fun MyPageScreen(
     navController: NavController,
     viewModel: MyPageViewmodel = hiltViewModel(),
+    historyViewModel: HistoryViewModel = hiltViewModel(),
     bottomBarViewModel: BottomBarViewModel =
         hiltViewModel(viewModelStoreOwner = (LocalActivity.current as ComponentActivity)), //드로어블 열렸을 때 하단바 안보이게 하기 위해 하단바 관련 뷰모델 생성
     onCopyIdClick: (String) -> Unit = {},
@@ -74,7 +80,23 @@ fun MyPageScreen(
     val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
     val context = LocalContext.current.findActivity()
 
+    // 히스토리 그리드 상태
+    var isHistoryGridOpen by remember { mutableStateOf(false) }
+    // 히스토리 구독 상태
+    val historyUiState by historyViewModel.uiState.collectAsStateWithLifecycle()
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // 마이페이지가 열릴 때 내 히스토리 리스너 시작
+    LaunchedEffect(Unit) {
+        historyViewModel.startHistoryObservation()
+    }
+
+    // 마이페이지가 화면에서 사라질 때 자원 해제
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        historyViewModel.closeHistoryObservation()
+    }
+
     // 화면이 그려지자마자 내 데이터를 서버에서 가져옴
     LaunchedEffect(Unit) {
         viewModel.fetchUserProfile()
@@ -323,10 +345,53 @@ fun MyPageScreen(
                                 }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            color = subBackground,
+                            shadowElevation = 1.dp,
+                            onClick = {
+                                isHistoryGridOpen = true
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 24.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "👣",
+                                        fontSize = 18.sp,
+                                        modifier = Modifier.padding(end = 12.dp)
+                                    )
+                                    Text(
+                                        text = "내가 남긴 발자취 보기",
+                                        style = Typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = fontDefault
+
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "이동하기",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
             }
         }
     }
+
 
 
     }
@@ -365,6 +430,30 @@ fun MyPageScreen(
             onConfirm = {
                 viewModel.onSocialDeleted(false)
                 viewModel.deleteAccount(context)
+            }
+        )
+    }
+
+    if (isHistoryGridOpen) {
+        MyHistoryGridViewerDialog(
+            myUid = historyViewModel.getMyUid(),
+            histories = historyUiState.histories,
+            comments = historyUiState.currentComments,
+            onHistoryChanged = { currentId ->
+                historyViewModel.observeComments(currentId)
+            },
+            onLikeToggle = { targetHistory ->
+                historyViewModel.toggleHistoryLike(targetHistory.id)
+            },
+            onCommentSubmit = { historyId, commentText ->
+                historyViewModel.addHistoryComment(historyId, commentText)
+            },
+            onDeleteClick = { historyId ->
+                historyViewModel.deleteHistory(historyId)
+            },
+            onDismiss = {
+                isHistoryGridOpen = false
+                historyViewModel.closeCommentsObservation()
             }
         )
     }

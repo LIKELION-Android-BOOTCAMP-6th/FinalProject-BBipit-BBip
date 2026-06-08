@@ -12,4 +12,8 @@ data class History (
     val longitude: Double, // 경도
     val createdAt: Long, // 생성 시간
     val imageUrls: List<String>, // 사진들
-)
+    val likedUserIds: List<String>, // 좋아요 누른 유저 ID 리스트
+) {
+    // 특정 사용자가 이 히스토리에 좋아요를 눌렀는지 여부 반환
+    fun isLikedByUser(myUid: String): Boolean = likedUserIds.contains(myUid)
+}
