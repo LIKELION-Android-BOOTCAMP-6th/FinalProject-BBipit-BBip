@@ -23,6 +23,23 @@ class UserRemoteDataSourceImpl @Inject constructor(
 ) : UserRemoteDataSource {
 
     /**
+     * 유저 코드를 기반으로 친구 여부와 상관없이 유저 프로필 및 관계 정보 조회
+     */
+    override suspend fun getUserProfileByCode(targetCode: String): Map<String, Any>? {
+        return try {
+            val data = mapOf("targetCode" to targetCode)
+            val result = firebaseFunctions.getHttpsCallable("getUserProfileByCode")
+                .call(data)
+                .await()
+
+            result.data as? Map<String, Any>
+        } catch (e: Exception) {
+            Log.e("UserRemoteDataSource", "유저 코드로 프로필 조회 실패: ${e.message}")
+            null
+        }
+    }
+
+    /**
      * DB에서 특정 유저의 온라인 상태(is_online)를 직접 조회하는 함수
      */
     override suspend fun getUserOnlineStatus(uid: String): Boolean? {
