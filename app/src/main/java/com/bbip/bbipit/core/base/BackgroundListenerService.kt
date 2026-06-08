@@ -798,47 +798,41 @@ class BackgroundListenerService : Service() {
      */
     private fun observeNotifications() {
         scope.launch {
-            // 서비스 시작 시점 이후에 생성된 알림만 처리
-            val serviceStartTime = System.currentTimeMillis()
             notificationRepository.notifications.collect { notifications ->
                 notifications.forEach { notification ->
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id)
                     ) {
-                        Log.d(
-                            TAG,
-                            "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}"
-                        )
+                        Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
                         notifiedIds.add(notification.id)
-                        Log.d(
-                            TAG,
-                            "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})"
-                        )
+                        Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})")
 
                         if (!notification.isInitial) {
-                            // WALKIE 타입 최우선 분기 처리
+                            Log.d(TAG, "isInitial false - type: ${notification.type}, watchForeground: ${watchConnectionManager.isWatchInForeground.value}, phoneForeground: ${lifeCycleManager.isAppInForeground.value}")
                             if (notification.type == "WALKIE") {
-                                // 1. 앱이 켜져있을 때 (포그라운드) -> 화면 안에서 바로 무전 자동 재생
-                                if (lifeCycleManager.isAppInForeground.value) {
-                                    val currentUserId =
-                                        authRepository.getCurrentUserUid() ?: return@forEach
-                                    scope.launch {
-                                        Log.d(TAG, "🔊 앱 포그라운드 상태 -> 무전 즉시 자동 재생 구동")
-                                        notificationRepository.playWalkieNotification(
-                                            notification = notification,
-                                            receiverId = currentUserId
-                                        )
+                                when {
+                                    lifeCycleManager.isAppInForeground.value -> {
+                                        Log.d(TAG, "🔊 폰 포그라운드 → 폰에서 재생")
+                                        val currentUserId = authRepository.getCurrentUserUid() ?: return@forEach
+                                        scope.launch {
+                                            notificationRepository.playWalkieNotification(
+                                                notification = notification,
+                                                receiverId = currentUserId
+                                            )
+                                        }
+                                    }
+                                    watchConnectionManager.isWatchInForeground.value -> {
+                                        // 워치 포그라운드 → 시스템 알림 스킵 (observeVoiceMessages에서 처리)
+                                        Log.d(TAG, "⌚ 워치 포그라운드 → 시스템 알림 스킵")
+                                    }
+                                    else -> {
+                                        Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
+                                        showSystemNotification(notification)
                                     }
                                 }
-                                // 2. 앱이 꺼져있거나 홈화면일 때 (백그라운드)
-                                else {
-                                    Log.d(TAG, "📱 앱 백그라운드 상태 -> 시스템 팝업 배너만 표출")
-                                    showSystemNotification(notification)
-                                }
-                                // WALKIE는 여기서 처리를 끝내고 다른 알림 로직으로 넘어가지 않게 방어
                                 return@forEach
                             }
-                            // 일반 알림(DM, REQ) 처리
+                            // 일반 알림(DM, REQ, ACP) 처리
                             showSystemNotification(notification)
                         }
                     }

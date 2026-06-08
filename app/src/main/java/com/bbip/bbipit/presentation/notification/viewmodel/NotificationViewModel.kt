@@ -169,4 +169,17 @@ class NotificationViewModel @Inject constructor(
         }
         dmNotifications.forEach { markAsRead(it.id) }
     }
+
+    fun deleteAllNotifications() {
+        if (currentUserId.isEmpty()) return
+        if (!isNetworkAvailable()) { showNetworkErrorToast(); return }
+
+        viewModelScope.launch {
+            try {
+                notificationRepository.deleteNotifications(currentUserId, null)
+            } catch (e: Exception) {
+                Log.e("NotificationVM", "전체 삭제 실패: ${e.message}")
+            }
+        }
+    }
 }
