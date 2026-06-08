@@ -118,7 +118,8 @@ fun NotificationScreen(
                     } else {
                         viewModel.onReadAllClick()
                     }
-                }
+                },
+                onDeleteAll = { viewModel.deleteAllNotifications() }
             )
             Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp)) {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -387,7 +388,9 @@ fun StatusBadge(text: String, color: Color) {
 }
 
 @Composable
-fun NotificationHeader(onReadAll: () -> Unit) {
+fun NotificationHeader(
+    onReadAll: () -> Unit,
+    onDeleteAll: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.Transparent,
@@ -402,13 +405,22 @@ fun NotificationHeader(onReadAll: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = "알림", style = Typography.bodyLarge)
-                Text(
-                    text = "전체 확인",
-                    modifier = Modifier.clickable { onReadAll() },
-                    style = Typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = primary
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "전체 삭제",
+                        modifier = Modifier.clickable { onDeleteAll() },
+                        style = Typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red.copy(alpha = 0.7f)
+                    )
+                    Text(
+                        text = "전체 확인",
+                        modifier = Modifier.clickable { onReadAll() },
+                        style = Typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = primary
+                    )
+                }
             }
         }
     }
