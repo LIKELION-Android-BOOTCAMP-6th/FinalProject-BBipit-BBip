@@ -1,5 +1,6 @@
 package com.bbip.bbipit.domain.repository
 
+import android.net.Uri
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.Friend
 import com.bbip.bbipit.domain.entity.User
@@ -20,7 +21,7 @@ interface UserRepository {
     /**
      * 유저 프로필 정보 및 푸시 토큰 업데이트 함수
      */
-    suspend fun updateProfile(nickname: String? = null, status: String? = null, profileImageUrl: String? = null, fcmToken: String? = null): Result<String>
+    suspend fun updateProfile(nickname: String? = null, status: String? = null, profileImageUrl: Uri? = null, fcmToken: String? = null): Result<String>
 
     /**
      * 온라인 접속 상태 업데이트 함수
