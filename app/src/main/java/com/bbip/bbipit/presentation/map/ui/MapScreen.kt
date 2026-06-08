@@ -94,6 +94,7 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.CameraPositionState
+import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.rememberComposeBitmapDescriptor
 import kotlinx.coroutines.launch
@@ -321,33 +322,33 @@ fun MapScreen(
                         .padding(top = 16.dp)
                 )
 
-//                FilledIconButton(
-//                    onClick = {
-//                        isHistorySheetOpen = true
-//                    },
-//                    modifier = Modifier
-//                        .align(Alignment.BottomEnd)
-//                        .statusBarsPadding()
-//                        .padding(end = 16.dp, bottom = 280.dp)
-//                        .size(50.dp)
-//                        .shadow(
-//                            elevation = 6.dp,
-//                            shape = RoundedCornerShape(14.dp),
-//                            clip = false
-//                        ),
-//                    shape = RoundedCornerShape(14.dp),
-//                    colors = IconButtonDefaults.filledIconButtonColors(
-//                        containerColor = Color(0xFFF1F5F9),
-//                        contentColor = Color.White
-//                    )
-//                ) {
-//                    Icon(
-//                        painter = painterResource(id = R.drawable.ic_footprints_icon),
-//                        contentDescription = "히스토리 바텀 시트 열기",
-//                        modifier = Modifier.size(24.dp),
-//                        tint = Color(0xFF956AFC)
-//                    )
-//                }
+                FilledIconButton(
+                    onClick = {
+                        isHistorySheetOpen = true
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 280.dp)
+                        .size(50.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color(0xFFF1F5F9),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_footprints_icon),
+                        contentDescription = "히스토리 바텀 시트 열기",
+                        modifier = Modifier.size(24.dp),
+                        tint = Color(0xFF956AFC)
+                    )
+                }
 
                 FriendListToggleButton(
                     onClick = {
@@ -576,7 +577,10 @@ private fun MapContent(
     Box(modifier = modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState
+            cameraPositionState = cameraPositionState,
+            uiSettings = MapUiSettings(
+                zoomControlsEnabled = false
+            )
         ) {
             mapUiState.myStatus?.let { my ->
                 MyMarker(myStatus = my, profileImageUrl = my.profileImageUrl)
