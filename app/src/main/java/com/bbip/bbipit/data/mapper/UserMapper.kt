@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.mapper
 
+import com.bbip.bbipit.core.extension.urlMapper
 import com.bbip.bbipit.data.source.model.UserDto
 import com.bbip.bbipit.domain.entity.User
 import com.google.firebase.Timestamp
@@ -49,7 +50,7 @@ fun Map<String, Any>.toDomain(): User {
     return User(
         id = this["uid"] as? String ?: "",
         nickname = this["nickname"] as? String ?: "익명",
-        profileImageUrl = this["profile_image_url"] as? String ?: "",
+        profileImageUrl = (this["profile_image_url"] as? String ?: "").urlMapper(),
         status = this["status"] as? String ?: "",
         isSharing = this["is_sharing"] as? Boolean ?: false,
         isOnline = this["is_online"] as? Boolean ?: false,

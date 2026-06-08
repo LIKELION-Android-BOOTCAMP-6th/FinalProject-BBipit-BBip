@@ -13,3 +13,11 @@ fun Context.findActivity(): Activity? = when (this) {
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
+fun String.urlMapper():String{
+    return if (this.startsWith("http://")) {
+        this.replaceFirst("http://", "https://")
+    } else {
+        this
+    }
+}
