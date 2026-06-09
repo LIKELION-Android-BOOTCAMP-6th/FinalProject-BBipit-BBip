@@ -1,6 +1,8 @@
 package com.bbip.bbipit
 
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -19,8 +21,12 @@ import com.bbip.bbipit.base.WatchIncomingVoiceDialog
 import com.bbip.bbipit.base.WatchServiceRestrictedScreen
 import com.bbip.bbipit.map.WatchMapScreen
 import com.bbip.bbipit.models.MobileServiceStatus
-import com.bbip.bbipit.service.WatchCentralService
+import com.bbip.bbipit.models.WatchVoiceData
 import com.bbip.bbipit.theme.BbipitTheme
+import com.bbip.bbipit.util.VoiceEventBus
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * 애플리케이션 진입점 메인 액티비티
@@ -51,12 +57,13 @@ class MainActivity : ComponentActivity() {
                 WatchIncomingVoiceDialog(data, onDismiss = { viewModel.clearVoiceState() })
             }
         }
+        viewModel.handlePlayIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
         // 포그라운드 활성화 상태 선언
-        WatchCentralService.isWatchActiveInForeground = true
+        viewModel.isWatchActiveInForeground = true
 
         viewModel.checkPhoneServiceStatus()
     }
@@ -64,7 +71,12 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         // 포그라운드 비활성화 상태 선언
-        WatchCentralService.isWatchActiveInForeground = false
+        viewModel.isWatchActiveInForeground = false
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.handlePlayIntent(intent)
     }
 }
 

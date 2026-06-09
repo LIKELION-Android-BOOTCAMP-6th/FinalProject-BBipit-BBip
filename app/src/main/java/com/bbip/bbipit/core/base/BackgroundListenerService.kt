@@ -22,9 +22,11 @@ import androidx.core.app.NotificationCompat
 import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
+import com.bbip.bbipit.domain.repository.HistoryRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.NotificationRepository
 import com.bbip.bbipit.domain.repository.UserRepository
@@ -70,6 +72,8 @@ class BackgroundListenerService : Service() {
 
     @Inject
     lateinit var notificationRepository: NotificationRepository
+    @Inject
+    lateinit var historyRepository: HistoryRepository
 
     // 백그라운드 작업 관리용 코루틴 식별자
     private val serviceJob = SupervisorJob()
@@ -144,6 +148,13 @@ class BackgroundListenerService : Service() {
 
         // 푸시 배너 표출용 알림 채널 식별자
         const val CHANNEL_ID_ALERT = "phone_alert_channel"
+
+        const val PATH_RESPONSE_HISTORY_DATA = "/response_histories"
+
+        // 무전 워치/폰에서 듣기
+        const val ACTION_LISTEN_ON_WATCH = "LISTEN_ON_WATCH"
+        const val ACTION_LISTEN_ON_PHONE = "LISTEN_ON_PHONE"
+        const val EXTRA_VOICE_ID = "extra_voice_id"
     }
 
     /**
@@ -211,6 +222,16 @@ class BackgroundListenerService : Service() {
             initLocationTracker()
             requestWatchStatus()
 
+            // 실시간 친구 목록 수락 상태가 변동될 때마다 히스토리의 상주 쿼리 타겟을 동적 재배정
+            historyRepository.startSharedHistoryObservation(myUid = myUid)
+
+            // 레포지토리 전역 히스토리 관측 플로우 연결
+            scope.launch {
+                historyRepository.observeSharedHistories().collect { totalHistories ->
+                    pushHistoriesToWatch(totalHistories)
+                }
+            }
+
             scope.launch {
                 notificationRepository.startObserving(myUid, serviceStartTime)
 //                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
@@ -219,6 +240,7 @@ class BackgroundListenerService : Service() {
                 observeNotifications()
             }
         }
+
         // 음성 및 알림 모니터링 가동
         if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
             observeVoiceMessages()
@@ -287,6 +309,22 @@ class BackgroundListenerService : Service() {
         }
 
         return START_STICKY
+    }
+
+    // 수집된 전역 히스토리 리스트 데이터 WearOS 전송 요청
+    private fun pushHistoriesToWatch(histories: List<History>) {
+        if (!watchConnectionManager.isPhysicalConnected.value) return
+        scope.launch {
+            runCatching {
+                val jsonPayload = Gson().toJson(histories)
+                val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_RESPONSE_HISTORY_DATA, byteArray).await()
+                }
+                Log.d(TAG, "👣 [워치 동기화] 백그라운드 발자취 ${histories.size}건 WearOS로 전송 완료")
+            }.onFailure { e -> Log.e(TAG, "❌ 워치 히스토리 푸시 에러", e) }
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -368,32 +406,37 @@ class BackgroundListenerService : Service() {
      * 수신 음성 메시지 모니터링 및 이벤트 분기 함수
      */
     private fun observeVoiceMessages() {
-        val isMobileForeground = lifeCycleManager.isAppInForeground.value
-        val isWatchForeground = watchConnectionManager.isWatchInForeground.value
-        // 기존에 돌고 있는 Job이 있다면 취소하여 중복 구독 방지
         voiceObservationJob?.cancel()
 
         voiceObservationJob = scope.launch {
-            // 인증 상태 확인 및 수신 음성메시지 구독
             authRepository.getAuthStateFlow().collect { uid ->
                 if (uid != null) {
-                    voiceRepository.observeIncomingVoice(uid, serviceStartTime).collect { voiceMessage ->
-                        val url = voiceMessage.voiceUrl
+                    voiceRepository.observeIncomingVoice(uid, serviceStartTime)
+                        .collect { voiceMessage ->
+                            val url = voiceMessage.voiceUrl
 
-                        // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
-                        if (url.isNotEmpty() && !voiceMessage.isInitial) {
-                            val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
-                            if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
-                                if (!isMobileForeground && isWatchForeground) {
-                                    sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
-                                } else {
-                                    voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                            if (url.isNotEmpty() && !voiceMessage.isInitial) {
+                                val isMobileForeground = lifeCycleManager.isAppInForeground.value
+                                val isWatchForeground = watchConnectionManager.isWatchInForeground.value
+                                val isWatchConnected = watchConnectionManager.isPhysicalConnected.value
+
+                                when {
+                                    !isWatchConnected -> {
+                                        voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                                    }
+                                    isMobileForeground -> {
+                                        voiceRepository.emitMobileVoiceEvent(voiceMessage)
+                                    }
+                                    !isMobileForeground && isWatchForeground -> {
+                                        sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
+                                    }
+                                    else -> {
+                                        // 둘 다 백그라운드 → observeNotifications에서 처리
+                                        Log.d(TAG, "⏭ 둘 다 백그라운드 → observeNotifications에서 처리")
+                                    }
                                 }
-                            } else {
-                                Log.d(TAG, "사용자가 오프라인 상태이거나 상태 조회에 실패하여 이벤트를 건너뜁니다.")
                             }
                         }
-                    }
                 }
             }
         }
@@ -639,8 +682,7 @@ class BackgroundListenerService : Service() {
      * 최신 위치 좌표 데이터 구조체 워치 송신 함수
      */
     private fun pushLocationsToWatch(locations: List<LiveStatus>) {
-        val isWatchForeground = watchConnectionManager.isWatchInForeground.value
-        if(!isWatchForeground) return
+        if (!watchConnectionManager.isPhysicalConnected.value) return
         scope.launch {
             runCatching {
                 // 데이터를 직렬화하여 연결된 워치 기기들에 송신
@@ -832,12 +874,36 @@ class BackgroundListenerService : Service() {
                                         }
                                     }
                                     watchConnectionManager.isWatchInForeground.value -> {
-                                        // 워치 포그라운드 → 시스템 알림 스킵 (observeVoiceMessages에서 처리)
                                         Log.d(TAG, "⌚ 워치 포그라운드 → 시스템 알림 스킵")
                                     }
                                     else -> {
                                         Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
                                         showSystemNotification(notification)
+                                        if (watchConnectionManager.isPhysicalConnected.value) {
+                                            scope.launch {
+                                                try {
+                                                    val voiceUrl = when (val result = voiceRepository.getVoiceMessageById(notification.audioId)) {
+                                                        is Result.Success -> result.data.voiceUrl ?: ""
+                                                        else -> ""
+                                                    }
+                                                    val payload = mapOf(
+                                                        "notificationId" to notification.id,
+                                                        "audioId" to notification.audioId,
+                                                        "senderName" to notification.senderName,
+                                                        "voiceUrl" to voiceUrl,
+                                                        "senderProfileImage" to notification.profileImage
+                                                    )
+                                                    val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
+                                                    val nodes = nodeClient.connectedNodes.await()
+                                                    nodes.forEach { node ->
+                                                        messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
+                                                        Log.d(TAG, "✅ 워치로 무전 알림 전송 완료")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 return@forEach

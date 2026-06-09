@@ -11,6 +11,7 @@ import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.domain.repository.HistoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -18,11 +19,14 @@ import javax.inject.Inject
 import kotlin.collections.emptyList
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class FriendListViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val friendRepository: FriendRepository,
+    private val historyRepository: HistoryRepository,
     private val functions: FirebaseFunctions
 ) : ViewModel() {
 
@@ -33,6 +37,14 @@ class FriendListViewModel @Inject constructor(
     // 요청 개수를 담을 StateFlow 추가
     private val _requestCount = MutableStateFlow(0)
     val requestCount = _requestCount.asStateFlow()
+
+    // 공유 히스토리 관측 및 StateFlow 변환
+    val allHistories = historyRepository.observeSharedHistories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
 
     init {

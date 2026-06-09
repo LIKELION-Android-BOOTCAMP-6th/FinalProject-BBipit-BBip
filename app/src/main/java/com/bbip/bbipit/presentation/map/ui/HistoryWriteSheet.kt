@@ -1,28 +1,39 @@
 package com.bbip.bbipit.presentation.map.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// 카테고리 프리셋 데이터 모델
+// 카테고리 선택 구성 데이터 모델
 data class CategoryPreset(
     val name: String,
-    val value: String, // 서버 전송용 값
+    val value: String, // 서버 전송용 식별값
     val activeBorderColor: Color,
     val activeBgColor: Color,
     val activeTextColor: Color
@@ -32,19 +43,41 @@ data class CategoryPreset(
 @Composable
 fun HistoryWriteSheet(
     isOpen: Boolean,
+    isLoading: Boolean,
     onDismissRequest: () -> Unit,
     onSaveClick: (category: String, placeName: String, content: String) -> Unit,
+    selectedImages: List<ByteArray>, // 선택된 이미지 데이터 리스트
+    onImagesSelected: (List<ByteArray>) -> Unit // 이미지 선택 완료 콜백
 ) {
     if (!isOpen) return
 
+    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // 입력 폼 상태 관리
     var selectedCategory by remember { mutableStateOf("🎙️ 무전") }
     var placeName by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
 
-    // 카테고리 목록 정의
+    // 이미지 파일 선택용 시스템 갤러리 계약 등록 (최대 3장 제한)
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            // 선택된 Uri 객체들을 ByteArray 포맷으로 변환 및 정제
+            val byteArrayList = uris.mapNotNull { uri ->
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        inputStream.readBytes()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    null
+                }
+            }
+            onImagesSelected(byteArrayList)
+        }
+    }
+
     val categoryPresets = remember {
         listOf(
             CategoryPreset("🎙️ 무전", "무전", Color(0xFF956AFC), Color(0xFF956AFC).copy(alpha = 0.05f), Color(0xFF956AFC)),
@@ -56,197 +89,335 @@ fun HistoryWriteSheet(
         )
     }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismissRequest,
-        sheetState = sheetState,
-        containerColor = Color.White,
-        shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
-        dragHandle = null
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(
-                    top = 28.dp,
-                    bottom = maxOf(24.dp, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
-                ),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        ModalBottomSheet(
+            onDismissRequest  = {
+                if (!isLoading) onDismissRequest()
+            },
+            sheetState = sheetState,
+            containerColor = Color.White,
+            shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
+            dragHandle = null,
         ) {
-            // 상단 헤더
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(
+                        top = 28.dp,
+                        bottom = maxOf(
+                            24.dp,
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        )
+                    ),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Column {
-                    Text(
-                        text = "발자취 남기기",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF0F172A)
-                    )
-                    Text(
-                        text = "내 현재 위치에 소중한 추억을 핀으로 꽂아두세요.",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF94A3B8),
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-
-                // 닫기 버튼
-                IconButton(
-                    onClick = onDismissRequest,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFFF1F5F9), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "닫기",
-                        tint = Color(0xFF64748B),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            // 카테고리 선택 필드
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "카테고리",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF94A3B8),
-                    letterSpacing = 1.sp
-                )
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    categoryPresets.forEach { preset ->
-                        val isSelected = selectedCategory == preset.name
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = if (isSelected) preset.activeBgColor else Color(0xFFF8FAFC),
-                                    shape = RoundedCornerShape(24.dp)
+                    Column {
+                        Text(
+                            text = "발자취 남기기",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "내 현재 위치에 소중한 추억을 핀으로 꽂아두세요.",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF94A3B8),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFFF1F5F9), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "닫기",
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "카테고리",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF94A3B8),
+                        letterSpacing = 1.sp
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        categoryPresets.forEach { preset ->
+                            val isSelected = selectedCategory == preset.name
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = if (isSelected) preset.activeBgColor else Color(
+                                            0xFFF8FAFC
+                                        ),
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                    .border(
+                                        width = 2.dp,
+                                        color = if (isSelected) preset.activeBorderColor else Color(
+                                            0xFFF1F5F9
+                                        ),
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                    .clickable { selectedCategory = preset.name }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = preset.name,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = if (isSelected) preset.activeTextColor else Color(
+                                        0xFF64748B
+                                    )
                                 )
-                                .border(
-                                    width = 2.dp,
-                                    color = if (isSelected) preset.activeBorderColor else Color(0xFFF1F5F9),
-                                    shape = RoundedCornerShape(24.dp)
-                                )
-                                .clickable { selectedCategory = preset.name }
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = preset.name,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black,
-                                color = if (isSelected) preset.activeTextColor else Color(0xFF64748B)
-                            )
+                            }
                         }
                     }
                 }
-            }
 
-            // 장소명 입력 필드
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "기록할 장소 이름",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF94A3B8),
-                    letterSpacing = 1.sp
-                )
-                OutlinedTextField(
-                    value = placeName,
-                    onValueChange = { placeName = it },
-                    placeholder = { Text("예: 맛있는 돈카츠 가게, 한강 쉼터 등", color = Color(0xFFCBD5E1), fontSize = 13.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155)),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color(0xFFF8FAFC).copy(alpha = 0.8f),
-                        focusedBorderColor = Color(0xFF956AFC).copy(alpha = 0.2f),
-                        unfocusedBorderColor = Color(0xFFF1F5F9),
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "기록할 장소 이름",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF94A3B8),
+                        letterSpacing = 1.sp
                     )
-                )
-            }
+                    OutlinedTextField(
+                        value = placeName,
+                        onValueChange = { placeName = it },
+                        placeholder = {
+                            Text(
+                                "예: 맛있는 돈카츠 가게, 한강 쉼터 등",
+                                color = Color(0xFFCBD5E1),
+                                fontSize = 13.sp
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF334155)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color(0xFFF8FAFC).copy(alpha = 0.8f),
+                            focusedBorderColor = Color(0xFF956AFC).copy(alpha = 0.2f),
+                            unfocusedBorderColor = Color(0xFFF1F5F9),
+                        )
+                    )
+                }
 
-            // 본문 내용 입력 필드
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "기록 내용",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF94A3B8),
-                    letterSpacing = 1.sp
-                )
-                OutlinedTextField(
-                    value = content,
-                    onValueChange = { content = it },
-                    placeholder = { Text("이 위치에서의 추억이나 오늘 어떤 즐거운 일이 있었는지 적어보세요...",
-                        color = Color(0xFFCBD5E1),
-                        fontSize = 13.sp
-                    ) },
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "기록 내용",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF94A3B8),
+                        letterSpacing = 1.sp
+                    )
+                    OutlinedTextField(
+                        value = content,
+                        onValueChange = { content = it },
+                        placeholder = {
+                            Text(
+                                "이 위치에서의 추억이나 오늘 어떤 즐거운 일이 있었는지 적어보세요...",
+                                color = Color(0xFFCBD5E1),
+                                fontSize = 13.sp
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(110.dp),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF334155),
+                            lineHeight = 20.sp
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color(0xFFF8FAFC).copy(alpha = 0.8f),
+                            focusedBorderColor = Color(0xFF956AFC).copy(alpha = 0.2f),
+                            unfocusedBorderColor = Color(0xFFF1F5F9),
+                        )
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Text(
+                            text = "스토리 사진 첨부",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF94A3B8),
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "최대 3장까지 업로드 가능",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF956AFC)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // 이미지 프리뷰 목록 구성 및 시스템 갤러리 연동
+                        repeat(3) { index ->
+                            val imageBytes = selectedImages.getOrNull(index)
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .background(Color(0xFFF8FAFC), RoundedCornerShape(16.dp))
+                                    .border(
+                                        width = 1.5.dp,
+                                        color = Color(0xFFF1F5F9),
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .clickable {
+                                        galleryLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (imageBytes != null) {
+                                    // 선택 이미지 데이터 기반 비트맵 팩토리 디코딩 및 미리보기 출력
+                                    val bitmap = remember(imageBytes) {
+                                        android.graphics.BitmapFactory.decodeByteArray(
+                                            imageBytes,
+                                            0,
+                                            imageBytes.size
+                                        )
+                                    }
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = "선택된 이미지 프리뷰",
+                                        modifier = Modifier.fillMaxSize()
+                                            .clip(RoundedCornerShape(16.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "사진 추가",
+                                            tint = Color(0xFFCBD5E1),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 저장 버튼
+                Button(
+                    onClick = {
+                        val mappedCategoryValue =
+                            categoryPresets.find { it.name == selectedCategory }?.value ?: "일반"
+                        onSaveClick(mappedCategoryValue, placeName, content)
+                    },
+                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155), lineHeight = 20.sp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color(0xFFF8FAFC).copy(alpha = 0.8f),
-                        focusedBorderColor = Color(0xFF956AFC).copy(alpha = 0.2f),
-                        unfocusedBorderColor = Color(0xFFF1F5F9),
+                        .height(56.dp),
+                    shape = RoundedCornerShape(32.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF956AFC),
+                        disabledContainerColor = Color(0xFF956AFC).copy(alpha = 0.6f),
+                        disabledContentColor = Color.White
                     )
-                )
+                ) {
+                    if (isLoading) {
+                        // 로딩 중일 때는 흰색 스피너 표시
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Text(
+                            text = "이 장소에 기록 남기기",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
+                }
             }
-
-            // 안내 배너
-            Row(
+        }
+        if (isLoading) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(color = Color(0xFF956AFC).copy(alpha = 0.05f), shape = RoundedCornerShape(20.dp))
-                    .border(width = 1.dp, color = Color(0xFF956AFC).copy(alpha = 0.1f), shape = RoundedCornerShape(20.dp))
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {},
+                contentAlignment = Alignment.Center
             ) {
-                Text(text = "📸", fontSize = 20.sp)
-                Text(
-                    text = "카테고리에 맞는 전용 무드 감성 사진이\n자동 매핑되어 지도 마커 상세 카드에 아름답게 띄워집니다!",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF956AFC),
-                    lineHeight = 14.sp
-                )
-            }
-
-            // 저장 버튼
-            Button(
-                onClick = {
-                    val mappedCategoryValue = categoryPresets.find { it.name == selectedCategory }?.value ?: "일반"
-                    onSaveClick(mappedCategoryValue, placeName, content)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(32.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF956AFC))
-            ) {
-                Text(
-                    text = "이 장소에 기록 남기기",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.White
-                )
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color(0xFF956AFC),
+                            strokeWidth = 2.5.dp
+                        )
+                        Text(
+                            text = "소중한 발자취를 서버에 심는 중...",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF334155)
+                        )
+                    }
+                }
             }
         }
     }

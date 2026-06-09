@@ -6,29 +6,102 @@ import com.bbip.bbipit.core.base.BaseViewModel
 import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.History
+import com.bbip.bbipit.domain.entity.HistoryComment
 import com.bbip.bbipit.domain.repository.HistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
-// 히스토리 화면 상태
-data class HistoryState(
+// 히스토리 화면 상태 데이터 모델
+data class HistoryUiState(
     val isLoading: Boolean = false,
-    val nearbyHistories: List<History> = emptyList(),
+    val histories: List<History> = emptyList(),
     val errorMessage: String? = null,
     val currentLat: Double = 37.5665,
-    val currentLng: Double = 126.9780
+    val currentLng: Double = 126.9780,
+    val selectedImages: List<ByteArray> = emptyList(),
+    val currentComments: List<HistoryComment> = emptyList()
 )
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val historyRepository: HistoryRepository
-) : BaseViewModel<HistoryState>(HistoryState()) {
+) : BaseViewModel<HistoryUiState>(HistoryUiState()) {
+    private var historyStreamJob: Job? = null
+    private var commentStreamJob: Job? = null
 
-    // 로컬 메모리 캐시
-    private val historyCache = mutableMapOf<String, History>()
+    // 공유 히스토리 캐시 스트림 관측 및 UI 상태 갱신
+    fun startHistoryObservation() {
+        historyStreamJob?.cancel()
+        updateState { copy(isLoading = true) }
 
-    // 히스토리 생성
+        historyStreamJob = viewModelScope.launch {
+            historyRepository.observeSharedHistories()
+                .catch { exception ->
+                    updateState { copy(isLoading = false, errorMessage = exception.message) }
+                }
+                .collect { sharedHistories ->
+                    updateState {
+                        copy(
+                            isLoading = false,
+                            histories = sharedHistories
+                        )
+                    }
+                    Log.d("HistoryViewModel", "🔄 [UI 최적화 완료] 서비스가 캐싱한 데이터 ${sharedHistories.size}건을 화면에 매핑")
+                }
+        }
+    }
+
+    // 히스토리 관측 스트림 해제 및 자원 정리
+    fun closeHistoryObservation() {
+        historyStreamJob?.cancel()
+        historyStreamJob = null
+    }
+
+    // 특정 히스토리의 실시간 댓글 스트림 관측 시작
+    fun observeComments(historyId: String) {
+        commentStreamJob?.cancel()
+
+        commentStreamJob = viewModelScope.launch {
+            historyRepository.observeHistoryComments(historyId).collect { commentsList ->
+                updateState { copy(currentComments = commentsList) }
+                Log.d("HistoryViewModel", "📢 [실시간 댓글 스트림 수신] 총 ${commentsList.size}건 반영")
+            }
+        }
+    }
+
+    // 댓글 관측 스트림 해제 및 데이터 초기화
+    fun closeCommentsObservation() {
+        commentStreamJob?.cancel()
+        commentStreamJob = null
+        updateState { copy(currentComments = emptyList()) }
+    }
+
+    // 히스토리 댓글 등록 요청
+    fun addHistoryComment(historyId: String, text: String) {
+        viewModelScope.launch {
+            val result = historyRepository.addHistoryComment(historyId, text)
+            result.onSuccess { commentId ->
+                Log.d("HistoryViewModel", "🎯 댓글 서버 등록 정상 확정 완료! ID: $commentId")
+            }.onFailure { error ->
+                updateState { copy(errorMessage = error.message ?: "댓글 등록 실패") }
+            }
+        }
+    }
+
+    // 첨부 이미지 리스트 상태 업데이트 (최대 3장 제한)
+    fun updateSelectedImages(images: List<ByteArray>) {
+        updateState { copy(selectedImages = images.take(3)) }
+    }
+
+    // 첨부 이미지 데이터 전체 비우기
+    fun clearSelectedImages() {
+        updateState { copy(selectedImages = emptyList()) }
+    }
+
+    // 신규 히스토리 데이터 생성 및 서버 저장 요청
     fun createNewHistory(
         category: String,
         placeName: String,
@@ -37,6 +110,8 @@ class HistoryViewModel @Inject constructor(
         longitude: Double
     ) {
         viewModelScope.launch {
+            val imagesToUpload = currentState.selectedImages
+
             updateState { copy(isLoading = true) }
 
             val result = historyRepository.saveMyHistory(
@@ -44,7 +119,8 @@ class HistoryViewModel @Inject constructor(
                 placeName = placeName,
                 content = content,
                 latitude = latitude,
-                longitude = longitude
+                longitude = longitude,
+                images = imagesToUpload
             )
 
             result.onSuccess { documentId ->
@@ -52,10 +128,10 @@ class HistoryViewModel @Inject constructor(
                     copy(
                         isLoading = false,
                         currentLat = latitude,
-                        currentLng = longitude
+                        currentLng = longitude,
+                        selectedImages = emptyList()
                     )
                 }
-                refreshHistory()
 
                 Log.d("HistoryViewModel", "히스토리가 성공적으로 만들어졌습니다! DocID: $documentId")
             }.onFailure { error ->
@@ -69,69 +145,14 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    // 주변 히스토리 목록 조회
-    suspend fun fetchNearbyHistory(lat: Double, lng: Double) {
-        updateState {
-            copy(
-                isLoading = true,
-                errorMessage = null,
-                currentLat = lat,
-                currentLng = lng
-            )
-        }
-
-        val result = historyRepository.fetchNearbyHistory(lat, lng)
-
-        result.onSuccess { newHistories ->
-            clearCache()
-
-            newHistories.forEach { history ->
-                val historyId = history.id.ifEmpty { "${history.userId}_${history.createdAt}" }
-                historyCache[historyId] = history
-
-                Log.d("HistoryViewModel", history.toString())
-            }
-
-            updateState {
-                copy(
-                    isLoading = false,
-                    nearbyHistories = historyCache.values.toList()
-                )
-            }
-            Log.d("HistoryViewModel", "새 지역 이동 동기화 완료. 현재 반경 내 히스토리 개수: ${historyCache.size}")
-        }.onFailure { error ->
-            updateState {
-                copy(
-                    isLoading = false,
-                    errorMessage = error.message ?: "주변 히스토리 불러오는데 실패했습니다."
-                )
-            }
-        }
-    }
-
-    // 히스토리 목록 갱신
-    fun refreshHistory() {
-        viewModelScope.launch {
-            fetchNearbyHistory(currentState.currentLat, currentState.currentLng)
-        }
-    }
-
-    // 로컬 캐시 초기화
-    fun clearCache() {
-        historyCache.clear()
-        updateState { copy(nearbyHistories = emptyList()) }
-    }
-
-    // 히스토리 삭제
+    // 특정 히스토리 데이터 삭제 요청
     fun deleteHistory(historyId: String) {
         viewModelScope.launch {
             updateState { copy(isLoading = true) }
-
             val result = historyRepository.deleteHistory(historyId)
 
             result.onSuccess {
                 updateState { copy(isLoading = false) }
-                refreshHistory()
                 Log.d("HistoryViewModel", "🎯 히스토리가 성공적으로 삭제되었습니다. ID: $historyId")
             }.onFailure { error ->
                 updateState {
