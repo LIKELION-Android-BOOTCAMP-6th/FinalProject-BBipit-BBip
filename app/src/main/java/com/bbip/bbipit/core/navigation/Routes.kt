@@ -9,8 +9,8 @@ sealed interface Routes {
     @Serializable data object Map : Routes
     @Serializable data object AuthNotification : Routes
     @Serializable data object ChatList : Routes
-    @Serializable data class ChatRoom(val roomId: String,
-                                      val receiverId: String) : Routes
+    @Serializable data class ChatRoom(val roomId: String = "",
+                                      val receiverId: String = "") : Routes
     @Serializable data object MyPage : Routes
     @Serializable
     data class EditProfile(
