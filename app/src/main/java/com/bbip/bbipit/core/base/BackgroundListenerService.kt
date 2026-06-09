@@ -793,13 +793,14 @@ class BackgroundListenerService : Service() {
                 // 모든 백그라운드 무전/위치 동기화 타입으로 완벽 기동 시도
                 startForeground(
                     1, notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+//                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or ⭐
+//                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ⭐
+//                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or⭐
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
                 )
                 Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
             } catch (e: Exception) {
+                /* TODO 워치 사용 시 주석 해제하기 ⭐
                 Log.w(TAG, "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}")
                 try {
                     // DATA_SYNC 단독 타입으로 기동
@@ -816,6 +817,15 @@ class BackgroundListenerService : Service() {
                         Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
                         throw e3
                     }
+                }
+                 */
+
+                try { //워치 사용 시 이 트라이 캐치 구문 날리기
+                    //무타입 기본 포어그라운드로 최종 폴백
+                    startForeground(1, notification)
+                } catch (e3: Exception) {
+                    Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
+                    throw e3
                 }
             }
         } else {

@@ -21,12 +21,28 @@ android {
     buildFeatures {
         buildConfig = true  // BuildConfig 활성화
     }
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/bbip_keystore.jks")
+            storePassword = properties.getProperty("password") ?: ""
+            keyAlias = "release"
+            keyPassword = properties.getProperty("password") ?: ""
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release") // 릴리즈 빌드에 이 키를 쓰겠다고 연결
+        }
+    }
+
 
     defaultConfig {
         applicationId = "com.bbip.bbipit"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
+        versionCode = 4
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -83,7 +99,7 @@ dependencies {
 
     //파이어베이스 버전 관리자 bom
     implementation (platform("com.google.firebase:firebase-bom:34.13.0"))
-    implementation("com.google.firebase:firebase-analytics")
+//    implementation("com.google.firebase:firebase-analytics")
 
     //파이어베이스 인증(이메일/구글)
     implementation("com.google.firebase:firebase-auth")

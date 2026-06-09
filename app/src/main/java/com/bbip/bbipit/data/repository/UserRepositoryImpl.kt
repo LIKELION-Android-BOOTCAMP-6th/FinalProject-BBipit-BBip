@@ -1,5 +1,6 @@
 package com.bbip.bbipit.data.repository
 
+import android.net.Uri
 import android.util.Log
 import androidx.core.util.remove
 import com.bbip.bbipit.core.result.Result
@@ -13,6 +14,7 @@ import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -51,24 +53,43 @@ class UserRepositoryImpl @Inject constructor(
      */
     override suspend fun getFcmToken(): String? = userRemoteDataSource.getToken()
 
+
+
     /**
      * 유저 프로필 정보 및 푸시 토큰 업데이트 함수
      */
     override suspend fun updateProfile(
         nickname: String?,
         status: String?,
-        profileImageUrl: String?,
+        profileImageUrl: Uri?,
         fcmToken: String?
     ): Result<String> {
         return try {
+            val uploadImage = profileImageUrl?.let {
+                userRemoteDataSource.uploadProfileImage(it)
+            }
+
             // 원격 서버의 프로필 데이터 수정
             val message =
-                userRemoteDataSource.updateProfile(nickname, status, profileImageUrl, fcmToken)
+                userRemoteDataSource.updateProfile(nickname, status, uploadImage, fcmToken)
             Result.Success(message)
-        } catch (e: Exception) {
+        } catch (e: FirebaseFunctionsException) {
             // 업데이트 실패 예외 처리
             Log.e("UserRepository", "프로필 업데이트 실패: ${e.message}")
-            Result.Failure(AppError.Unknown(e.message ?: "알 수 없는 오류"))
+            e.printStackTrace()
+            when(e.code){
+                FirebaseFunctionsException.Code.UNAVAILABLE,
+                FirebaseFunctionsException.Code.INTERNAL -> Result.Failure(AppError.Network())
+
+                else -> Result.Failure(AppError.Server())
+            }
+        } catch (e: Exception){
+            Log.e("유저 레퍼지토리", "프로필 업데이트 실패 ${e.message}")
+            e.printStackTrace()
+            if (e is java.net.UnknownHostException || e.cause is java.net.UnknownHostException)
+                Result.Failure(AppError.Network())
+            else
+                Result.Failure(AppError.Unknown())
         }
     }
 
