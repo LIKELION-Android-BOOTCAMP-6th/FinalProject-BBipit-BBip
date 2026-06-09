@@ -198,6 +198,18 @@ class WatchMainViewModel(application: Application) :
                     Log.e(TAG, "❌ 위치 데이터 패킷 파싱 실패", e)
                 }
             }
+            // 휴대폰에서 전송한 발자취 데이터 수신 처리
+            "/response_histories" -> {
+                try {
+                    val jsonStr = String(messageEvent.data, Charsets.UTF_8)
+
+                    // 전역 싱글톤 레포지토리에 히스토리 데이터를 넘김
+                    WatchDataRepository.updateHistoriesFromJson(jsonStr)
+                    Log.d(TAG, "👣 [전역 저장소 저장 완료] 발자취(History) 데이터 파싱 성공")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ 발자취(History) 데이터 패킷 파싱 실패", e)
+                }
+            }
         }
     }
 

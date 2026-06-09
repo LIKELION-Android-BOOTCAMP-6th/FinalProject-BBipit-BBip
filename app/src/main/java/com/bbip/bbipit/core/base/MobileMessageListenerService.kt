@@ -52,6 +52,27 @@ class MobileMessageListenerService : WearableListenerService() {
             "/check_phone_status" -> {
                 handleMobileStatusCheck(messageEvent.sourceNodeId)
             }
+            // 워치에서 히스토리 폰으로 열기 버튼을 클릭했을 때 수신
+            "/request_open_history" -> {
+                try {
+                    val historyId = String(messageEvent.data, Charsets.UTF_8).trim()
+                    Log.d(TAG, "👣 워치로부터 특정 히스토리 상세 오픈 명령 수신: $historyId")
+
+                    // 휴대폰 액티비티를 깨우기 위한 인텐트 구성
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        // 백그라운드/TASK 상태에서 액티비티를 강제 전면으로 올리기 위한 필수 플래그
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        putExtra("notification_type", "OPEN_HISTORY")
+                        putExtra("target_history_id", historyId)
+                    }
+                    startActivity(intent)
+                    Log.d(TAG, "📱 휴대폰 MainActivity로 히스토리 라우팅 인텐트 바이패스 완료")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ 워치 히스토리 연동 패킷 디코딩 실패", e)
+                }
+            }
         }
     }
 
@@ -98,17 +119,20 @@ class MobileMessageListenerService : WearableListenerService() {
                 // 권한 확인 결과 구성 및 워치로 메시지 송신
                 val messageClient = Wearable.getMessageClient(this@MobileMessageListenerService)
                 if (hasPermission) {
-                    // 1. 권한이 있다면 기존대로 READY 회신
+                    // 권한이 있다면 기존대로 READY 회신
                     messageClient.sendMessage(senderNodeId, "/phone_status_reply", "READY".toByteArray()).await()
 
-                    // 🔥 [핵심 추가] 워치가 켜졌으므로 멈춰있던 스마트폰의 백그라운드 서비스를 강제로 깨웁니다.
-                    // 이 액션은 BackgroundListenerService의 onStartCommand를 관통하며 세션을 시작(startSession)시킵니다.
+                    // 워치가 켜졌으므로 멈춰있던 스마트폰의 백그라운드 서비스를 강제로 깨웁니다.
+                    // 이 액션은 BackgroundListenerService의 onStartCommand를 관통하며 세션을 시작시킵니다.
                     triggerBackgroundServiceAction(BackgroundListenerService.ACTION_PUSH_LOCATION_TO_WATCH)
+
+                    // 워치 최초 진입에 대응하여 초기 히스토리 동기화 명령을 서비스로 위임
+                    triggerBackgroundServiceAction(BackgroundListenerService.ACTION_SYNC_INITIAL_HISTORIES)
                 } else {
-                    // 2. 💡 권한이 없다면 NEED_PERMISSION을 보내 워치에 제한 화면을 보여주고
+                    // 권한이 없다면 NEED_PERMISSION을 보내 워치에 제한 화면을 보여주고
                     messageClient.sendMessage(senderNodeId, "/phone_status_reply", "NEED_PERMISSION".toByteArray()).await()
 
-                    // 3. 💡 백그라운드 상태인 휴대폰 액티비티를 강제로 활성화하여 즉시 권한을 요청하게 만듭니다.
+                    // 백그라운드 상태인 휴대폰 액티비티를 강제로 활성화하여 즉시 권한을 요청하게 만듭니다.
                     val intent = Intent(this@MobileMessageListenerService, MainActivity::class.java).apply {
                         // 백그라운드 서비스에서 액티비티를 실행할 때 필수적인 플래그 설정
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP

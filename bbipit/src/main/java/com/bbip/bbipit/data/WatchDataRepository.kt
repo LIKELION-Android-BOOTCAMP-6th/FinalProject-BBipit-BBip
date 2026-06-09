@@ -1,6 +1,8 @@
 package com.bbip.bbipit.data
 
 import com.bbip.bbipit.models.WatchLiveStatus
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,6 +17,24 @@ object WatchDataRepository {
     // 싱글톤이므로 메모리에 항상 최신 상태가 유지됩니다.
     private val _liveStatusList = MutableStateFlow<List<WatchLiveStatus>>(emptyList())
     val liveStatusList: StateFlow<List<WatchLiveStatus>> = _liveStatusList.asStateFlow()
+
+    private val _historyList = MutableStateFlow<List<WatchHistory>>(emptyList())
+    val historyList: StateFlow<List<WatchHistory>> = _historyList
+
+    /**
+     * 히스토리 패킷을 수신 처리
+     *  JSON 배열 데이터를 받아 상태 업데이트
+     */
+    fun updateHistoriesFromJson(jsonString: String) {
+        try {
+            val type = object : TypeToken<List<WatchHistory>>() {}.type
+            val histories: List<WatchHistory> = Gson().fromJson(jsonString, type)
+
+            _historyList.value = histories
+        } catch (e: Exception) {
+            _historyList.value = emptyList()
+        }
+    }
 
     /**
      * 패킷을 수신했을 때 최신 위치 데이터를 업데이트하는 함수
