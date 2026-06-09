@@ -75,6 +75,9 @@ class BackgroundListenerService : Service() {
     @Inject
     lateinit var historyRepository: HistoryRepository
 
+    @Inject
+    lateinit var watchConnectionManager: WatchConnectionManager
+
     // 백그라운드 작업 관리용 코루틴 식별자
     private val serviceJob = SupervisorJob()
 
@@ -86,9 +89,6 @@ class BackgroundListenerService : Service() {
 
     // 음성 메시지 구독 관리용 작업 단위
     private var voiceObservationJob: Job? = null
-
-    // 워치 연결 상태 관리 매니저
-    private lateinit var watchConnectionManager: WatchConnectionManager
 
     // 실시간 위치 추적용 클라이언트
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -189,7 +189,7 @@ class BackgroundListenerService : Service() {
             }
         }
 
-        watchConnectionManager = WatchConnectionManager(this).apply { startMonitoring() }
+        watchConnectionManager.startMonitoring()
 
         // 워치 통신 리스너 등록
         channelClient = Wearable.getChannelClient(this).apply {
@@ -272,6 +272,19 @@ class BackgroundListenerService : Service() {
         // 라이프사이클 매니저 콜백 해제 및 실시간 세션 강제 종료
         lifeCycleManager.onAppForegroundStatusChanged = null
         lifeCycleManager.stopSession()
+    }
+
+    /**
+     * 사용자가 최근 앱 목록(Recents)에서 앱을 쓸어서(Swipe) 태스크를 제거했을 때 호출
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "🗑️ 최근 앱 목록에서 태스크가 제거됨 -> BackgroundListenerService 종료 프로세스 가동")
+
+        // 세션 종료 신호를 보내야함..
+
+        // 서비스 자체를 즉시 중지합니다.
+        stopSelf()
     }
 
     /**
