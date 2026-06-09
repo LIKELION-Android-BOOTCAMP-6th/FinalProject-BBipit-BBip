@@ -7,6 +7,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -22,10 +24,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +61,13 @@ fun HistoryWriteSheet(
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // 키보드 및 포커스 제어를 위한 유틸리티
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // 텍스트 필드들의 포커스를 제어
+    val dummyFocusRequester = remember { FocusRequester() }
+
     var selectedCategory by remember { mutableStateOf("🎙️ 무전") }
     var placeName by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
@@ -62,8 +76,12 @@ fun HistoryWriteSheet(
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3)
     ) { uris ->
+        // 갤러리에서 복귀할 때 기존 TextField의 포커스를 제거
+        dummyFocusRequester.requestFocus()
+        focusManager.clearFocus()
+        keyboardController?.hide()
+
         if (uris.isNotEmpty()) {
-            // 선택된 Uri 객체들을 ByteArray 포맷으로 변환 및 정제
             val byteArrayList = uris.mapNotNull { uri ->
                 try {
                     context.contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -98,11 +116,30 @@ fun HistoryWriteSheet(
             containerColor = Color.White,
             shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
             dragHandle = null,
+            // 바텀시트 본체 컴포저블 영역에 직접 클릭 이벤트를 심어 바깥 터치 시 포커스를 풀도록 유도
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                dummyFocusRequester.requestFocus()
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .fillMaxHeight(0.9f)
                     .padding(horizontal = 24.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        // 시트 내부 빈 공간 터치 시에도 동일하게 처리
+                        dummyFocusRequester.requestFocus()
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
                     .verticalScroll(rememberScrollState())
                     .imePadding()
                     .padding(
@@ -114,6 +151,14 @@ fun HistoryWriteSheet(
                     ),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                // 화면상에는 보이지 않는 투명한 컴포저블에 포커스를 장착
+                Box(
+                    modifier = Modifier
+                        .size(1.dp)
+                        .focusRequester(dummyFocusRequester)
+                        .focusable()
+                )
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -181,7 +226,9 @@ fun HistoryWriteSheet(
                                         ),
                                         shape = RoundedCornerShape(24.dp)
                                     )
-                                    .clickable { selectedCategory = preset.name }
+                                    .clickable {
+                                        selectedCategory = preset.name
+                                    }
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -309,6 +356,11 @@ fun HistoryWriteSheet(
                                         shape = RoundedCornerShape(16.dp)
                                     )
                                     .clickable {
+                                        // 갤러리 호출 직전에 안전하게 포커스 분산
+                                        dummyFocusRequester.requestFocus()
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+
                                         galleryLauncher.launch(
                                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                         )
@@ -316,7 +368,6 @@ fun HistoryWriteSheet(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (imageBytes != null) {
-                                    // 선택 이미지 데이터 기반 비트맵 팩토리 디코딩 및 미리보기 출력
                                     val bitmap = remember(imageBytes) {
                                         android.graphics.BitmapFactory.decodeByteArray(
                                             imageBytes,

@@ -7,7 +7,7 @@ import com.bbip.bbipit.domain.entity.HistoryComment
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import com.bbip.bbipit.data.source.model.HistoryRequestDto
+import com.bbip.bbipit.data.source.model.HistoryDto
 import com.bbip.bbipit.domain.entity.History
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
@@ -23,6 +23,17 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
     private val storage: FirebaseStorage,
     private val firestore: FirebaseFirestore,
 ): HistoryRemoteDataSource {
+
+    override suspend fun toggleHistoryLike(historyId: String): Boolean {
+        val data = hashMapOf("historyId" to historyId)
+        val result = functions
+            .getHttpsCallable("toggleHistoryLike")
+            .call(data)
+            .await()
+
+        val responseData = result.data as? Map<*, *>
+        return responseData?.get("success") as? Boolean ?: false
+    }
 
     override fun observeHistoriesByUidList(uidList: List<String>): Flow<List<History>> = callbackFlow {
         // 빈 리스트가 들어오면 바로 종료하여 whereIn 쿼리 크래시 방지
@@ -141,7 +152,7 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
     }
 
     // 히스토리 서버 저장
-    override suspend fun saveHistory(requestDto: HistoryRequestDto): String {
+    override suspend fun saveHistory(requestDto: HistoryDto): String {
         val result = functions
             .getHttpsCallable("createHistory")
             .call(requestDto.toMap())
