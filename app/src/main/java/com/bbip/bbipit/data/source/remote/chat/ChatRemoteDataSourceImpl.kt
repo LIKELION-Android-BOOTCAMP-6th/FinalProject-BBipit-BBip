@@ -30,6 +30,18 @@ class ChatRemoteDataSourceImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : ChatRemoteDataSource {
 
+    // 1:1 대화방 삭제 요청
+    override suspend fun deleteChatRoom(roomId: String): Boolean {
+        val data = hashMapOf("roomId" to roomId)
+        val result = firebaseFunctions
+            .getHttpsCallable("deleteChatRoom")
+            .call(data)
+            .await()
+
+        val res = result.data as? Map<*, *>
+        return res?.get("success") as? Boolean ?: false
+    }
+
     // 채팅방 생성 요청
     override suspend fun createChatRoom(targetUid: String): ChatRoomResult {
         val data = hashMapOf("targetUid" to targetUid)
