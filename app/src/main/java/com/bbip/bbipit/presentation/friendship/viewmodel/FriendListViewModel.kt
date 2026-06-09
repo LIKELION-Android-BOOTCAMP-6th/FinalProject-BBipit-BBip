@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.friendship.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,6 +12,7 @@ import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.bbip.bbipit.core.result.Result
+import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.domain.repository.HistoryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,12 +31,20 @@ class FriendListViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val friendRepository: FriendRepository,
     private val historyRepository: HistoryRepository,
+    private val userRepository: UserRepository,
     private val functions: FirebaseFunctions
 ) : ViewModel() {
 
     // 화면에 보여줄 친구 목록 리스트 (User 모델 사용)
     private val _friendList = MutableStateFlow<List<Friend>>(emptyList())
     val friendList = _friendList.asStateFlow()
+
+    private val _searchedUser = MutableStateFlow<User?>(null)
+    val searchedUser = _searchedUser.asStateFlow()
+
+    // 현재 로그인한 유저의 코드 저장용
+    private val _myUserCode = MutableStateFlow<String?>(null)
+    val myUserCode = _myUserCode.asStateFlow()
 
     // 요청 개수를 담을 StateFlow 추가
     private val _requestCount = MutableStateFlow(0)
@@ -54,10 +64,29 @@ class FriendListViewModel @Inject constructor(
         android.util.Log.d("FriendListViewModel", "init: myUid = $myUid") // 추가
         if (myUid != null) {
             observeFriends(myUid)
+            loadMyUserCode(myUid)
         } else {
             android.util.Log.e("FriendListViewModel", "로그인된 사용자가 없음!") // 추가
         }
 
+    }
+
+    private fun loadMyUserCode(uid: String) {
+        viewModelScope.launch {
+            val result = userRepository.getMyProfile(uid)
+
+            // Result를 안전하게 처리
+            result.onSuccess { user ->
+                _myUserCode.value = user.userCode
+            }.onFailure { error ->
+                Log.e("FriendListViewModel", "내 코드 로드 실패: ${error.message}")
+                _myUserCode.value = null
+            }
+        }
+    }
+
+    fun isAlreadyFriend(targetUid: String): Boolean {
+        return friendList.value.any { it.uid == targetUid }
     }
 
     // 로딩 상태나 에러 처리를 위한 변수 (필요 시 사용)
@@ -102,6 +131,25 @@ class FriendListViewModel @Inject constructor(
         if (myUid != null) {
             friendRepository.startObservingFriends(myUid)
         }
+    }
+
+    // 친구 코드로 친구 조회
+    fun findUserByCode(code: String, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            // userRepository의 code 기반 검색 함수 호출
+            val result = userRepository.getUserProfileByCode(code)
+
+            result.onSuccess { user ->
+                _searchedUser.value = user
+            }.onFailure { error ->
+                _searchedUser.value = null
+                onError(error.message ?: "해당 코드를 사용하는 사용자를 찾을 수 없습니다.")
+            }
+        }
+    }
+
+    fun clearSearchedUser() {
+        _searchedUser.value = null
     }
 
 

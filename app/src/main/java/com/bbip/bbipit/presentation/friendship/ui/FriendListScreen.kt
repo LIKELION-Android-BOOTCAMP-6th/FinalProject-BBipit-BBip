@@ -61,6 +61,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import com.bbip.bbipit.core.ui.theme.recording
 import com.bbip.bbipit.domain.entity.History
+import com.bbip.bbipit.domain.entity.User
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.map.ui.HistoryViewerScreen
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
@@ -89,7 +90,18 @@ fun FriendListScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    var showDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }      // 입력창 제어
+    var showProfileDialog by remember { mutableStateOf(false) } // 프로필창 제어
+    val searchedUser by viewModel.searchedUser.collectAsStateWithLifecycle()
+    val myUserCode by viewModel.myUserCode.collectAsStateWithLifecycle()
+
+    // 검색 성공 시 자동으로 프로필 창으로 전환하는 효과
+    LaunchedEffect(searchedUser) {
+        if (searchedUser != null) {
+            showAddDialog = false
+            showProfileDialog = true
+        }
+    }
 
     var showToastMessage by remember { mutableStateOf<String?>(null) }
 
@@ -107,7 +119,7 @@ fun FriendListScreen(
             .background(background)
             .padding(16.dp)
             .navigationBarsPadding().padding(bottom = 88.dp)
-            .blur(if (showDialog) 10.dp else 0.dp)
+            .blur(if (showAddDialog) 10.dp else 0.dp)
     ) {
         // 타이틀 영역
         Row(
@@ -123,7 +135,7 @@ fun FriendListScreen(
             )
 
             // 친구 추가 버튼
-            IconButton(onClick = { showDialog = true }) {
+            IconButton(onClick = { showAddDialog = true }) {
                 Icon(
                     imageVector = Icons.Default.PersonAdd,
                     contentDescription = "친구 추가",
@@ -211,7 +223,8 @@ fun FriendListScreen(
                                 isFriendViewerOpen = true
                                 Log.d("FriendList", "onClick")
                             } else {
-                                showToastMessage = "'${friend.nickname}'님이 최근 12시간 내에 남긴 발자취가 없습니다. 👣"
+                                showToastMessage =
+                                    "'${friend.nickname}'님이 최근 12시간 내에 남긴 발자취가 없습니다. 👣"
                             }
                         }
                     )
@@ -267,21 +280,42 @@ fun FriendListScreen(
         }
 
         // 다이얼로그 렌더링
-        if (showDialog) {
+        // [입력 다이얼로그]
+        if (showAddDialog) {
             AddFriendDialog(
-                onDismiss = { showDialog = false },
-                onConfirm = { uid ->
-                    // 💡 ViewModel의 친구 요청 함수 호출
+                onDismiss = { showAddDialog = false },
+                onConfirm = { code ->
+                    // 요청을 바로 보내지 않고, 검색만 수행합니다.
+                    viewModel.findUserByCode(code) { errorMessage ->
+                        showToastMessage = errorMessage
+                    }
+                }
+            )
+        }
+
+        // [프로필 확인 다이얼로그]
+        if (showProfileDialog && searchedUser != null) {
+            val isSelf = searchedUser?.userCode == myUserCode
+            // 💡 추가: 친구 목록에 검색된 유저의 ID(uid)가 있는지 확인
+            val isFriend = friendList.any { it.uid == searchedUser?.id }
+
+            UserProfileDialog(
+                user = searchedUser!!,
+                isMyProfile = isSelf,
+                isFriend = isFriend, // 💡 추가된 파라미터 전달
+                onDismiss = {
+                    showProfileDialog = false
+                    viewModel.clearSearchedUser()
+                },
+                onConfirm = { code ->
                     viewModel.sendFriendRequest(
-                        targetCode = uid,
+                        targetCode = code,
                         onSuccess = {
-                            showDialog = false
+                            showProfileDialog = false
                             showToastMessage = "친구 요청을 보냈습니다!"
+                            viewModel.clearSearchedUser()
                         },
-                        onError = { errorMessage ->
-                            showToastMessage = errorMessage
-                            println("친구 요청 실패: $errorMessage")
-                        }
+                        onError = { err -> showToastMessage = err }
                     )
                 }
             )
@@ -498,9 +532,8 @@ fun AddFriendDialog(
                     value = uid,
                     onValueChange = { uid = it },
                     placeholder = { Text(
-                        text = "UID 입력 (예: 12345678)",
+                        text = "친구 코드 (예: 12345678)",
                         style = Typography.bodySmall.copy(fontSize = 18.sp),
-                        // 여기서 y축으로 원하는 만큼(예: 2.dp) 내립니다
                         modifier = Modifier.offset(y = 7.dp))
                     },
                     shape = RoundedCornerShape(12.dp),
@@ -521,10 +554,92 @@ fun AddFriendDialog(
                     Spacer(modifier = Modifier.width(16.dp))
                     Button(onClick = { onConfirm(uid) }, colors = ButtonDefaults.buttonColors(containerColor = primary),
                         elevation = ButtonDefaults.buttonElevation(3.dp)) {
-                        Text("요청 보내기", style = Typography.bodySmall, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("찾기", style = Typography.bodySmall, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
+    }
+}
+@Composable
+fun UserProfileDialog(
+    user: com.bbip.bbipit.domain.entity.User,
+    isMyProfile: Boolean, // 내 코드인지
+    isFriend: Boolean, // 이미 친구인지
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 프로필 이미지
+                AsyncImage(
+                    model = user.profileImageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp).clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(user.nickname, style = Typography.bodyLarge, fontWeight = FontWeight.Bold)
+                Text("코드: ${user.userCode}", color = Color.Gray, style = Typography.bodyMedium)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                when {
+                    isMyProfile -> {
+                        InfoMessage("본인의 계정입니다.")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = onDismiss) { Text("닫기", color = Color.DarkGray) }
+                    }
+                    isFriend -> {
+                        InfoMessage("이미 친구인 계정입니다.")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = onDismiss) { Text("닫기", color = Color.DarkGray) }
+                    }
+                    else -> {
+                        // 일반 유저인 경우 요청 버튼 표시
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = onDismiss,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                border = BorderStroke(0.3.dp, Color.LightGray),
+                                modifier = Modifier.weight(1f)
+                            ) { Text("취소", color = Color.DarkGray, fontWeight = FontWeight.Bold, style = Typography.bodySmall) }
+                            Button(
+                                onClick = { onConfirm(user.userCode) },
+                                colors = ButtonDefaults.buttonColors(containerColor = primary),
+                                modifier = Modifier.weight(1f)
+                            ) { Text("요청", color = Color.White, fontWeight = FontWeight.Bold, style = Typography.bodySmall) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InfoMessage(text: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = background,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(vertical = 12.dp),
+            textAlign = TextAlign.Center,
+            style = Typography.bodyMedium,
+            color = Color.Gray
+        )
     }
 }
