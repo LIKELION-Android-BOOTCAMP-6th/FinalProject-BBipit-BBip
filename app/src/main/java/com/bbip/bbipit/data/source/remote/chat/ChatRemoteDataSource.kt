@@ -16,4 +16,5 @@ interface ChatRemoteDataSource {
     suspend fun fetchMyChatRooms(): List<ChatRoom>
     suspend fun markMessagesAsRead(roomId: String): Boolean
     suspend fun fetchAllMessages(roomId: String): List<ChatMessage>
+    suspend fun deleteChatRoom(roomId: String): Boolean
 }
