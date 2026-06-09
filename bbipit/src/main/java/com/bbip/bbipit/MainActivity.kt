@@ -13,6 +13,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.TimeText
 import com.bbip.bbipit.base.WatchIncomingVoiceDialog
@@ -20,6 +21,7 @@ import com.bbip.bbipit.base.WatchServiceRestrictedScreen
 import com.bbip.bbipit.map.WatchMapScreen
 import com.bbip.bbipit.models.MobileServiceStatus
 import com.bbip.bbipit.theme.BbipitTheme
+import kotlinx.coroutines.launch
 
 /**
  * 애플리케이션 진입점 메인 액티비티
@@ -58,12 +60,29 @@ class MainActivity : ComponentActivity() {
         viewModel.isWatchActiveInForeground = true
 
         viewModel.checkPhoneServiceStatus()
+
+        triggerWatchStateTransport(true)
     }
 
     override fun onPause() {
         super.onPause()
         // 포그라운드 비활성화 상태 선언
         viewModel.isWatchActiveInForeground = false
+
+        triggerWatchStateTransport(false)
+    }
+
+    /**
+     * 워치의 포그라운드 유무 상태를 폰으로 즉시 쏘아주는 헬퍼 함수
+     */
+    private fun triggerWatchStateTransport(isActive: Boolean) {
+        lifecycleScope.launch {
+            try {
+                viewModel.sendWatchStateToPhone(isActive)
+            } catch (e: Exception) {
+                android.util.Log.e("WatchLifecycle", "폰으로 상태 전송 실패", e)
+            }
+        }
     }
 }
 
