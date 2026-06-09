@@ -30,6 +30,7 @@ import android.net.Uri
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.flow.flow
+import androidx.core.content.edit
 
 /**
  * 인증 관련 원격 데이터 소스 구현체입니다.
@@ -46,6 +47,12 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     private val TAG = "AuthRemoteDataSourceImpl"
 
     override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
+    private val _prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+    override fun getLocalSessionId(): String? = _prefs.getString("session_id", null) //로컬에서 세션 id 가져오기
+
+    override fun saveSessionId(id: String) = _prefs.edit { putString("session_id", id) } //로컬에 세션 id 저장
+    override fun deleteSessionId()  = _prefs.edit { remove("session_id") }
+
 
     // 커스텀 토큰 로그인
     override suspend fun signInWithCustomToken(accessToken: String, type: LoginType) {

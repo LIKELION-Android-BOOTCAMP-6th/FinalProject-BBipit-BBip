@@ -55,8 +55,11 @@ interface AuthRepository {
     /**
      * 로그아웃 함수
      */
-    suspend fun signOut(type: LoginType = LoginType.EMAIL)
+    suspend fun signOut(type: LoginType = LoginType.EMAIL, isDuplicated: Boolean = false)
 
     suspend fun deleteAccount(type: LoginType = LoginType.EMAIL, token: String): Result<Unit>
     suspend fun logoutServerCleanup(): Result<Unit>
+
+    fun saveSessionId(id: String)
+    fun getLocalSessionId(): String?
 }

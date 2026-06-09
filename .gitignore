@@ -18,3 +18,6 @@ app/google-services.json
 
 *.jks
 *.keystore
+
+app/release/
+app/src/main/assets/adi-registration.properties
