@@ -181,7 +181,7 @@ class LifeCycleManager @Inject constructor(
         userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
 
         sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(null, null)
+            liveStatusRepository.updateLifeCycle(null)
         }
     }
 
