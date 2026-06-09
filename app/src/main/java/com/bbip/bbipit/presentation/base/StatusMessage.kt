@@ -6,9 +6,13 @@ package com.bbip.bbipit.presentation.base
  */
 enum class UserStatusType(val text: String) {
     AVAILABLE("지금 무전 가능! 🎙️"),
+    BORING("심심해요 🥺"),
     DRIVING("운전 중이에요 🚗"),
     WORKING("업무 중... 💻"),
+    HOME("집콕 중 😶‍🌫️"),
+    HELL("지옥을 경험 중... 😇"),
     SLEEPING("잠자는 중 💤"),
+    PARTY("광란의 파티 중 🪩"),
     EXERCISING("운동 중입니다 🏃"),
     BUSY("대화하기 어려워요 🔕");
 
