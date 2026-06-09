@@ -117,6 +117,8 @@ class BackgroundListenerService : Service() {
     // 배너 표출이 완료된 알림 식별자 저장소
     private val notifiedIds = mutableSetOf<String>()
 
+    private var myLiveObservationJob: Job? = null
+
     /**
      * 웨어러블 디바이스 및 시스템 채널 식별자 통합 상수 공간
      */
@@ -150,6 +152,8 @@ class BackgroundListenerService : Service() {
         const val CHANNEL_ID_ALERT = "phone_alert_channel"
 
         const val PATH_RESPONSE_HISTORY_DATA = "/response_histories"
+
+        const val PATH_FORCE_LOGOUT_WATCH = "/force_logout_watch"
     }
 
     /**
@@ -178,6 +182,9 @@ class BackgroundListenerService : Service() {
                 if (uid == null) {
                     Log.d(TAG, "💡 유저 세션이 만료되었거나 탈퇴됨 -> 서비스 자체 종료(stopSelf)")
                     stopSelf() // 유저 ID가 없으면 서비스 스스로 종료
+                }else {
+                    // 내 Live데이터를 구독
+                    startMyLiveStatusObservation(uid)
                 }
             }
         }
@@ -259,6 +266,7 @@ class BackgroundListenerService : Service() {
         }
 
         // 백그라운드 코루틴 작업 취소
+        myLiveObservationJob?.cancel()
         serviceJob.cancel()
 
         // 라이프사이클 매니저 콜백 해제 및 실시간 세션 강제 종료
@@ -304,6 +312,43 @@ class BackgroundListenerService : Service() {
         }
 
         return START_STICKY
+    }
+
+    /**
+     * 내 Live 데이터를 실시간 상시 리스닝하여 중복 로그인을 포착하는 함수
+     */
+    private fun startMyLiveStatusObservation(myUid: String) {
+        myLiveObservationJob?.cancel() // 중복 실행 방지용 초기화
+
+        myLiveObservationJob = scope.launch {
+            liveStatusRepository.observeUserLiveStatus(myUid).collect { result ->
+                when (result) {
+                    is Result.Success -> {
+                        // 기존 사용자 쳐내기 로직 추가해주세요.
+                        Log.d(TAG, "다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+                    }
+                    is Result.Failure -> {
+                        Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 중복 로그인 차단 시 워치 앱도 동시에 튕겨내도록 메세지 송신
+     */
+    private fun sendForceLogoutToWatch() {
+        if (!watchConnectionManager.isPhysicalConnected.value) return
+        scope.launch {
+            runCatching {
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_FORCE_LOGOUT_WATCH, byteArrayOf()).await()
+                }
+                Log.d(TAG, "⌚ 테더링된 WearOS 워치 기기로 강제 로그아웃 셧다운 신호 송신 완료")
+            }.onFailure { e -> Log.e(TAG, "❌ 워치로 로그아웃 신호 전송 실패", e) }
+        }
     }
 
     // 수집된 전역 히스토리 리스트 데이터 WearOS 전송 요청
