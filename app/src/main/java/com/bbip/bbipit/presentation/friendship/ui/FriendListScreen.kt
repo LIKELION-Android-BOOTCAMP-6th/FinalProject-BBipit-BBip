@@ -113,7 +113,7 @@ fun FriendListScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp),
+                .padding(vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
