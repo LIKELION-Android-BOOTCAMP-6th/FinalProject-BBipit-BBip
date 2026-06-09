@@ -22,4 +22,5 @@ interface AuthRemoteDataSource {
     suspend fun reloadCurrentUser()
     fun isEmailVerified(): Boolean
     suspend fun deleteAccountData()
+    suspend fun logoutServerCleanup()
 }

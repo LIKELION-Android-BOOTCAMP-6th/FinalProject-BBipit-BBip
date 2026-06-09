@@ -169,4 +169,27 @@ class AuthRemoteDataSourceImpl @Inject constructor(
             }
         }
     }
+
+    override suspend fun logoutServerCleanup(): Unit = withContext(Dispatchers.IO) {
+        Log.d(TAG, "logoutServerCleanup: Cloud Functions 'processUserSignOut' 호출 시작")
+        try {
+            val result = functions
+                .getHttpsCallable("processUserSignOut")
+                .call()
+                .await()
+
+            val data = result.data as? Map<*, *>
+            val isSuccess = data?.get("success") as? Boolean ?: false
+
+            if (!isSuccess) {
+                Log.w(TAG, "logoutServerCleanup: 서버 상태 정리가 정상적으로 완료되지 않았거나 응답이 없습니다.")
+                throw Exception("서버에서 로그아웃 처리가 실패했습니다.")
+            }
+
+            Log.d(TAG, "logoutServerCleanup: 서버 상태 정리 최종 성공")
+        } catch (exception: Exception) {
+            Log.e(TAG, "logoutServerCleanup: 예외 발생 - ${exception.message}")
+            throw exception
+        }
+    }
 }

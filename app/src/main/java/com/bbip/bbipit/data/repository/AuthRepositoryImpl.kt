@@ -37,6 +37,21 @@ class AuthRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
 ): AuthRepository {
 
+    override suspend fun logoutServerCleanup(): Result<Unit> {
+        return try {
+            Log.d("AuthRepository", "logoutServerCleanup API 호출 시작")
+
+            // 서버의 세션ID 및 FCM토큰 초기화 진행
+            authRemoteDataSource.logoutServerCleanup()
+
+            Log.d("AuthRepository", "logoutServerCleanup API 호출 성공")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "logoutServerCleanup 도중 서버 오류 발생: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "서버 로그아웃 상태 정리 중 오류가 발생했습니다."))
+        }
+    }
+
     override suspend fun signOut(type: LoginType){
         when(type){
             LoginType.GOOGLE -> authRemoteDataSource.signOutGoogle()
