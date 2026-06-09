@@ -57,7 +57,7 @@ class NotificationViewModel @Inject constructor(
                 }
 
                 _notification.value = liveNotifications
-                    .sortedWith(compareBy<Notification> { it.isRead }.thenByDescending { it.createdAt })
+                    .sortedByDescending { it.createdAt }
                     .toList()
             }
         }
