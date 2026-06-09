@@ -194,7 +194,7 @@ class LifeCycleManager @Inject constructor(
 
         // 현재 채팅방 위치 및 활성 상태를 서버에 전송
         sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(currentRoomId, null)
+            liveStatusRepository.updateLifeCycle(currentRoomId)
         }
     }
 
