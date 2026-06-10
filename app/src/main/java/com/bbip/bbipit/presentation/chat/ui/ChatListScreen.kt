@@ -42,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
+import com.bbip.bbipit.core.extension.navigateSingleTop
 import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
@@ -90,7 +91,7 @@ fun ChatListScreen(
     LaunchedEffect(Unit) {
         viewModel.clearSearch()
         viewModel.navigationEvent.collect { route ->
-            navController.navigate(route)
+            navController.navigateSingleTop(route)
         }
     }
     LaunchedEffect(Unit) {

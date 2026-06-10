@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import com.bbip.bbipit.core.extension.navigateSingleTop
 import com.bbip.bbipit.core.ui.theme.recording
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.User
@@ -147,7 +148,7 @@ fun FriendListScreen(
         // 친구 요청 카드
         FriendRequestCard(
             count = requestCount,
-            onClick = { navController.navigate(Routes.FriendRequestList) }
+            onClick = { navController.navigateSingleTop(Routes.FriendRequestList) }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -187,7 +188,7 @@ fun FriendListScreen(
                                 onSuccess = { roomId: String ->
                                     // 여기서 receiverId를 함께 넘겨줍니다.
                                     // ChatRoom 객체가 (roomId: String, receiverId: String)을 받도록 변경되어 있어야 합니다.
-                                    navController.navigate(
+                                    navController.navigateSingleTop(
                                         Routes.ChatRoom(
                                             roomId = roomId,
                                             receiverId = friend.uid
