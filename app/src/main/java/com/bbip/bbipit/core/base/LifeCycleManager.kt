@@ -168,20 +168,22 @@ class LifeCycleManager @Inject constructor(
     /**
      * 라이브 세션 중단 및 하트비트 루프 종료 함수
      */
-    fun stopSession() {
+    fun stopSession(isDuplicated: Boolean = false) {
         Log.d(TAG, "🔴 전역 라이브 세션 중단 (하트비트 중단)")
         val currentUser = auth.currentUser ?: return
 
         // 진행 중인 하트비트 루프 중단
         stopHeartbeatLoop()
 
-        // 명시적으로 나갈 때는 온디스커넥트를 해제하고 직접 offline을 박아줍니다.
-        val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
-        userStatusRef.onDisconnect().cancel()
-        userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
-
-        sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(null)
+        //중복 로그인이 아닌 경우에만 offline으로 변경
+        if (!isDuplicated){
+            // 명시적으로 나갈 때는 온디스커넥트를 해제하고 직접 offline을 박아줍니다.
+            val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
+            userStatusRef.onDisconnect().cancel()
+            userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
+            sessionScope.launch {
+                liveStatusRepository.updateLifeCycle(null)
+            }
         }
     }
 

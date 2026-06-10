@@ -23,4 +23,7 @@ interface AuthRemoteDataSource {
     fun isEmailVerified(): Boolean
     suspend fun deleteAccountData()
     suspend fun logoutServerCleanup()
+    fun getLocalSessionId(): String?
+    fun saveSessionId(id: String)
+    fun deleteSessionId()
 }

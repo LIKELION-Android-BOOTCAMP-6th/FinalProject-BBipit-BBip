@@ -17,7 +17,7 @@ data class User(
     // 현재 접속 온라인 상태
     val isOnline: Boolean = false,
     // 푸시 알림용 FCM 토큰
-    val fcmToken: String = "",
+    val fcmToken: String? = null,
     // 마지막 활동 시간(타임스탬프)
     val lastActive: Long = 0L,
     // 등록된 친구 목록(사용자 식별자 리스트)
@@ -25,8 +25,6 @@ data class User(
     // 로그인 타입(EMAIL, GOOGLE, KAKAO)
     val loginType: String = "",
     val email: String= "",
-    //현재 세션 정보(중복 로그인용)
-    val sessionId: String = "",
     //친구요청용 코드
     val userCode: String = ""
 )

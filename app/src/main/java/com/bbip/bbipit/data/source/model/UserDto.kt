@@ -29,7 +29,7 @@ data class UserDto(
 
     // 알림 푸시 토큰
     @get:PropertyName("fcm_token") @set:PropertyName("fcm_token")
-    var fcmToken: String = "",
+    var fcmToken: String? = null,
 
     // 최종 활성화 시간
     @get:PropertyName("last_active") @set:PropertyName("last_active")
@@ -45,9 +45,6 @@ data class UserDto(
 
     @get:PropertyName("email") @set:PropertyName("email")
     var email: String = "",
-
-    @get:PropertyName("current_session_id") @set:PropertyName("current_session_id")
-    var sessionId: String = "",
 
     @get:PropertyName("user_code") @set:PropertyName("user_code")
     var userCode: String = "",

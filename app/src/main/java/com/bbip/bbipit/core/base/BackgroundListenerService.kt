@@ -337,7 +337,24 @@ class BackgroundListenerService : Service() {
             liveStatusRepository.observeUserLiveStatus(myUid).collect { result ->
                 when (result) {
                     is Result.Success -> {
-                        // 기존 사용자 쳐내기 로직 추가해주세요.
+
+                        result.data.sessionId?.let {
+                            val localSessionId = authRepository.getLocalSessionId()
+
+                            if (localSessionId.isNullOrEmpty()) {
+                                // 1. 🟢 최초 발급 상태: 로컬에 값이 없으므로 안전하게 저장하고 끝냅니다.
+                                authRepository.saveSessionId(it)
+                                Log.d(TAG, "🟢 최초 세션 ID 로컬 저장 완료: $it")
+                            } else if (it != localSessionId) {
+                                // 2. ⚠️ 중복 로그인 상태: 이미 로컬 값이 존재하는데, 서버 값과 다를 때만 로그아웃!
+                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+                                lifeCycleManager.stopSession(true)
+                                sendForceLogoutToWatch()
+                                authRepository.signOut(isDuplicated = true)
+                            }
+                        }
+
+
                         Log.d(TAG, "다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
                     }
                     is Result.Failure -> {
