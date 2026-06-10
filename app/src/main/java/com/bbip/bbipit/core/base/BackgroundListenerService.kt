@@ -109,6 +109,9 @@ class BackgroundListenerService : Service() {
     // 워치 노드 연결 상태 관리 컴포넌트
     private val nodeClient by lazy { Wearable.getNodeClient(this) }
 
+    // 워치 앱의 화면 활성화 여부 플래그
+//    private var isWatchInForeground = false
+
     // 알림 최초 로딩 스킵용 플래그
     private var isInitialData = true
 
@@ -252,6 +255,7 @@ class BackgroundListenerService : Service() {
                 observeNotifications()
             }
         }
+
         // 음성 및 알림 모니터링 가동
         if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
             observeVoiceMessages()
@@ -275,7 +279,6 @@ class BackgroundListenerService : Service() {
         }
 
         // 백그라운드 코루틴 작업 취소
-        myLiveObservationJob?.cancel()
         serviceJob.cancel()
 
         // 라이프사이클 매니저 콜백 해제 및 실시간 세션 강제 종료
@@ -904,19 +907,22 @@ class BackgroundListenerService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
+
+
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 // 모든 백그라운드 무전/위치 동기화 타입으로 완벽 기동 시도
                 startForeground(
                     1, notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+//                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or ⭐
+//                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ⭐
+//                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or⭐
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
                 )
                 Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
             } catch (e: Exception) {
+                /* TODO 워치 사용 시 주석 해제하기 ⭐
                 Log.w(TAG, "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}")
                 try {
                     // DATA_SYNC 단독 타입으로 기동
@@ -933,6 +939,15 @@ class BackgroundListenerService : Service() {
                         Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
                         throw e3
                     }
+                }
+                 */
+
+                try { //워치 사용 시 이 트라이 캐치 구문 날리기
+                    //무타입 기본 포어그라운드로 최종 폴백
+                    startForeground(1, notification)
+                } catch (e3: Exception) {
+                    Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
+                    throw e3
                 }
             }
         } else {
@@ -971,38 +986,24 @@ class BackgroundListenerService : Service() {
                                             )
                                         }
                                     }
-                                    watchConnectionManager.isWatchInForeground.value -> {
-                                        // 워치 포그라운드 → 시스템 알림 스킵 (observeVoiceMessages에서 처리)
-                                        Log.d(TAG, "⌚ 워치 포그라운드 → 시스템 알림 스킵")
+
+                                    watchConnectionManager.isPhysicalConnected.value -> {
+                                        Log.d(TAG, "⌚ 워치 연결됨 → sendVoiceToWatch 호출")
+                                        // showSystemNotification 제거 → 워치 미러링 없음
+                                        scope.launch {
+                                            val result = voiceRepository.getVoiceMessageById(notification.audioId)
+                                            if (result is Result.Success) {
+                                                sendVoiceToWatch(
+                                                    messageId = result.data.id,
+                                                    senderId = result.data.senderId,
+                                                    voiceUrl = result.data.voiceUrl ?: ""
+                                                )
+                                            }
+                                        }
                                     }
                                     else -> {
                                         Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
                                         showSystemNotification(notification)
-                                        if (watchConnectionManager.isPhysicalConnected.value) {
-                                            scope.launch {
-                                                try {
-                                                    val voiceUrl = when (val result = voiceRepository.getVoiceMessageById(notification.audioId)) {
-                                                        is Result.Success -> result.data.voiceUrl ?: ""
-                                                        else -> ""
-                                                    }
-                                                    val payload = mapOf(
-                                                        "notificationId" to notification.id,
-                                                        "audioId" to notification.audioId,
-                                                        "senderName" to notification.senderName,
-                                                        "voiceUrl" to voiceUrl,
-                                                        "senderProfileImage" to notification.profileImage
-                                                    )
-                                                    val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
-                                                    val nodes = nodeClient.connectedNodes.await()
-                                                    nodes.forEach { node ->
-                                                        messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
-                                                        Log.d(TAG, "✅ 워치로 무전 알림 전송 완료")
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
-                                                }
-                                            }
-                                        }
                                     }
                                 }
                                 return@forEach
