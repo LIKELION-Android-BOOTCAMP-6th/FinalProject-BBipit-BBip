@@ -9,9 +9,12 @@ import androidx.core.content.ContextCompat
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -77,6 +80,8 @@ class MainActivity : ComponentActivity() {
 
     private var pendingNotificationId by mutableStateOf<String?>(null)
 
+    private var pendingWatchHistoryId by mutableStateOf<String?>(null)
+
     private val TAG = "MobileMainActivity"
 
     // 안드로이드 공식 권한 요청 런처 정의
@@ -95,6 +100,52 @@ class MainActivity : ComponentActivity() {
         } else {
             Log.w(TAG, "❌ 사용자가 블루투스 권한을 거부했습니다.")
         }
+    }
+
+    /**
+     * 꺼진 화면을 물리적으로 깨우고 잠금화면 위로 액티비티를 강제 주입하는 헬퍼 함수
+     */
+    private fun turnOnScreenAndShowWhenLocked() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            // 안드로이드 8.1 (API 27) 이상 정석 API 사용
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+
+            // 잠금화면이 단순 드래그 락이라면 액티비티 진입 시 자동으로 해제 요청
+            val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+            keyguardManager.requestDismissKeyguard(this, null)
+        } else {
+            // 구버전 안드로이드 호환성 플래그 조율
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+        }
+        Log.d(TAG, "⌚ [WearOS 연동] 휴대폰 디스플레이 하드웨어 가공: 깨우기 및 락스크린 해제 요청 완료")
+    }
+
+    /**
+     * 워치 히스토리 라우팅 전용 데이터 검증 헬퍼 함수
+     */
+    private fun handleWatchHistoryIntent(intent: Intent?) {
+        intent?.let {
+            if (it.getStringExtra("notification_type") == "OPEN_HISTORY") {
+                val targetId = it.getStringExtra("target_history_id")
+                if (!targetId.isNullOrEmpty()) {
+                    pendingWatchHistoryId = targetId
+                    Log.d(TAG, "🎯 [인텐트 캡처] 워치 원격 호출 히스토리 확정: $pendingWatchHistoryId")
+                }
+            }
+        }
+    }
+
+    // 외부 MapScreen에서 액티비티에 접근하여 소모해 갈 수 있는 단발성 Getter & Clear 함수 마련
+    fun consumeWatchHistoryId(): String? {
+        val id = pendingWatchHistoryId
+        pendingWatchHistoryId = null // 소비 완료 후 캐시 비우기 (중복 팝업 방지 방어코드)
+        return id
     }
 
     /**
@@ -125,19 +176,42 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingNotificationIntent = intent
-        pendingNotificationId = intent.getStringExtra("notification_id")
+        // 앱이 백그라운드에 살아있다가 워치 신호로 다시 깨어날 때도 화면을 켭니다.
+        if (intent.getStringExtra("notification_type") == "OPEN_HISTORY") {
+            turnOnScreenAndShowWhenLocked()
+        }
+
+        // 워치 발자취 연동 인텐트인지 체크
+        val isWatchHistoryIntent = intent.getStringExtra("notification_type") == "OPEN_HISTORY"
+        if(isWatchHistoryIntent) {
+            pendingNotificationIntent = null
+            pendingNotificationId = null
+        }
+        else {
+            pendingNotificationIntent = intent
+            pendingNotificationId = intent.getStringExtra("notification_id")
+        }
+
 
         // 처음 앱이 켜질 때 서비스로부터 전달받은 인텐트가 있는지 검사
         checkIntentAndRequestPermissions(intent)
+
+        // 워치 연동 인텐트 분석 가동
+        handleWatchHistoryIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 워치 연동 시 화면을 강제로 깨우기 위한 윈도우 매니저 플래그 설정
+        if (intent?.getStringExtra("notification_type") == "OPEN_HISTORY") {
+            turnOnScreenAndShowWhenLocked()
+        }
+
         enableEdgeToEdge()
 
         // 처음 앱이 켜질 때 서비스로부터 전달받은 인텐트가 있는지 검사
         checkIntentAndRequestPermissions(intent)
+        handleWatchHistoryIntent(intent) // 초기 기동 시점 인텐트 분석
 
         // App Check 디버그 환경 구성 설정
 //        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
@@ -147,9 +221,16 @@ class MainActivity : ComponentActivity() {
         // 앱 수명 주기 관찰자 등록
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifeCycleManager)
 
-        // 알림 클릭으로 온 Intent인지 구분
-        pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
-        pendingNotificationId = intent.getStringExtra("notification_id")
+        // 워치 발자취 연동 인텐트인지 체크
+        val isWatchHistoryIntent = intent.getStringExtra("notification_type") == "OPEN_HISTORY"
+        if (isWatchHistoryIntent) {
+            pendingNotificationIntent = null
+            pendingNotificationId = null
+        } else {
+            // 알림 클릭으로 온 Intent인지 구분
+            pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
+            pendingNotificationId = intent.getStringExtra("notification_id")
+        }
         Log.d("MainActivity", "onCreate - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
 
         setContent {

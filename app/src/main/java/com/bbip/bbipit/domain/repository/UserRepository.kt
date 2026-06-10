@@ -38,4 +38,5 @@ interface UserRepository {
      */
     suspend fun getMyProfile(uid: String): Result<User>
     suspend fun getUserOnlineStatus(uid: String): Result<Boolean>
+    suspend fun getUserProfileByCode(targetCode: String): Result<User>
 }

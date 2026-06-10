@@ -31,6 +31,20 @@ class ChatRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore,
     private val lifeCycleManager: LifeCycleManager,
 ) : ChatRepository {
+    override suspend fun deleteChatRoom(roomId: String): Result<Boolean> {
+        return try {
+            val isSuccess = chatRemoteDataSource.deleteChatRoom(roomId)
+            if (isSuccess) {
+                Result.Success(true)
+            } else {
+                Result.Failure(AppError.Unknown("채팅방 삭제 처리에 실패했습니다."))
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "채팅방 삭제 요청 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "채팅방 삭제 중 예기치 못한 오류 발생"))
+        }
+    }
+
     // 채팅방이 없으면 생성하고 이미 있는 경우 해당 채팅방을 반환
     override suspend fun createOrGetChatRoom(targetUid: String): Result<ChatRoomResult> {
         // 일단 채팅방 개설을 시도

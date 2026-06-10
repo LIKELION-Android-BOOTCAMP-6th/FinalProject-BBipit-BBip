@@ -7,6 +7,7 @@ import com.bbip.bbipit.core.result.onFailure
 import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.HistoryComment
+import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.HistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
@@ -27,10 +28,23 @@ data class HistoryUiState(
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val historyRepository: HistoryRepository
+    private val historyRepository: HistoryRepository,
+    private val authRepository: AuthRepository,
 ) : BaseViewModel<HistoryUiState>(HistoryUiState()) {
     private var historyStreamJob: Job? = null
     private var commentStreamJob: Job? = null
+
+    private val TAG = "HistoryViewModel"
+
+    // 히스토리 좋아요 토글 요청 함수 추가
+    fun toggleHistoryLike(historyId: String) {
+        viewModelScope.launch {
+            val result = historyRepository.toggleHistoryLike(historyId)
+            result.onFailure { error ->
+                updateState { copy(errorMessage = error.message ?: "좋아요 반영 실패") }
+            }
+        }
+    }
 
     // 공유 히스토리 캐시 스트림 관측 및 UI 상태 갱신
     fun startHistoryObservation() {
@@ -49,7 +63,7 @@ class HistoryViewModel @Inject constructor(
                             histories = sharedHistories
                         )
                     }
-                    Log.d("HistoryViewModel", "🔄 [UI 최적화 완료] 서비스가 캐싱한 데이터 ${sharedHistories.size}건을 화면에 매핑")
+                    Log.d(TAG, "🔄 [UI 최적화 완료] 서비스가 캐싱한 데이터 ${sharedHistories.size}건을 화면에 매핑")
                 }
         }
     }
@@ -67,7 +81,7 @@ class HistoryViewModel @Inject constructor(
         commentStreamJob = viewModelScope.launch {
             historyRepository.observeHistoryComments(historyId).collect { commentsList ->
                 updateState { copy(currentComments = commentsList) }
-                Log.d("HistoryViewModel", "📢 [실시간 댓글 스트림 수신] 총 ${commentsList.size}건 반영")
+                Log.d(TAG, "📢 [실시간 댓글 스트림 수신] 총 ${commentsList.size}건 반영")
             }
         }
     }
@@ -84,7 +98,7 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             val result = historyRepository.addHistoryComment(historyId, text)
             result.onSuccess { commentId ->
-                Log.d("HistoryViewModel", "🎯 댓글 서버 등록 정상 확정 완료! ID: $commentId")
+                Log.d(TAG, "🎯 댓글 서버 등록 정상 확정 완료! ID: $commentId")
             }.onFailure { error ->
                 updateState { copy(errorMessage = error.message ?: "댓글 등록 실패") }
             }
@@ -133,7 +147,7 @@ class HistoryViewModel @Inject constructor(
                     )
                 }
 
-                Log.d("HistoryViewModel", "히스토리가 성공적으로 만들어졌습니다! DocID: $documentId")
+                Log.d(TAG, "히스토리가 성공적으로 만들어졌습니다! DocID: $documentId")
             }.onFailure { error ->
                 updateState {
                     copy(
@@ -153,7 +167,7 @@ class HistoryViewModel @Inject constructor(
 
             result.onSuccess {
                 updateState { copy(isLoading = false) }
-                Log.d("HistoryViewModel", "🎯 히스토리가 성공적으로 삭제되었습니다. ID: $historyId")
+                Log.d(TAG, "🎯 히스토리가 성공적으로 삭제되었습니다. ID: $historyId")
             }.onFailure { error ->
                 updateState {
                     copy(
@@ -163,5 +177,9 @@ class HistoryViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun getMyUid(): String {
+        return authRepository.getCurrentUserUid() ?: ""
     }
 }

@@ -27,8 +27,7 @@ data class SignInUiState(
     val error: String? = null,
     val isLoading: Boolean = false,
     val isDuplicatedInfoDialog : Boolean = false,
-    val serverSessionId: String? = null,
-    val loginType: LoginType = LoginType.EMAIL
+    val loginType: LoginType = LoginType.EMAIL,
 )
 sealed class SignInEvent{
     object NavigateToHome: SignInEvent()
@@ -36,7 +35,6 @@ sealed class SignInEvent{
 }
 @HiltViewModel
 class SignInViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val socialTokenProvider: SocialTokenProvider
@@ -44,40 +42,38 @@ class SignInViewModel @Inject constructor(
 
     private val _eventChannel = Channel<SignInEvent>(Channel.BUFFERED)
     val events = _eventChannel.receiveAsFlow()
-
+    private var _serverToken: String? = null //DB에 저장되어 있던 FCM 토큰
+    private var _token: String? = null //파이어베이스에서 가져오는 FCM 토큰
     fun onUpdateEmail(email : String) = updateState{ copy(email =  email, emailError = null)}
     fun onUpdatePassword(pw: String) = updateState { copy(password = pw, pwError = null) }
 
-//    private val prefs = context.getSharedPreferences("auth_pref", Context.MODE_PRIVATE)
-//    private fun saveSessionId(sessionId: String) = prefs.edit { putString("session_id", sessionId) }
-//    private fun getSessionId(): String? {
-//        return prefs.getString("session_id", null)
-//    }
-//    private suspend fun getServerSessionId(){
-//        val uid = authRepository.getCurrentUserUid()
-//        uid?.let {
-//            userRepository.getMyProfile(it).onSuccess { data ->
-//                updateState { copy(serverSessionId = data.sessionId, loginType = LoginType.fromString(data.loginType))}
-//            }
-//        }
-//        Log.d("auth", "받아온 세션 아이디 ${uiState.value.serverSessionId}")
-//
-//    }
+    private suspend fun getServerToken(): String?{
+        val uid = authRepository.getCurrentUserUid()
+        var token : String? = null
+        uid?.let {
+            userRepository.getMyProfile(uid)
+                .onSuccess { data ->
+                    token = data.fcmToken
+                }
+                .onFailure {
+                    token = null
+                }
+        }
+        return token
+    }
     fun signIn(){
-        updateState { copy(isLoading = true, emailError = "", pwError = "") }
+        updateState { copy(isLoading = true, emailError = "", pwError = "", loginType = LoginType.EMAIL) }
         viewModelScope.launch {
             authRepository.signInWithEmail(uiState.value.email, uiState.value.password)
                 .onSuccess {
-//                    getServerSessionId()
+                    _serverToken = getServerToken()
 
-                    getFcmToken()
-                    updateState { copy(isLoading = false) }
-                    _eventChannel.send(SignInEvent.NavigateToHome)
-//                    if (!checkDuplicateLogin()){
-//                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
-//                    }else{
-//                        continueLogin(true)
-//                    }
+                    Log.d("로그인 시도" , "서버 토큰 : $_serverToken, 중복 여부 : ${checkDuplicateLogin()}")
+                    if (!_serverToken.isNullOrBlank() && checkDuplicateLogin()) {
+                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
+                    } else {
+                        continueLogin(true)
+                    }
 
                 }
                 .onFailure { exception ->
@@ -92,29 +88,34 @@ class SignInViewModel @Inject constructor(
 
         }
     }
-//    private fun checkDuplicateLogin(): Boolean = uiState.value.serverSessionId == getSessionId()
-//    fun continueLogin(isContinue: Boolean){
-//        viewModelScope.launch {
-//            if (isContinue){
-//                saveSessionId(uiState.value.serverSessionId!!)
-//                getFcmToken()
-//                updateState { copy(isLoading = false) }
-//                _eventChannel.send(SignInEvent.NavigateToHome)
-//            }else{
-//                authRepository.signOut(uiState.value.loginType)
-//
-//            }
-//        }
-//    }
+    private suspend fun checkDuplicateLogin(): Boolean {
+        _token = userRepository.getFcmToken()
+        _token?.let {
+            return _serverToken != it
+        }
+        return false //서버 오류로 토큰 값이 널일 경우 (거의 없음)
+    }
+
+    fun continueLogin(isContinue: Boolean){
+        //로그인
+        updateState { copy(isLoading = true) }
+        viewModelScope.launch {
+            if (isContinue){
+                userRepository.updateProfile(fcmToken = _token )
+                updateState { copy(isLoading = false) }
+                _eventChannel.send(SignInEvent.NavigateToHome)
+            }else{
+                updateState { copy(isLoading = false, isDuplicatedInfoDialog = false, error = "로그인 취소", email = "", password = "") }
+                authRepository.signOut(uiState.value.loginType)
+
+            }
+        }
+    }
 
     fun moveToSignUp(){
         viewModelScope.launch {
             _eventChannel.send(SignInEvent.NavigateToSignUp)
         }
-    }
-    suspend fun getFcmToken(){
-        val token = userRepository.getFcmToken()
-        userRepository.updateProfile(fcmToken = token)
     }
 
     fun signInWithSocial(context: Context, type: LoginType) {
@@ -123,8 +124,14 @@ class SignInViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 when (type) {
-                    LoginType.GOOGLE -> socialTokenProvider.fromGoogle(context)
-                    LoginType.KAKAO -> socialTokenProvider.fromKakao(context)
+                    LoginType.GOOGLE -> {
+                        updateState { copy(loginType = LoginType.GOOGLE) }
+                        socialTokenProvider.fromGoogle(context)
+                    }
+                    LoginType.KAKAO -> {
+                        updateState { copy(loginType = LoginType.KAKAO) }
+                        socialTokenProvider.fromKakao(context)
+                    }
                     else -> null
                 }
             }.onSuccess { idToken ->
@@ -132,9 +139,15 @@ class SignInViewModel @Inject constructor(
                 if (idToken != null) {
                     authRepository.signInWithCustomToken(idToken, type)
                         .onSuccess {
-                            _eventChannel.send(SignInEvent.NavigateToHome)
-                            getFcmToken()
-                            updateState { copy(isLoading = false) }
+                            _serverToken = getServerToken()
+
+                            Log.d("로그인 시도" , "서버 토큰 : $_serverToken, 중복 여부 : ${checkDuplicateLogin()}")
+                            if (!_serverToken.isNullOrBlank() && checkDuplicateLogin()) {
+                                updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
+                            } else {
+                                continueLogin(true)
+                            }
+
                         }
                         .onFailure {exception ->
                             Log.e("SocialLogin", "소셜 연동 실패: ${exception.message}")

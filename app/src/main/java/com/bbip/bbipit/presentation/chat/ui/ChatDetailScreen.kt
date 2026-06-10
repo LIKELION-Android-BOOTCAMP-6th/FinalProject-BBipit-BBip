@@ -88,7 +88,8 @@ data class ChatDetailUiState(
     // 💡 날짜별로 묶인 메시지 맵을 추가 (String은 날짜 키, List는 그 날짜의 메시지)
     val groupedMessages: Map<String, List<MessageItem>> = emptyMap(),
     val friendshipStatus: String = "NONE", // "ACCEPTED", "PENDING", "NONE"
-    val errorMessage: String? = null       // 서버 에러(500 등) 발생 시 안내 문구용
+    val errorMessage: String? = null,       // 서버 에러(500 등) 발생 시 안내 문구용
+    val inputText: String = ""
 )
 
 /**
@@ -249,12 +250,15 @@ fun ChatDetailScreen(
                         }
                     } else {
                         ChatInputArea(
+                            text = uiState.inputText,
+                            onTextChange = { viewModel.updateInputText(it) },
                             onSendClick = { text ->
                                 viewModel.sendMessage(
                                     roomId = roomId,
                                     receiverId = receiverId,
                                     text = text
                                 )
+                                viewModel.clearInputText()
                             }
                         )
                     }
@@ -510,8 +514,7 @@ fun MessageStatusSection(message: MessageItem) {
 }
 
 @Composable
-fun ChatInputArea(onSendClick: (String) -> Unit) {
-    var inputText by remember { mutableStateOf("") }
+fun ChatInputArea(text: String, onTextChange: (String) -> Unit,onSendClick: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -530,14 +533,10 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
         ) {
             // OutlinedTextField 적용
             OutlinedTextField(
-                value = inputText,
+                value = text,
                 onValueChange = { newValue ->
-                    // 입력된 값이 300자 이하일 때만 상태를 업데이트
-                    inputText = if (newValue.length > 300) {
-                        newValue.take(300)
-                    } else {
-                        newValue
-                    }
+                    val cleanValue = if (newValue.length > 300) newValue.take(300) else newValue
+                    onTextChange(cleanValue)
                 },
                 modifier = Modifier
                     .weight(1f)
@@ -592,8 +591,8 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
 //                },
                 trailingIcon = {
                     Text(
-                        text = "${inputText.length}/300",
-                        color = if (inputText.length == 300) recording else Color.DarkGray,
+                        text = "${text.length}/300",
+                        color = if (text.length == 300) recording else Color.DarkGray,
                         fontSize = 12.sp,
                         style = Typography.labelSmall,
                         modifier = Modifier.padding(end = 8.dp)
@@ -613,10 +612,8 @@ fun ChatInputArea(onSendClick: (String) -> Unit) {
             // 전송 버튼
             FloatingActionButton(
                 onClick = {
-                    if (inputText.isNotBlank()) {
-                        onSendClick(inputText)
-                        inputText = ""
-
+                    if (text.isNotBlank()) {
+                        onSendClick(text)
                         keyboardController?.hide() // 전송 후 키보드 내리기
                     }
                 },

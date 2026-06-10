@@ -2,7 +2,6 @@ package com.bbip.bbipit
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -15,17 +14,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.TimeText
 import com.bbip.bbipit.base.WatchIncomingVoiceDialog
 import com.bbip.bbipit.base.WatchServiceRestrictedScreen
 import com.bbip.bbipit.map.WatchMapScreen
 import com.bbip.bbipit.models.MobileServiceStatus
-import com.bbip.bbipit.models.WatchVoiceData
 import com.bbip.bbipit.theme.BbipitTheme
-import com.bbip.bbipit.util.VoiceEventBus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -66,17 +62,36 @@ class MainActivity : ComponentActivity() {
         viewModel.isWatchActiveInForeground = true
 
         viewModel.checkPhoneServiceStatus()
+
+        triggerWatchStateTransport(true)
     }
 
     override fun onPause() {
         super.onPause()
         // 포그라운드 비활성화 상태 선언
         viewModel.isWatchActiveInForeground = false
+        triggerWatchStateTransport(false)
+
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         viewModel.handlePlayIntent(intent)
+        viewModel.isWatchActiveInForeground = false
+
+    }
+
+    /**
+     * 워치의 포그라운드 유무 상태를 폰으로 즉시 쏘아주는 헬퍼 함수
+     */
+    private fun triggerWatchStateTransport(isActive: Boolean) {
+        lifecycleScope.launch {
+            try {
+                viewModel.sendWatchStateToPhone(isActive)
+            } catch (e: Exception) {
+                android.util.Log.e("WatchLifecycle", "폰으로 상태 전송 실패", e)
+            }
+        }
     }
 }
 

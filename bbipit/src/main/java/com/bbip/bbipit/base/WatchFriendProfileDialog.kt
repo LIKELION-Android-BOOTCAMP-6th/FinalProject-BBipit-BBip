@@ -45,7 +45,7 @@ fun WatchFriendProfileDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 5.dp)
-                .background(Color(0xFFF3F4F9).copy(alpha = 0.9f))
+                .background(Color(0xFFF3F4F9))
                 .clickable { onDismiss() },
             contentAlignment = Alignment.Center
         ) {
@@ -151,7 +151,7 @@ fun WatchFriendProfileDialog(
 
                     // 하단 가이드 문구
                     Text(
-                        text = "옆으로 밀어서 닫기",
+                        text = "옆으로 밀어서 닫기 ▶",
                         fontSize = 11.sp,
                         color = Color.Black.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center

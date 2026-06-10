@@ -3,6 +3,8 @@ package com.bbip.bbipit.core.navigation
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -29,6 +31,15 @@ fun BBipItNavigation(
     notificationIntent: Intent? = null
 ) {
 
+//    val currentUid by authRepository.getAuthStateFlow().collectAsState(initial = null)
+//    LaunchedEffect(currentUid) {
+//        if (currentUid == null) {
+//            navController.navigate(Routes.SignIn) {
+//                // 로그인 화면으로 가면서 지도(Map)를 포함한 이전 화면 스택을 싹 비웁니다.
+//                popUpTo(0) { inclusive = true }
+//            }
+//        }
+//    }
     val isLogin = authRepository.isAutoLogin()
 
     // 로그인은 되어있으나 이메일 인증이 완료되지 않은 유저라면 자동 로그인을 차단합니다.

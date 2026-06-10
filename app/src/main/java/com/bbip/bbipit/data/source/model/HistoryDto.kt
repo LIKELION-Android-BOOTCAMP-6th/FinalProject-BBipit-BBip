@@ -1,6 +1,6 @@
 package com.bbip.bbipit.data.source.model
 
-data class HistoryRequestDto(
+data class HistoryDto(
     val category: String,
     val placeName: String,
     val content: String,

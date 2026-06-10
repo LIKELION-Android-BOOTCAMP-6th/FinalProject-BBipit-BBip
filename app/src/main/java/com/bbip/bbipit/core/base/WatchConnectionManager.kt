@@ -19,9 +19,10 @@ import kotlinx.coroutines.tasks.await
 /**
  * 워치와의 연결 상태(물리적 연결 + 워치 앱 포그라운드 상태)를 총괄 관리하는 매니저
  */
-class WatchConnectionManager(private val context: Context) :
-    CapabilityClient.OnCapabilityChangedListener,
-    MessageClient.OnMessageReceivedListener {
+@javax.inject.Singleton
+class WatchConnectionManager @javax.inject.Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
+) : CapabilityClient.OnCapabilityChangedListener, MessageClient.OnMessageReceivedListener{
 
     private val TAG = "WatchConnectionManager"
 

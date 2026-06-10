@@ -21,7 +21,6 @@ fun UserDto.toDomain(id: String): User = User(
     loginType = loginType,
     email = email,
     userCode = userCode,
-    sessionId = sessionId
 )
 
 /**
@@ -38,8 +37,7 @@ fun User.toDto(): UserDto = UserDto(
     friendUids = friendUids,
     loginType = loginType,
     email = email,
-    userCode = userCode,
-    sessionId = sessionId
+    userCode = userCode
 )
 
 /**
@@ -54,12 +52,11 @@ fun Map<String, Any>.toDomain(): User {
         status = this["status"] as? String ?: "",
         isSharing = this["is_sharing"] as? Boolean ?: false,
         isOnline = this["is_online"] as? Boolean ?: false,
-        fcmToken = "",
+        fcmToken = this["fcm_token"] as? String,
         lastActive = (this["last_active"] as? Number)?.toLong() ?: 0L,
         friendUids = emptyList(),
         loginType = this["login_type"] as? String ?: "",
         email = this["email"] as? String ?: "",
-        userCode = this["user_code"] as? String ?: "",
-        sessionId = this["current_session_id"] as? String ?: ""
+        userCode = this["user_code"] as? String ?: ""
     )
 }

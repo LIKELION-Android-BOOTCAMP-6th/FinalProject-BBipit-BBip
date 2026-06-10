@@ -39,6 +39,7 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.maps.android.compose.MapUiSettings
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
+import com.bbip.bbipit.base.createHistoryMarkerBitmap
 import kotlinx.coroutines.launch
 
 @Composable
@@ -52,6 +53,12 @@ fun WatchMapScreen(
     val uiState by viewModel.uiState.collectAsState()
     val liveStatusList = uiState.liveStatusList
     val myLocation = uiState.liveStatusList.firstOrNull() // 리스트의 첫 번째가 '나'의 상태
+
+    val historyList = uiState.historyList
+    // 마커 그래픽 중복 생성 방지용 캐시 맵
+    var historyDescriptors by remember { mutableStateOf<Map<String, BitmapDescriptor>>(emptyMap()) }
+    // 클릭된 히스토리 상태 관리를 위한 변수
+    var clickedHistory by remember { mutableStateOf<com.bbip.bbipit.data.WatchHistory?>(null) }
 
     val voiceViewModel: WatchVoiceViewModel = viewModel(
         factory = WatchVoiceViewModel.provideFactory(context)
@@ -82,6 +89,22 @@ fun WatchMapScreen(
             snapAnimationSpec = tween(durationMillis = 300),
             decayAnimationSpec = exponentialDecay()
         )
+    }
+
+    // 리스트 유입 시 카테고리별 마커 비트맵 캐싱
+    LaunchedEffect(historyList) {
+        val updatedDescriptors = historyDescriptors.toMutableMap()
+        var isUpdated = false
+
+        historyList.forEach { history ->
+            if (!updatedDescriptors.containsKey(history.category)) {
+                updatedDescriptors[history.category] = createHistoryMarkerBitmap(context, history.category)
+                isUpdated = true
+            }
+        }
+        if (isUpdated) {
+            historyDescriptors = updatedDescriptors
+        }
     }
 
     // 드로어 앵커 초기화
@@ -170,6 +193,7 @@ fun WatchMapScreen(
                         state = markerState,
                         title = userStatus.nickname,
                         icon = customMarkerIcon,
+                        zIndex = 1.0f,
                         onClick = {
                             if (index != 0) {
                                 viewModel.selectFriend(userStatus.uid)
@@ -179,6 +203,41 @@ fun WatchMapScreen(
                     )
                 }
             }
+
+            // 실시간 공유된 간소화 발자취 마커 그리기 추가
+            historyList.forEach { history ->
+                val customIcon = historyDescriptors[history.category]
+
+                val markerState = rememberMarkerState(
+                    key = history.id, // 문서 ID 기준으로 상태 추적 고정
+                    position = LatLng(history.latitude, history.longitude)
+                )
+
+                if (customIcon != null) {
+                    Marker(
+                        state = markerState,
+                        icon = customIcon,
+                        zIndex = 2.0f,
+                        onClick = {
+                            // 마커 클릭 시 다이얼로그 상태를 활성화
+                            clickedHistory = history
+                            true
+                        }
+                    )
+                }
+            }
+        }
+
+        clickedHistory?.let { history ->
+            WatchHistoryDetailDialog(
+                history = history,
+                onDismiss = { clickedHistory = null },
+                onOpenOnPhoneClick = {
+                    // 사용자가 팝업 내부의 버튼을 눌렀을 때 진짜 휴대폰 연동 파이프라인 가동
+                    viewModel.requestOpenHistoryOnPhone(context, history.id)
+                    clickedHistory = null // 다이얼로그 닫기
+                }
+            )
         }
 
         // 상태 변수들을 Box 스코프 상단에 올바르게 배치하고 들여쓰기 수정
