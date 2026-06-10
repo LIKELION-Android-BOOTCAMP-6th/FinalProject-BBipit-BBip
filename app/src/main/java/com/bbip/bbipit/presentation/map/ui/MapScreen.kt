@@ -4,7 +4,6 @@ import com.bbip.bbipit.R
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -28,8 +27,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
@@ -79,7 +78,6 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
-import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.main.MainActivity
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
@@ -129,6 +127,7 @@ fun MapScreen(
     var viewerHistoriesSource by remember { mutableStateOf<List<History>>(emptyList()) }
     var selectedHistory by remember { mutableStateOf<History?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var showHistories by remember { mutableStateOf(true) }
 
     val seoul = LatLng(37.5665, 126.9780)
     val cameraPositionState = rememberCameraPositionState {
@@ -298,6 +297,7 @@ fun MapScreen(
                 MapContent(
                     mapUiState = uiState,
                     histories = historyUiState.histories,
+                    showHistories = showHistories,
                     cameraPositionState = cameraPositionState,
                     modifier = Modifier.fillMaxSize(),
                     onFriendClick = { friend -> clickedFriendUid = friend.uid },
@@ -376,6 +376,32 @@ fun MapScreen(
                         .padding(top = 16.dp)
                 )
 
+                FilledIconButton(
+                    onClick = { showHistories = !showHistories },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 340.dp)
+                        .size(50.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        painter = if (showHistories) painterResource(id = R.drawable.ic_footprint_icon_hidden)
+                        else painterResource(id = R.drawable.ic_footprint_icon_hidden),
+                        contentDescription = "히스토리 마커 토글",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (!showHistories) Color(0xFF956AFC) else Color.Gray
+                    )
+                }
+
                 // 히스토리 작성 바텀시트 호출 버튼
                 FilledIconButton(
                     onClick = {
@@ -444,7 +470,7 @@ fun MapScreen(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Autorenew,
+                        imageVector = Icons.Default.MyLocation,
                         contentDescription = "위치 업데이트",
                         modifier = Modifier.size(24.dp),
                         tint = primary
@@ -624,6 +650,7 @@ fun MapScreen(
 private fun MapContent(
     mapUiState: MapUiState,
     histories: List<History>, // 전체 히스토리 리스트 데이터
+    showHistories: Boolean,
     cameraPositionState: CameraPositionState,
     modifier: Modifier = Modifier,
     onFriendClick: (LiveStatus) -> Unit,
@@ -668,9 +695,11 @@ private fun MapContent(
             }
 
             // 지도 상에 히스토리 커스텀 마커 리스트 표시
-            histories.forEach { history ->
-                key(history.id) {
-                    HistoryMarker(history = history, onHistoryClick = onHistoryClick)
+            if(showHistories) {
+                histories.forEach { history ->
+                    key(history.id) {
+                        HistoryMarker(history = history, onHistoryClick = onHistoryClick)
+                    }
                 }
             }
         }
