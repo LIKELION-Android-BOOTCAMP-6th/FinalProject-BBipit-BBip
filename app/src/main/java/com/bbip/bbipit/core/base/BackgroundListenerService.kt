@@ -907,6 +907,8 @@ class BackgroundListenerService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
+
+
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
