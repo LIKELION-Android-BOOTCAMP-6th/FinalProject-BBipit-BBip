@@ -40,6 +40,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -105,9 +106,6 @@ class BackgroundListenerService : Service() {
     // 워치 노드 연결 상태 관리 컴포넌트
     private val nodeClient by lazy { Wearable.getNodeClient(this) }
 
-    // 워치 앱의 화면 활성화 여부 플래그
-//    private var isWatchInForeground = false
-
     // 알림 최초 로딩 스킵용 플래그
     private var isInitialData = true
 
@@ -150,6 +148,9 @@ class BackgroundListenerService : Service() {
 
         // 푸시 배너 표출용 알림 채널 식별자
         const val CHANNEL_ID_ALERT = "phone_alert_channel"
+
+        // 최초 진입 워치 대상 히스토리 강제 동기화 액션 명칭
+        const val ACTION_SYNC_INITIAL_HISTORIES = "SYNC_INITIAL_HISTORIES"
 
         const val PATH_RESPONSE_HISTORY_DATA = "/response_histories"
 
@@ -277,15 +278,15 @@ class BackgroundListenerService : Service() {
     /**
      * 사용자가 최근 앱 목록(Recents)에서 앱을 쓸어서(Swipe) 태스크를 제거했을 때 호출
      */
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        Log.d(TAG, "🗑️ 최근 앱 목록에서 태스크가 제거됨 -> BackgroundListenerService 종료 프로세스 가동")
-
-        // 세션 종료 신호를 보내야함..
-
-        // 서비스 자체를 즉시 중지합니다.
-        stopSelf()
-    }
+//    override fun onTaskRemoved(rootIntent: Intent?) {
+//        super.onTaskRemoved(rootIntent)
+//        Log.d(TAG, "🗑️ 최근 앱 목록에서 태스크가 제거됨 -> BackgroundListenerService 종료 프로세스 가동")
+//
+//        // 세션 종료 신호를 보내야함..
+//
+//        // 서비스 자체를 즉시 중지합니다.
+//        stopSelf()
+//    }
 
     /**
      * 명령 작업 수신 및 액션 라우팅 함수
@@ -314,6 +315,9 @@ class BackgroundListenerService : Service() {
                         fetchFreshLocationAndPushToWatch()
                     }
                 }
+                ACTION_SYNC_INITIAL_HISTORIES -> {
+                    fetchInitialHistoriesAndPushToWatch()
+                }
                 // 음성 메시지 읽음 처리
                 ACTION_UPDATE_VOICE_READ -> {
                     val messageId = intent.getStringExtra(EXTRA_VOICE_MESSAGE_ID)
@@ -325,6 +329,49 @@ class BackgroundListenerService : Service() {
         }
 
         return START_STICKY
+    }
+
+    /**
+     * 👣 [핵심 추가] 스마트폰 로컬 저장소 내부의 최신 히스토리 목록을
+     * 간소화된 워치 모델 데이터 스펙 배열로 가공하여 무전 전송 채널로 일괄 바이패스합니다.
+     */
+    private fun fetchInitialHistoriesAndPushToWatch() {
+        scope.launch {
+            try {
+                // 캐시 버퍼에 보관된 최신 리스트 스냅샷을 안전하게 한 번만 꺼내옵니다.
+                val currentMobileHistories = historyRepository.observeSharedHistories().first()
+
+                if (currentMobileHistories.isEmpty()) {
+                    Log.d(TAG, "👣 워치로 초기 동기화할 스마트폰 내 히스토리 내역이 비어있습니다.")
+                    return@launch
+                }
+
+                // 워치 전용 간소화 모델로 매핑
+//                val watchHistoriesMap = currentMobileHistories.map { history ->
+//                    mapOf(
+//                        "id" to history.id,
+//                        "userId" to history.userId,
+//                        "category" to history.category,
+//                        "latitude" to history.latitude,
+//                        "longitude" to history.longitude
+//                    )
+//                }
+
+                // JSON 변환
+                val jsonPayload = Gson().toJson(currentMobileHistories)
+                val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
+
+                // 워치로 전송
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_RESPONSE_HISTORY_DATA, byteArray).await()
+                }
+                Log.d(TAG, "👣 [최초 연동 성공] 초기 히스토리 ${currentMobileHistories.size}건을 워치로 전송했습니다.")
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 워치 초기 히스토리 동기화 연산 처리 중 장애 발생", e)
+            }
+        }
     }
 
     /**
