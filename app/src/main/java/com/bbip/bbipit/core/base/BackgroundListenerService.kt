@@ -865,7 +865,8 @@ class BackgroundListenerService : Service() {
                                 when {
                                     lifeCycleManager.isAppInForeground.value -> {
                                         Log.d(TAG, "🔊 폰 포그라운드 → 폰에서 재생")
-                                        val currentUserId = authRepository.getCurrentUserUid() ?: return@forEach
+                                        val currentUserId =
+                                            authRepository.getCurrentUserUid() ?: return@forEach
                                         scope.launch {
                                             notificationRepository.playWalkieNotification(
                                                 notification = notification,
@@ -873,37 +874,24 @@ class BackgroundListenerService : Service() {
                                             )
                                         }
                                     }
-                                    watchConnectionManager.isWatchInForeground.value -> {
-                                        Log.d(TAG, "⌚ 워치 포그라운드 → 시스템 알림 스킵")
+
+                                    watchConnectionManager.isPhysicalConnected.value -> {
+                                        Log.d(TAG, "⌚ 워치 연결됨 → sendVoiceToWatch 호출")
+                                        // showSystemNotification 제거 → 워치 미러링 없음
+                                        scope.launch {
+                                            val result = voiceRepository.getVoiceMessageById(notification.audioId)
+                                            if (result is Result.Success) {
+                                                sendVoiceToWatch(
+                                                    messageId = result.data.id,
+                                                    senderId = result.data.senderId,
+                                                    voiceUrl = result.data.voiceUrl ?: ""
+                                                )
+                                            }
+                                        }
                                     }
                                     else -> {
                                         Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
                                         showSystemNotification(notification)
-                                        if (watchConnectionManager.isPhysicalConnected.value) {
-                                            scope.launch {
-                                                try {
-                                                    val voiceUrl = when (val result = voiceRepository.getVoiceMessageById(notification.audioId)) {
-                                                        is Result.Success -> result.data.voiceUrl ?: ""
-                                                        else -> ""
-                                                    }
-                                                    val payload = mapOf(
-                                                        "notificationId" to notification.id,
-                                                        "audioId" to notification.audioId,
-                                                        "senderName" to notification.senderName,
-                                                        "voiceUrl" to voiceUrl,
-                                                        "senderProfileImage" to notification.profileImage
-                                                    )
-                                                    val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
-                                                    val nodes = nodeClient.connectedNodes.await()
-                                                    nodes.forEach { node ->
-                                                        messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
-                                                        Log.d(TAG, "✅ 워치로 무전 알림 전송 완료")
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
-                                                }
-                                            }
-                                        }
                                     }
                                 }
                                 return@forEach
