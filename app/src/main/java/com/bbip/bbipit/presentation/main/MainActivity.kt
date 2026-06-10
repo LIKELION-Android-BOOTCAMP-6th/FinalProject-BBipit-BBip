@@ -1,7 +1,5 @@
 package com.bbip.bbipit.presentation.main
 
-import android.app.Activity
-import androidx.core.app.ActivityCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -10,7 +8,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -57,8 +54,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.Lifecycle
+import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.LifeCycleManager
 import com.bbip.bbipit.presentation.base.NetworkWarningBanner
+import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -82,6 +85,9 @@ class MainActivity : ComponentActivity() {
 
     private var pendingWatchHistoryId by mutableStateOf<String?>(null)
 
+    // 워치로 비동기 신호를 보내기 위한 액티비티 전역 스코프
+    private val activityScope = CoroutineScope(Dispatchers.IO)
+
     private val TAG = "MobileMainActivity"
 
     // 안드로이드 공식 권한 요청 런처 정의
@@ -95,8 +101,44 @@ class MainActivity : ComponentActivity() {
         }
 
         if (isBluetoothGranted) {
-            Log.d(TAG, "✅ 사용자가 블루투스 연결 권한을 승인했습니다.")
-            // 필요 시 여기에 워치로 다시 READY 신호를 강제 푸시하는 로직을 연동할 수 있습니다.
+            Log.d(TAG, "✅ 사용자가 블루투스 연결 권한을 승인했습니다. 워치로 READY 신호 송신을 시작합니다.")
+
+            //  권한 승인 즉시 연결된 WearOS 기기들을 찾아 복구 신호(READY) 전달
+            activityScope.launch {
+                try {
+                    val nodeClient = Wearable.getNodeClient(this@MainActivity)
+                    val messageClient = Wearable.getMessageClient(this@MainActivity)
+
+                    val nodes = nodeClient.connectedNodes.await()
+                    if (nodes.isEmpty()) {
+                        Log.w(TAG, "⚠️ 권한은 승인되었으나 현재 물리적으로 연결된 워치가 없습니다.")
+                        return@launch
+                    }
+
+                    for (node in nodes) {
+                        // 워치가 대기 중인 /phone_status_reply 경로로 "READY" 페이로드 전송
+                        messageClient.sendMessage(
+                            node.id,
+                            "/phone_status_reply",
+                            "READY".toByteArray(Charsets.UTF_8)
+                        ).await()
+                    }
+                    Log.d(TAG, "⌚ 테더링된 워치 기기(들)로 READY 복구 신호 주입 완료!")
+
+                    // 복구되었으므로 멈춰있던 데이터 동기화 서비스 작동 유발
+                    val intent = Intent(this@MainActivity, BackgroundListenerService::class.java).apply {
+                        action = BackgroundListenerService.ACTION_PUSH_LOCATION_TO_WATCH
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ 워치로 READY 신호 강제 푸시 중 장애 발생", e)
+                }
+            }
         } else {
             Log.w(TAG, "❌ 사용자가 블루투스 권한을 거부했습니다.")
         }
