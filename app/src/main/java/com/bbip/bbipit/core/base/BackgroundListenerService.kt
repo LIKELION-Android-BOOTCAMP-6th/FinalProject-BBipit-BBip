@@ -123,6 +123,11 @@ class BackgroundListenerService : Service() {
 
     private var myLiveObservationJob: Job? = null
 
+    //시스템 배너 관리용
+    private val notificationManager: NotificationManager by lazy {
+        getSystemService(NotificationManager::class.java)
+    }
+
     /**
      * 웨어러블 디바이스 및 시스템 채널 식별자 통합 상수 공간
      */
@@ -890,8 +895,8 @@ class BackgroundListenerService : Service() {
                 setShowBadge(false)
                 setSound(null, null)
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+//            val manager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
         }
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
@@ -962,7 +967,12 @@ class BackgroundListenerService : Service() {
                     isFirstCollection = false // 두 번째부터 알림 띄움
                     return@collect
                 }
+
                 notifications.forEach { notification ->
+                    if(notification.isRead){
+                        deleteSystemNotification(notification.id.hashCode())
+                        return@forEach
+                    }
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id)
                     ) {
@@ -1015,6 +1025,10 @@ class BackgroundListenerService : Service() {
         }
     }
 
+    private fun deleteSystemNotification(id: Int){
+        notificationManager.cancel(id)
+    }
+
     /**
      * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
      */
@@ -1022,8 +1036,8 @@ class BackgroundListenerService : Service() {
         Log.d(TAG, "WALKIE 배너 발행 - audioId: ${notification.audioId}")
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
         val channelId = "phone_alert_channel"
-        val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+//        val notificationManager =
+//            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // 오레오(API 26) 이상 대응용 알림 채널 생성 및 중요도(HIGH) 설정
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
