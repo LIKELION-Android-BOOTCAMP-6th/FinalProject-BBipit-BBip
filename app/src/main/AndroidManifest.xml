@@ -13,7 +13,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -37,7 +36,7 @@
         <!-- 음성 수신 서비스 -->
         <service
             android:name=".core.base.BackgroundListenerService"
-            android:foregroundServiceType="connectedDevice|microphone|location|dataSync"
+            android:foregroundServiceType="connectedDevice|location|dataSync"
             android:exported="false"/>
 
         <!-- 데이터 및 메시지 수신 리스너 서비스 -->

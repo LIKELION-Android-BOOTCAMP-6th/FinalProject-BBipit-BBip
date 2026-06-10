@@ -224,7 +224,7 @@ class WatchMainViewModel(application: Application) :
     /**
      * 모바일 기기로 워치 화면 활성화 상태 전송
      */
-    private suspend fun sendWatchStateToPhone(isActive: Boolean) {
+    suspend fun sendWatchStateToPhone(isActive: Boolean) {
         try {
             val messageClient = Wearable.getMessageClient(application)
             val path = "/watch_state"
