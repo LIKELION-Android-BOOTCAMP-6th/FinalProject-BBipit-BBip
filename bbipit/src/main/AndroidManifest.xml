@@ -74,7 +74,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data android:scheme="wear" android:host="*" android:path="/walkie_notification" />
                 <data android:scheme="wear" android:host="*" android:path="/launch_and_play" />
             </intent-filter>
         </service>

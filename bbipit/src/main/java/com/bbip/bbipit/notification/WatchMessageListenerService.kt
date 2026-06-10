@@ -23,15 +23,6 @@ class WatchMessageListenerService : WearableListenerService() {
     @SuppressLint("WearRecents")
     override fun onMessageReceived(messageEvent: MessageEvent) {
         when (messageEvent.path) {
-            "/walkie_notification" -> {
-                val data = Gson().fromJson(String(messageEvent.data), Map::class.java)
-                val notificationId = data["notificationId"] as? String ?: return
-                val audioId = data["audioId"] as? String ?: return
-                val senderName = data["senderName"] as? String ?: "무전"
-                val voiceUrl = data["voiceUrl"] as? String ?: ""
-                showWalkieChoiceNotification(notificationId, audioId, senderName, voiceUrl)
-            }
-
             "/launch_and_play" -> {
                 val data = Gson().fromJson(String(messageEvent.data), Map::class.java)
                 val messageId = data["messageId"] as? String ?: return
