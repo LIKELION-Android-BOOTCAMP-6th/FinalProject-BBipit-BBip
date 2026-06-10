@@ -1,5 +1,6 @@
 package com.bbip.bbipit
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
                 WatchIncomingVoiceDialog(data, onDismiss = { viewModel.clearVoiceState() })
             }
         }
+        viewModel.handlePlayIntent(intent)
     }
 
     override fun onResume() {
@@ -68,8 +70,15 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         // 포그라운드 비활성화 상태 선언
         viewModel.isWatchActiveInForeground = false
-
         triggerWatchStateTransport(false)
+
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.handlePlayIntent(intent)
+        viewModel.isWatchActiveInForeground = false
+
     }
 
     /**

@@ -104,7 +104,7 @@ class FriendListViewModel @Inject constructor(
                     strength = Collator.PRIMARY
                 }
 
-                android.util.Log.d(
+                Log.d(
                     "FriendListDebug",
                     "데이터 업데이트! 전체 수신: ${friends.size}명, 수락된 친구: ${acceptedFriends.size}명"
                 )
@@ -124,7 +124,7 @@ class FriendListViewModel @Inject constructor(
     }
 
     fun refreshAll() {
-        android.util.Log.d("FriendListViewModel", "전체 데이터 새로고침 시작")
+        Log.d("FriendListViewModel", "전체 데이터 새로고침 시작")
 
         // 친구 목록 옵저빙 재시작 (필요한 경우)
         val myUid = authRepository.getCurrentUserUid()

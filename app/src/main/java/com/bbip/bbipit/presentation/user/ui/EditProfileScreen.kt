@@ -43,16 +43,6 @@ import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.base.UserStatusType
 
-
-data class EditProfileUiState(
-    val nickname: String = "",
-    val status: String = "",
-    val profileImageUrl: String = "",
-    val isBottomSheetVisible: Boolean = false,
-    val isNicknameError: Boolean = false, // 예외처리 위함 공백일 경우
-    val isLoading: Boolean = false
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(

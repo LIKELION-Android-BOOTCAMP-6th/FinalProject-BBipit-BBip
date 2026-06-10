@@ -76,6 +76,7 @@ class BackgroundListenerService : Service() {
     @Inject
     lateinit var historyRepository: HistoryRepository
 
+    // 워치 연결 상태 관리 매니저
     @Inject
     lateinit var watchConnectionManager: WatchConnectionManager
 
@@ -90,6 +91,8 @@ class BackgroundListenerService : Service() {
 
     // 음성 메시지 구독 관리용 작업 단위
     private var voiceObservationJob: Job? = null
+
+//    private lateinit var watchConnectionManager: WatchConnectionManager
 
     // 실시간 위치 추적용 클라이언트
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -155,6 +158,12 @@ class BackgroundListenerService : Service() {
         const val PATH_RESPONSE_HISTORY_DATA = "/response_histories"
 
         const val PATH_FORCE_LOGOUT_WATCH = "/force_logout_watch"
+
+
+        // 무전 워치/폰에서 듣기
+        const val ACTION_LISTEN_ON_WATCH = "LISTEN_ON_WATCH"
+        const val ACTION_LISTEN_ON_PHONE = "LISTEN_ON_PHONE"
+        const val EXTRA_VOICE_ID = "extra_voice_id"
     }
 
     /**
@@ -243,7 +252,6 @@ class BackgroundListenerService : Service() {
                 observeNotifications()
             }
         }
-
         // 음성 및 알림 모니터링 가동
         if (voiceObservationJob == null || voiceObservationJob?.isActive == false) {
             observeVoiceMessages()
@@ -274,19 +282,6 @@ class BackgroundListenerService : Service() {
         lifeCycleManager.onAppForegroundStatusChanged = null
         lifeCycleManager.stopSession()
     }
-
-    /**
-     * 사용자가 최근 앱 목록(Recents)에서 앱을 쓸어서(Swipe) 태스크를 제거했을 때 호출
-     */
-//    override fun onTaskRemoved(rootIntent: Intent?) {
-//        super.onTaskRemoved(rootIntent)
-//        Log.d(TAG, "🗑️ 최근 앱 목록에서 태스크가 제거됨 -> BackgroundListenerService 종료 프로세스 가동")
-//
-//        // 세션 종료 신호를 보내야함..
-//
-//        // 서비스 자체를 즉시 중지합니다.
-//        stopSelf()
-//    }
 
     /**
      * 명령 작업 수신 및 액션 라우팅 함수
@@ -983,6 +978,31 @@ class BackgroundListenerService : Service() {
                                     else -> {
                                         Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
                                         showSystemNotification(notification)
+                                        if (watchConnectionManager.isPhysicalConnected.value) {
+                                            scope.launch {
+                                                try {
+                                                    val voiceUrl = when (val result = voiceRepository.getVoiceMessageById(notification.audioId)) {
+                                                        is Result.Success -> result.data.voiceUrl ?: ""
+                                                        else -> ""
+                                                    }
+                                                    val payload = mapOf(
+                                                        "notificationId" to notification.id,
+                                                        "audioId" to notification.audioId,
+                                                        "senderName" to notification.senderName,
+                                                        "voiceUrl" to voiceUrl,
+                                                        "senderProfileImage" to notification.profileImage
+                                                    )
+                                                    val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
+                                                    val nodes = nodeClient.connectedNodes.await()
+                                                    nodes.forEach { node ->
+                                                        messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
+                                                        Log.d(TAG, "✅ 워치로 무전 알림 전송 완료")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 return@forEach

@@ -1,8 +1,12 @@
 package com.bbip.bbipit.presentation.mypage
 
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.domain.repository.UserRepository
 import com.bbip.bbipit.presentation.base.UserStatusType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.google.firebase.functions.FirebaseFunctions
@@ -20,10 +24,17 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 
-
+data class EditProfileUiState(
+    val nickname: String = "",
+    val status: String = "",
+    val profileImageUrl: String = "",
+    val isBottomSheetVisible: Boolean = false,
+    val isNicknameError: Boolean = false, // 예외처리 위함 공백일 경우
+    val isLoading: Boolean = false
+)
 @HiltViewModel
 class EditProfileViewModel @Inject constructor(
-    private val functions: FirebaseFunctions
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditProfileUiState())
@@ -68,65 +79,82 @@ class EditProfileViewModel @Inject constructor(
     fun saveProfileChanges(imageUri: Uri?) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            // 이미지 변경되었으면 firestore storage 업로드
-            val profileImageUrl = if (imageUri != null) {
-                try {
-                    println("DEBUG: 업로드 시작...")
-                    val url = uploadImageToStorage(imageUri)
-                    println("DEBUG: 업로드 성공! URL: $url") // 2. 업로드 성공 확인
-                    url
-                } catch (e: Exception) {
-                    println("DEBUG: 업로드 실패: ${e.message}") // 3. 업로드 에러 확인
-                    null
-                }
-            } else {
-                println("DEBUG: 이미지 선택 안 함, 기존 이미지 유지")
-                null
-            }
-
-            val data = hashMapOf(
-                "nickname" to _uiState.value.nickname,
-                "status" to _uiState.value.status
-            )
-
-            if (profileImageUrl != null) {
-                data["profile_image_url"] = profileImageUrl
-                println("DEBUG: 서버 전송 데이터: $data") // 4. 서버로 가는 데이터 확인
-            }
-
-            try {
-                // Cloud Functions의 "updateProfile" 호출
-                val result = functions
-                    .getHttpsCallable("updateProfile")
-                    .call(data)
-                    .await()
-                println("DEBUG: 서버 응답 성공: ${result.data}") // 5. 응답 확인
-
-                // 서버에서 return { success: true }; 가 정상적으로 왔는지 확인
-                if (result.data is Map<*, *> && (result.data as Map<*, *>)["success"] == true) {
-                    _uiState.update { it.copy(isLoading = false) }
-                    _saveSuccessEvent.emit(true) // 성공 신호 송출
-                }
-            } catch (e: Exception) {
-                println("프로필 수정 오류 ${e.message}")
-                e.printStackTrace()
-
-                val errorMessage = if (e is FirebaseFunctionsException) {
-                    when (e.code) {
-                        FirebaseFunctionsException.Code.UNAVAILABLE -> "네트워크 연결을 확인해주세요."
-                        else -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-                    }
-                } else if (e is java.net.UnknownHostException || e.cause is java.net.UnknownHostException) {
-                    "네트워크 연결을 확인해주세요."
-                } else {
-                    "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-                }
+            userRepository.updateProfile(
+                nickname = _uiState.value.nickname,
+                status = _uiState.value.status,
+                profileImageUrl =imageUri
+            ).onSuccess {
                 _uiState.update { it.copy(isLoading = false) }
-                sendToast(errorMessage)
-                _saveSuccessEvent.emit(false)
-
+                sendToast("변경 사항이 저장되었습니다.")
+                _saveSuccessEvent.emit(true) // 성공 신호 송출
             }
+                .onFailure { error ->
+                    Log.e("프로필 수정 오류", "프로필 수정 오류 ${error.message}")
+                    _uiState.update { it.copy(isLoading = false) }
+                    sendToast(error.message.toString())
+                    _saveSuccessEvent.emit(false)
+                }
         }
+//        viewModelScope.launch {
+//            // 이미지 변경되었으면 firestore storage 업로드
+//            val profileImageUrl = if (imageUri != null) {
+//                try {
+//                    println("DEBUG: 업로드 시작...")
+//                    val url = uploadImageToStorage(imageUri)
+//                    println("DEBUG: 업로드 성공! URL: $url") // 2. 업로드 성공 확인
+//                    url
+//                } catch (e: Exception) {
+//                    println("DEBUG: 업로드 실패: ${e.message}") // 3. 업로드 에러 확인
+//                    null
+//                }
+//            } else {
+//                println("DEBUG: 이미지 선택 안 함, 기존 이미지 유지")
+//                null
+//            }
+//
+//            val data = hashMapOf(
+//                "nickname" to _uiState.value.nickname,
+//                "status" to _uiState.value.status
+//            )
+//
+//            if (profileImageUrl != null) {
+//                data["profile_image_url"] = profileImageUrl
+//                println("DEBUG: 서버 전송 데이터: $data") // 4. 서버로 가는 데이터 확인
+//            }
+//
+//            try {
+//                // Cloud Functions의 "updateProfile" 호출
+//                val result = functions
+//                    .getHttpsCallable("updateProfile")
+//                    .call(data)
+//                    .await()
+//                println("DEBUG: 서버 응답 성공: ${result.data}") // 5. 응답 확인
+//
+//                // 서버에서 return { success: true }; 가 정상적으로 왔는지 확인
+//                if (result.data is Map<*, *> && (result.data as Map<*, *>)["success"] == true) {
+//                    _uiState.update { it.copy(isLoading = false) }
+//                    _saveSuccessEvent.emit(true) // 성공 신호 송출
+//                }
+//            } catch (e: Exception) {
+//                println("프로필 수정 오류 ${e.message}")
+//                e.printStackTrace()
+//
+//                val errorMessage = if (e is FirebaseFunctionsException) {
+//                    when (e.code) {
+//                        FirebaseFunctionsException.Code.UNAVAILABLE -> "네트워크 연결을 확인해주세요."
+//                        else -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+//                    }
+//                } else if (e is java.net.UnknownHostException || e.cause is java.net.UnknownHostException) {
+//                    "네트워크 연결을 확인해주세요."
+//                } else {
+//                    "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+//                }
+//                _uiState.update { it.copy(isLoading = false) }
+//                sendToast(errorMessage)
+//                _saveSuccessEvent.emit(false)
+//
+//            }
+//        }
     }
     private suspend fun uploadImageToStorage(uri: Uri): String {
         val fileName = "profile_${UUID.randomUUID()}.jpg"

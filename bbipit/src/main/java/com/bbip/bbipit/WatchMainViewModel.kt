@@ -1,6 +1,7 @@
 package com.bbip.bbipit
 
 import android.app.Application
+import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.application
@@ -9,6 +10,7 @@ import com.bbip.bbipit.data.WatchDataRepository
 import com.bbip.bbipit.models.MobileServiceStatus
 import com.bbip.bbipit.models.WatchLiveStatus
 import com.bbip.bbipit.models.WatchVoiceData
+import com.bbip.bbipit.notification.WatchNotificationHelper
 import com.bbip.bbipit.util.VoiceEventBus
 import com.bbip.bbipit.util.WatchAudioPlayer
 import com.google.android.gms.wearable.MessageClient
@@ -222,7 +224,7 @@ class WatchMainViewModel(application: Application) :
     /**
      * 모바일 기기로 워치 화면 활성화 상태 전송
      */
-    suspend fun sendWatchStateToPhone(isActive: Boolean) {
+    private suspend fun sendWatchStateToPhone(isActive: Boolean) {
         try {
             val messageClient = Wearable.getMessageClient(application)
             val path = "/watch_state"
@@ -240,7 +242,7 @@ class WatchMainViewModel(application: Application) :
     /**
      * 수신 음성 메시지 처리 및 재생
      */
-    fun handleIncomingVoiceMessage(messageEvent: MessageEvent) {
+    private fun handleIncomingVoiceMessage(messageEvent: MessageEvent) {
         try {
             val payload = String(messageEvent.data, Charsets.UTF_8)
             val data = Gson().fromJson(payload, Map::class.java)
@@ -251,14 +253,46 @@ class WatchMainViewModel(application: Application) :
 
             val voiceData = WatchVoiceData(messageId, voiceUrl, senderProfileImage, senderName)
 
-            // 💡 중요: 서비스를 블로킹하지 않고, 비동기로 SharedFlow에 데이터만 던진 후 메서드를 종료합니다.
-            viewModelScope.launch(Dispatchers.Main) {
-                VoiceEventBus.emitVoice(voiceData)
+//            // 💡 중요: 서비스를 블로킹하지 않고, 비동기로 SharedFlow에 데이터만 던진 후 메서드를 종료합니다.
+//            viewModelScope.launch(Dispatchers.Main) {
+//                VoiceEventBus.emitVoice(voiceData)
+//            }
+            if (isWatchActiveInForeground) {
+                // 워치 포그라운드 → 바로 재생
+                viewModelScope.launch(Dispatchers.Main) {
+                    VoiceEventBus.emitVoice(voiceData)
+                }
+            } else {
+                // 워치 백그라운드 → 알림 띄우기
+                WatchNotificationHelper.showWalkieNotification(getApplication(), voiceData)
             }
 
             Log.d(TAG, "📥 [중앙 서비스] 무전 패킷 UI 버스로 전달 완료. 서비스 바인딩 해제 허용.")
         } catch (e: Exception) {
             Log.e(TAG, "무전 패킷 처리 중 에러", e)
+        }
+    }
+
+    fun handlePlayIntent(intent: Intent) {
+        val autoPlay = intent.getBooleanExtra("auto_play", false)
+        if (!autoPlay) return
+
+        val voiceUrl = intent.getStringExtra("voice_url") ?: return
+        val messageId = intent.getStringExtra("message_id") ?: return
+        val senderName = intent.getStringExtra("sender_name") ?: ""
+        val senderProfileImage = intent.getStringExtra("sender_profile_image") ?: ""
+
+        Log.d(TAG, "⌚ auto_play 감지 → 즉시 재생: messageId=$messageId")
+
+        val voiceData = WatchVoiceData(
+            messageId = messageId,
+            voiceUrl = voiceUrl,
+            senderProfileUrl = senderProfileImage,
+            senderName = senderName
+        )
+
+        viewModelScope.launch {
+            VoiceEventBus.emitVoice(voiceData)
         }
     }
 }

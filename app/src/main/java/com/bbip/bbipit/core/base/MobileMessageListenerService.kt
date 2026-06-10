@@ -52,6 +52,22 @@ class MobileMessageListenerService : WearableListenerService() {
             "/check_phone_status" -> {
                 handleMobileStatusCheck(messageEvent.sourceNodeId)
             }
+            "/listen_on_watch" -> {
+                val voiceId = String(messageEvent.data, Charsets.UTF_8).trim()
+                triggerBackgroundServiceAction(
+                    action = BackgroundListenerService.ACTION_LISTEN_ON_WATCH,
+                    extraKey = BackgroundListenerService.EXTRA_VOICE_ID,
+                    extraValue = voiceId
+                )
+            }
+            "/listen_on_phone" -> {
+                val voiceId = String(messageEvent.data, Charsets.UTF_8).trim()
+                triggerBackgroundServiceAction(
+                    action = BackgroundListenerService.ACTION_LISTEN_ON_PHONE,
+                    extraKey = BackgroundListenerService.EXTRA_VOICE_ID,
+                    extraValue = voiceId
+                )
+            }
             // 워치에서 히스토리 폰으로 열기 버튼을 클릭했을 때 수신
             "/request_open_history" -> {
                 try {

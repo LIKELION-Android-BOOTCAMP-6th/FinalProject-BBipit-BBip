@@ -4,6 +4,7 @@ import com.bbip.bbipit.R
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -77,6 +78,7 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.main.MainActivity
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
@@ -300,6 +302,7 @@ fun MapScreen(
                     onFriendClick = { friend -> clickedFriendUid = friend.uid },
                     onHistoryClick = { history ->
                         // 마커 선택 시 히스토리 뷰어 데이터 매핑 및 표시
+                        viewerHistoriesSource = listOf(history)
                         targetHistoryId = history.id
                         isHistoryViewerOpen = true
                     }
@@ -556,7 +559,6 @@ fun MapScreen(
                         return@HistoryWriteSheet
                     }
                     uiState.myStatus?.let { myStatus ->
-                        // 입력 폼 데이터 기반 신규 히스토리 데이터 생성
                         historyViewModel.createNewHistory(
                             category = selectedCategory,
                             placeName = placeName.ifEmpty { "알 수 없음" },

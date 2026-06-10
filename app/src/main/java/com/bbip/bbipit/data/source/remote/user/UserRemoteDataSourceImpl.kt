@@ -2,6 +2,7 @@ package com.bbip.bbipit.data.source.remote.user
 
 import android.net.Uri
 import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.messaging.FirebaseMessaging
@@ -20,6 +21,7 @@ class UserRemoteDataSourceImpl @Inject constructor(
     private val firebaseFunctions: FirebaseFunctions,
     private val firebaseMessaging: FirebaseMessaging,
     private val storage: FirebaseStorage,
+    private val auth: FirebaseAuth
 ) : UserRemoteDataSource {
 
     /**
@@ -61,9 +63,11 @@ class UserRemoteDataSourceImpl @Inject constructor(
      * 프로필 이미지를 사용자의 UID 폴더 밑에 단 하나만 존재하도록 업로드하는 함수
      * 파일명을 'profile.jpg'로 고정하여 업로드 시 자동으로 덮어쓰기
      */
-    override suspend fun uploadProfileImage(myUid: String, localFileUri: Uri): String {
+    override suspend fun uploadProfileImage(localFileUri: Uri): String {
+        val uid = auth.currentUser?.uid ?: throw IllegalStateException("로그인된 유저 정보가 없습니다.")
+        Log.e("유아이디", uid)
         // ✨ 핵심: 파일명을 고정하여 단 하나의 파일만 유지 (profiles/{uid}/profile.jpg)
-        val fileName = "profiles/$myUid/profile.jpg"
+        val fileName = "profiles/$uid/profile.jpg"
         val profileRef = storage.reference.child(fileName)
 
         return profileRef.putFile(localFileUri).continueWithTask { task ->
@@ -97,10 +101,11 @@ class UserRemoteDataSourceImpl @Inject constructor(
         profileImageUrl: String?,
         fcmToken: String?
     ): String {
+        Log.e("프로필 수정 ", "입력값 $nickname, $status, $profileImageUrl")
         val rawData = hashMapOf(
             "nickname" to nickname,
-            "statusMessage" to status,
-            "photoURL" to profileImageUrl,
+            "status" to status,
+            "profile_image_url" to profileImageUrl,
             "fcmToken" to fcmToken
         )
         // 유효한 데이터 항목 필터링 후 원격 서버 전송
