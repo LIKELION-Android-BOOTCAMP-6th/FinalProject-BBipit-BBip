@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.chat.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.Pink80
@@ -81,6 +83,9 @@ fun ChatListScreen(
     viewModel: ChatListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var showToastMessage by remember { mutableStateOf<String?>(null) }
+
 
     LaunchedEffect(Unit) {
         viewModel.clearSearch()
@@ -91,6 +96,12 @@ fun ChatListScreen(
     LaunchedEffect(Unit) {
         // 상세방에서 백스택으로 돌아올 때마다 목록을 새로 땡겨와서 읽음 상태 갱신
         viewModel.observeChatRooms()
+    }
+    LaunchedEffect(showToastMessage) {
+        showToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            showToastMessage = null // 메시지 출력 후 초기화
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(color = background)) {
@@ -119,7 +130,11 @@ fun ChatListScreen(
                         ChatItemRow( // 이름을 Row로 변경
                             chatItem = chatItem,
                             onClick = { viewModel.onChatItemClicked(chatItem) },
-                            onDelete = { /** 로직 추가 **/}
+                            onDelete = {
+                                viewModel.deleteChatRoom(chatItem.id) { message ->
+                                    showToastMessage = message // 결과 메시지를 여기에 담음
+                                }
+                            }
                         )
                         // 아이템 사이의 얇은 구분선 추가
                         HorizontalDivider(
@@ -254,8 +269,7 @@ fun ChatItemRow(
                 scope.launch { dismissState.reset() }
             },
             onConfirm = {
-                // [주석 처리] 실제 삭제 로직 연결 필요
-                // onDelete()
+                onDelete()
 
                 showDeleteDialog = false
                 scope.launch { dismissState.reset() }
