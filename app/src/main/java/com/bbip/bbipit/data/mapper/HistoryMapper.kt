@@ -1,6 +1,7 @@
 package com.bbip.bbipit.data.mapper
 
 import com.bbip.bbipit.domain.entity.History
+import com.google.firebase.Timestamp
 import kotlin.collections.get
 
 // Map -> Domain Entity 변환
@@ -23,7 +24,7 @@ fun Map<*, *>.toDomainHistory(): History? {
             content = this["content"] as? String ?: "",
             latitude = (this["latitude"] as? Number)?.toDouble() ?: 0.0,
             longitude = (this["longitude"] as? Number)?.toDouble() ?: 0.0,
-            createdAt = (this["createdAt"] as? Number)?.toLong() ?: 0L,
+            createdAt = (this["createdAt"] as? Timestamp)?.toDate()?.time ?: 0L,
             imageUrls = mappedImageUrls,
             likedUserIds = likedList
         )
