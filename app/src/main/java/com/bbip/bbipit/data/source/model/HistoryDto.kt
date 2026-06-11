@@ -16,7 +16,7 @@ data class HistoryDto(
             "content" to content,
             "latitude" to latitude,
             "longitude" to longitude,
-            "imageUrls" to imageUrls
+            "imageUrls" to imageUrls,
         )
     }
 }

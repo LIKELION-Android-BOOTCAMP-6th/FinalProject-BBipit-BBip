@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Pause
@@ -81,6 +83,8 @@ fun HistoryViewerScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
+    val listState = rememberLazyListState()
+    var showMenu by remember { mutableStateOf(false) }
 
     val filteredHistories = remember(histories, initialHistoryId, isFromFriendList) {
         val initialHistory = histories.find { it.id == initialHistoryId } ?: return@remember emptyList()
@@ -94,7 +98,6 @@ fun HistoryViewerScreen(
         }
     }
 
-    // 🛠️ [2. 타임라인 가공 소스 수정]: histories 대신 가공된 filteredHistories 기반으로 매핑[cite: 28]
     val storyTimeline = remember(filteredHistories) {
         filteredHistories.flatMap { history ->
             if (history.imageUrls.isEmpty()) {
@@ -119,14 +122,10 @@ fun HistoryViewerScreen(
         pageCount = { totalPages }
     )
 
-    // ──────────────────────────────────────────────────────────
-    // 🛠️ [3. 현재 페이지 데이터 추출 구조 수정]
-    //    좋아요 등 내부 상태 변경 시 Compose가 실시간 Recomposition을 처리하도록
-    //    remember(storyTimeline, pagerState.currentPage) 장치를 씌워 추출합니다.[cite: 28]
-    // ──────────────────────────────────────────────────────────
     val currentHistory = remember(storyTimeline, pagerState.currentPage) {
         storyTimeline.getOrNull(pagerState.currentPage)?.history
     } ?: return
+    var timeLeftText by remember { mutableStateOf("") }
 
     var isPaused by remember { mutableStateOf(false) }
     var commentInput by remember { mutableStateOf("") }
@@ -134,6 +133,28 @@ fun HistoryViewerScreen(
     var progressTicks by remember { mutableStateOf(0) }
     val isKeyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
+    LaunchedEffect(currentHistory.createdAt) {
+        while (true) {
+            val now = System.currentTimeMillis()
+
+            // 새로 만든 함수를 사용하여 텍스트 설정
+            timeLeftText = currentHistory.getRemainingHoursText(now)
+
+            if (currentHistory.isExpired(now)) {
+                break
+            }
+
+            // 1분 단위로 갱신해도 충분하지만,
+            // 1시간 미만일 때 분 단위를 실시간으로 보여주려면 30초~1분 정도 딜레이가 적당합니다.
+            delay(60000)
+        }
+    }
+
+    LaunchedEffect(comments.size) {
+        if (comments.isNotEmpty()) {
+            listState.animateScrollToItem(comments.size - 1)
+        }
+    }
 
     // 현재 히스토리 식별자 변경 감지 및 상위 레이어 보고
     LaunchedEffect(currentHistory.id) {
@@ -360,6 +381,14 @@ fun HistoryViewerScreen(
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = timeLeftText,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         // 하단 복합 메타 패널
@@ -369,7 +398,7 @@ fun HistoryViewerScreen(
         ) {
             // 댓글 수집 패널
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 110.dp).background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(16.dp)).border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp)).padding(12.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp).background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(16.dp)).border(0.5.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp)).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
@@ -390,8 +419,10 @@ fun HistoryViewerScreen(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        state = listState,
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(bottom = 8.dp)
                     ) {
                         items(comments) { comment ->
                             Row(
@@ -479,6 +510,29 @@ fun HistoryViewerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+
+                            // 본인 작성 히스토리일 때만 수정 버튼 노출
+                            if (currentHistory.userId == myUid) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            isPaused = true // 수정 시 타이머 일시정지
+                                            // TODO: 상위 컴포넌트로 수정 이벤트 전달할 콜백 연동
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "발자취 수정",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
                             if (likeCount > 0) {
                                 Text(
                                     text = likeCount.toString(),
