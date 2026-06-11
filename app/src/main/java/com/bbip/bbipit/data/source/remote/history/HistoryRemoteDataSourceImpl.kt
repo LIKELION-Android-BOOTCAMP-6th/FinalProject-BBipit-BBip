@@ -1,5 +1,7 @@
 package com.bbip.bbipit.data.source.remote.history
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
 import com.bbip.bbipit.data.mapper.toDomainHistory
 import com.google.firebase.firestore.Query
@@ -13,6 +15,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+import java.io.ByteArrayOutputStream
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -156,11 +159,28 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
         val batchGroupId = UUID.randomUUID().toString()
 
         images.forEachIndexed { index, byteArray ->
+            // 원본 ByteArray를 Bitmap 객체로 디코딩
+            val originalBitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+                ?: return@forEachIndexed // 디코딩 실패 시 스킵
+
+            // 이미지 해상도 다운사이징 (가로/세로 최대 1080px 제한)
+            val resizedBitmap = resizeBitmapIfNeeded(originalBitmap, maxDimension = 1080)
+
+            // 압축 스트림을 통해 JPEG 에 가중치(Quality)를 주어 바이너리 추출
+            val outputStream = ByteArrayOutputStream()
+            // Quality 75~80%는 육안으로 구별하기 힘들면서 용량은 50~80% 이상 줄어듭니다.
+            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
+            val compressedByteArray = outputStream.toByteArray()
+
+            // 사용 후 비트맵 메모리 해제
+            if (resizedBitmap != originalBitmap) resizedBitmap.recycle()
+            originalBitmap.recycle()
+
             val fileName = "${batchGroupId}_$index.jpg"
             val storageRef = storage.reference.child("history/$uid/$fileName")
 
             // 업로드 작업 수행 후 await()로 대기
-            storageRef.putBytes(byteArray).await()
+            storageRef.putBytes(compressedByteArray).await()
 
             // 업로드 완료된 파일의 public 다운로드 URL 추출
             val downloadUrl = storageRef.downloadUrl.await().toString()
@@ -168,6 +188,30 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
         }
 
         return downloadUrls
+    }
+
+    /**
+     * 이미지의 화질을 유지하면서 해상도(Size) 자체가 너무 큰 경우 비율을 맞춰 줄여주는 헬퍼 함수
+     */
+    private fun resizeBitmapIfNeeded(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+
+        if (width <= maxDimension && height <= maxDimension) return bitmap
+
+        val ratio = width.toFloat() / height.toFloat()
+        val newWidth: Int
+        val newHeight: Int
+
+        if (ratio > 1) {
+            newWidth = maxDimension
+            newHeight = (maxDimension / ratio).toInt()
+        } else {
+            newHeight = maxDimension
+            newWidth = (maxDimension * ratio).toInt()
+        }
+
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
 
     // 히스토리 서버 저장
