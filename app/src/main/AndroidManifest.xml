@@ -33,7 +33,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bbipit">
 
-        <!-- 음성 수신 서비스 -->
+        <!-- 위치 및 음성 수신 서비스 -->
         <service
             android:name=".core.base.BackgroundListenerService"
             android:foregroundServiceType="connectedDevice|location|dataSync"
@@ -94,6 +94,11 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAP_KEY}" />
+
+        <!-- 워치에 알림 미러링하지 않도록 설정-->
+        <meta-data
+            android:name="com.google.android.wearable.notificationBridgeMode"
+            android:value="NO_BRIDGING" />
 
         <!-- 테스트 알림 브로드캐스트 리시버 -->
         <receiver

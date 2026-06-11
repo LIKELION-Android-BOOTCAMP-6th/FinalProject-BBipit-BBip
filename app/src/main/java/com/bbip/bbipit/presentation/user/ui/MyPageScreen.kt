@@ -439,6 +439,7 @@ fun MyPageScreen(
             myUid = historyViewModel.getMyUid(),
             histories = historyUiState.histories,
             comments = historyUiState.currentComments,
+            viewModel = historyViewModel,
             onHistoryChanged = { currentId ->
                 historyViewModel.observeComments(currentId)
             },
@@ -454,6 +455,9 @@ fun MyPageScreen(
             onDismiss = {
                 isHistoryGridOpen = false
                 historyViewModel.closeCommentsObservation()
+            },
+            onHistoryUpdate = { historyId, commentText ->
+                historyViewModel.updateHistory(historyId, commentText)
             }
         )
     }

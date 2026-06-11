@@ -41,6 +41,28 @@ class HistoryRepositoryImpl @Inject constructor(
     // 전역 구독 파이프라인 제어용 Job
     private var observationJob: kotlinx.coroutines.Job? = null
 
+    // 히스토리 수정
+    override suspend fun updateHistory(
+        historyId: String,
+        content: String
+    ): Result<Unit> {
+        return try {
+            val success = remoteDataSource.updateHistory(
+                historyId = historyId,
+                content = content
+            )
+            if (success) {
+                Result.Success(Unit)
+            } else {
+                Result.Failure(AppError.Unknown("히스토리 수정에 실패했습니다."))
+            }
+        } catch (e: FirebaseFunctionsException) {
+            Result.Failure(AppError.Unknown("[서버 코드 ${e.code}]: ${e.message}"))
+        } catch (e: Exception) {
+            Result.Failure(AppError.Unknown(e.message ?: "히스토리 수정 도중 오류 발생"))
+        }
+    }
+
     // 히스토리 좋아요 토글(추가/삭제)
     override suspend fun toggleHistoryLike(historyId: String): Result<Unit> {
         return try {
@@ -93,7 +115,14 @@ class HistoryRepositoryImpl @Inject constructor(
 
                 // 내 히스토리와 친구 히스토리 병합 및 생성일 기준 내림차순 정렬
                 combine(myHistoryFlow, friendsHistoryFlow) { myHistories, friendsHistories ->
-                    (myHistories + friendsHistories).sortedByDescending { it.createdAt }
+                    val currentTime = System.currentTimeMillis()
+
+                    // 만료된 친구 히스토리 필터링
+                    val validFriendsHistories = friendsHistories.filter { history ->
+                        !history.isExpired(currentTime)
+                    }
+
+                    (myHistories + validFriendsHistories).sortedByDescending { it.createdAt }
                 }
             }
             .onEach { combinedHistories ->

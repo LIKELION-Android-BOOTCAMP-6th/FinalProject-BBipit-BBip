@@ -182,4 +182,12 @@ class NotificationViewModel @Inject constructor(
             }
         }
     }
+
+    // ACP 타입 읽음 처리
+    fun markAcpNotificationsAsRead() {
+        val acpNotifications = _notification.value.filter {
+            it.type == "ACP" && !it.isRead
+        }
+        acpNotifications.forEach { markAsRead(it.id) }
+    }
 }

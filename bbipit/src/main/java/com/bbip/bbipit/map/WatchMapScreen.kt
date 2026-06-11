@@ -15,12 +15,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,7 +42,10 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.maps.android.compose.MapUiSettings
 import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
+import com.bbip.bbipit.R
 import com.bbip.bbipit.base.createHistoryMarkerBitmap
+import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.maps.android.compose.MapProperties
 import kotlinx.coroutines.launch
 
 @Composable
@@ -59,6 +65,7 @@ fun WatchMapScreen(
     var historyDescriptors by remember { mutableStateOf<Map<String, BitmapDescriptor>>(emptyMap()) }
     // 클릭된 히스토리 상태 관리를 위한 변수
     var clickedHistory by remember { mutableStateOf<com.bbip.bbipit.data.WatchHistory?>(null) }
+    var showHistories by remember { mutableStateOf(true) }
 
     val voiceViewModel: WatchVoiceViewModel = viewModel(
         factory = WatchVoiceViewModel.provideFactory(context)
@@ -170,6 +177,8 @@ fun WatchMapScreen(
     Box(modifier = modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
+            properties = MapProperties(mapStyleOptions
+            = MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style)),
             uiSettings = MapUiSettings(zoomControlsEnabled = false),
             cameraPositionState = cameraPositionState,
         ) {
@@ -205,25 +214,27 @@ fun WatchMapScreen(
             }
 
             // 실시간 공유된 간소화 발자취 마커 그리기 추가
-            historyList.forEach { history ->
-                val customIcon = historyDescriptors[history.category]
+            if (showHistories) {
+                historyList.forEach { history ->
+                    val customIcon = historyDescriptors[history.category]
 
-                val markerState = rememberMarkerState(
-                    key = history.id, // 문서 ID 기준으로 상태 추적 고정
-                    position = LatLng(history.latitude, history.longitude)
-                )
-
-                if (customIcon != null) {
-                    Marker(
-                        state = markerState,
-                        icon = customIcon,
-                        zIndex = 2.0f,
-                        onClick = {
-                            // 마커 클릭 시 다이얼로그 상태를 활성화
-                            clickedHistory = history
-                            true
-                        }
+                    val markerState = rememberMarkerState(
+                        key = history.id, // 문서 ID 기준으로 상태 추적 고정
+                        position = LatLng(history.latitude, history.longitude)
                     )
+
+                    if (customIcon != null) {
+                        Marker(
+                            state = markerState,
+                            icon = customIcon,
+                            zIndex = 2.0f,
+                            onClick = {
+                                // 마커 클릭 시 다이얼로그 상태를 활성화
+                                clickedHistory = history
+                                true
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -275,6 +286,30 @@ fun WatchMapScreen(
             }
         }
 
+        Button(
+            onClick = { showHistories = !showHistories },
+            modifier = Modifier
+                .align(Alignment.CenterEnd) // 내 위치 버튼과 같은 라인
+                .padding(end = 16.dp, bottom = 90.dp) // 내 위치 버튼(44dp + 간격) 위로 올림
+                .size(44.dp)
+                .border(
+                    width = 2.dp,
+                    color = if (!showHistories) Color(0xFF956AFC) else Color.Gray,
+                    shape = CircleShape
+                ),
+            colors = ButtonDefaults.buttonColors(
+                backgroundColor = Color(0xFFF1F5F9)
+            )
+        ) {
+            Icon(
+                painter = if (showHistories) painterResource(id = R.drawable.ic_footprint_icon_hidden)
+                else painterResource(id = R.drawable.ic_footprint_icon_hidden),
+                contentDescription = "히스토리 토글",
+                modifier = Modifier.size(28.dp),
+                tint = if (!showHistories) Color(0xFF956AFC) else Color.Gray
+            )
+        }
+
         // 내 위치 이동 버튼
         Button(
             onClick = {
@@ -282,7 +317,7 @@ fun WatchMapScreen(
             },
             modifier = Modifier
                 .align(Alignment.CenterEnd) // 우측 중앙 정렬
-                .padding(end = 8.dp)
+                .padding(end = 8.dp, top = 10.dp)
                 .size(44.dp)
                 .border(
                     width = 2.dp,

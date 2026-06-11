@@ -4,7 +4,6 @@ import com.bbip.bbipit.R
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -28,8 +27,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
@@ -38,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -78,7 +78,6 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
-import com.bbip.bbipit.presentation.base.ShowToast
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.main.MainActivity
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
@@ -91,11 +90,13 @@ import com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.CameraPositionState
+import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.rememberComposeBitmapDescriptor
@@ -125,9 +126,8 @@ fun MapScreen(
     var isHistorySheetOpen by remember { mutableStateOf(false) }
     var isHistoryViewerOpen by remember { mutableStateOf(false) }
     var targetHistoryId by remember { mutableStateOf("") }
-    var viewerHistoriesSource by remember { mutableStateOf<List<History>>(emptyList()) }
-    var selectedHistory by remember { mutableStateOf<History?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var showHistories by remember { mutableStateOf(true) }
 
     val seoul = LatLng(37.5665, 126.9780)
     val cameraPositionState = rememberCameraPositionState {
@@ -200,7 +200,7 @@ fun MapScreen(
             historyViewModel.startHistoryObservation()
         }
 
-        // ⌚ 워치 '폰으로 열기' 연동 원격 제어 신호 소모 프로세스 가동
+        // 워치 '폰으로 열기' 연동 원격 제어 신호 소모 프로세스 가동
         activity?.consumeWatchHistoryId()?.let { watchHistoryId ->
             if (watchHistoryId.isNotEmpty()) {
                 Log.d("MapScreen", "⌚ 워치 원격 제어 수락 ➔ 스토리 뷰어 다이얼로그 강제 팝업 실행 ID: $watchHistoryId")
@@ -235,9 +235,6 @@ fun MapScreen(
         }
     }
 
-//    LaunchedEffect(drawerState.isOpen) {
-//        bottomBarViewModel.onUpdateDrawerShown(drawerState.isOpen)
-//    }
     LaunchedEffect(isDrawerOpen) {
         bottomBarViewModel.onUpdateDrawerShown(isDrawerOpen)
     }
@@ -297,12 +294,12 @@ fun MapScreen(
                 MapContent(
                     mapUiState = uiState,
                     histories = historyUiState.histories,
+                    showHistories = showHistories,
                     cameraPositionState = cameraPositionState,
                     modifier = Modifier.fillMaxSize(),
                     onFriendClick = { friend -> clickedFriendUid = friend.uid },
                     onHistoryClick = { history ->
                         // 마커 선택 시 히스토리 뷰어 데이터 매핑 및 표시
-                        viewerHistoriesSource = listOf(history)
                         targetHistoryId = history.id
                         isHistoryViewerOpen = true
                     }
@@ -331,6 +328,7 @@ fun MapScreen(
                             histories = historyUiState.histories,
                             initialHistoryId = targetHistoryId,
                             comments = historyUiState.currentComments,
+                            viewModel = historyViewModel,
                             onHistoryChanged = { currentId ->
                                 // 히스토리 변경에 따른 댓글 데이터 리스너 재설정
                                 historyViewModel.observeComments(currentId)
@@ -355,6 +353,9 @@ fun MapScreen(
                                 targetHistoryId = ""
                                 historyViewModel.closeCommentsObservation()
                                 Toast.makeText(context, "발자취를 삭제했습니다.", Toast.LENGTH_SHORT).show()
+                            },
+                            onHistoryUpdate = { historyId, commentText ->
+                                historyViewModel.updateHistory(historyId, commentText)
                             }
                         )
                     }
@@ -374,6 +375,32 @@ fun MapScreen(
                         .statusBarsPadding()
                         .padding(top = 16.dp)
                 )
+
+                FilledIconButton(
+                    onClick = { showHistories = !showHistories },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 340.dp)
+                        .size(50.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        painter = if (showHistories) painterResource(id = R.drawable.ic_footprint_icon_hidden)
+                        else painterResource(id = R.drawable.ic_footprint_icon_hidden),
+                        contentDescription = "히스토리 마커 토글",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (!showHistories) Color(0xFF956AFC) else Color.Gray
+                    )
+                }
 
                 // 히스토리 작성 바텀시트 호출 버튼
                 FilledIconButton(
@@ -443,7 +470,7 @@ fun MapScreen(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Autorenew,
+                        imageVector = Icons.Default.MyLocation,
                         contentDescription = "위치 업데이트",
                         modifier = Modifier.size(24.dp),
                         tint = primary
@@ -474,7 +501,7 @@ fun MapScreen(
                         }
                     }
 
-                    // 2. 뒷배경 딤 애니메이션
+                    //  뒷배경 딤 애니메이션
                     val scrimColor by animateColorAsState(
                         targetValue = if (startAnimate) Color.Black.copy(alpha = 0.4f) else Color.Transparent,
                         animationSpec = tween(durationMillis = 300),
@@ -623,6 +650,7 @@ fun MapScreen(
 private fun MapContent(
     mapUiState: MapUiState,
     histories: List<History>, // 전체 히스토리 리스트 데이터
+    showHistories: Boolean,
     cameraPositionState: CameraPositionState,
     modifier: Modifier = Modifier,
     onFriendClick: (LiveStatus) -> Unit,
@@ -631,6 +659,23 @@ private fun MapContent(
     val myLat = mapUiState.myStatus?.latitude
     val myLng = mapUiState.myStatus?.longitude
     var isCameraInitialized by remember { mutableStateOf(false) }
+
+    // 나의 만료 히스토리 필터링을 위한 기준점
+    val currentTime = remember(histories) { System.currentTimeMillis() }
+    val myUid = mapUiState.myStatus?.uid.orEmpty()
+
+    // 맵 화면 표시용 필터링 파이프라인
+    val visibleHistories = remember(histories, myUid) {
+        histories.filter { history ->
+            if (history.userId == myUid) {
+                // 내 히스토리라면: 만료되지 않은 것만 마커로 표시
+                !history.isExpired(currentTime)
+            } else {
+                // 친구 히스토리라면: 이미 유효한 것만 내려오므로 무조건 통과
+                true
+            }
+        }
+    }
 
     LaunchedEffect(myLat, myLng) {
         if (myLat != null && myLng != null) {
@@ -647,9 +692,12 @@ private fun MapContent(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        val context = LocalContext.current
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
+            properties = MapProperties(mapStyleOptions
+            = MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style)),
             uiSettings = MapUiSettings(
                 zoomControlsEnabled = false
             )
@@ -667,9 +715,11 @@ private fun MapContent(
             }
 
             // 지도 상에 히스토리 커스텀 마커 리스트 표시
-            histories.forEach { history ->
-                key(history.id) {
-                    HistoryMarker(history = history, onHistoryClick = onHistoryClick)
+            if(showHistories) {
+                visibleHistories.forEach { history ->
+                    key(history.id) {
+                        HistoryMarker(history = history, onHistoryClick = onHistoryClick)
+                    }
                 }
             }
         }
@@ -681,22 +731,10 @@ private fun MyMarker(myStatus: LiveStatus, profileImageUrl: String) {
     val context = LocalContext.current
     var myCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
 
-//    val myMarkerState = remember(myStatus.uid) {
-//        MarkerState(position = LatLng(myStatus.latitude, myStatus.longitude))
-//    }
-
-//    LaunchedEffect(myStatus.latitude, myStatus.longitude) {
-//        myMarkerState.position = LatLng(myStatus.latitude, myStatus.longitude)
-//    }
-
     LaunchedEffect(profileImageUrl) {
         myCustomMarkerIcon =
             createCustomMarkerBitmap(context = context, imageUrl = profileImageUrl, isOnline = true)
     }
-
-//    if (myCustomMarkerIcon != null) {
-//        Marker(state = myMarkerState, icon = myCustomMarkerIcon, zIndex = 0.0f, onClick = { true })
-//    }
 
     // 비트맵 상태(null -> 완성)가 바뀔 때 구글 맵이 마커를 강제로 다시 그리도록 key 지정
     key(myStatus.uid, myCustomMarkerIcon) {
@@ -720,14 +758,6 @@ private fun MyMarker(myStatus: LiveStatus, profileImageUrl: String) {
 private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit) {
     val context = LocalContext.current
     var friendCustomMarkerIcon by remember { mutableStateOf<BitmapDescriptor?>(null) }
-
-//    val friendMarkerState = remember(friend.uid) {
-//        MarkerState(position = LatLng(friend.latitude, friend.longitude))
-//    }
-
-//    LaunchedEffect(friend.latitude, friend.longitude) {
-//        friendMarkerState.position = LatLng(friend.latitude, friend.longitude)
-//    }
 
     LaunchedEffect(friend.profileImageUrl, friend.isOnline) {
         friendCustomMarkerIcon = createCustomMarkerBitmap(
@@ -1179,11 +1209,11 @@ fun LocationSharingToggleButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(color = indicatorColor, shape = CircleShape)
-            )
+//            Box(
+//                modifier = Modifier
+//                    .size(10.dp)
+//                    .background(color = indicatorColor, shape = CircleShape)
+//            )
 
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
@@ -1192,6 +1222,23 @@ fun LocationSharingToggleButton(
                 fontWeight = FontWeight.Bold,
                 color = if (isSharingEnabled) fontDefault else Color.DarkGray,
                 letterSpacing = (-0.3).sp
+            )
+
+            Switch(
+                checked = isSharingEnabled,
+                onCheckedChange = null, // Box의 clickable에서 이벤트를 일괄 처리하므로 무효화(null)하여 중복 클릭 방지
+                colors = SwitchDefaults.colors(
+                    // 활성화 상태 (체크됨) 테마 지정
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = online, // 혹은 프로젝트 테마 색상 (예: Color(0xFF5B4DFF))
+                    checkedBorderColor = Color.Transparent,
+
+                    // 비활성화 상태 (체크 해제됨) 테마 지정
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color.LightGray,
+                    uncheckedBorderColor = Color.Transparent
+                ),
+                modifier = Modifier.scale(0.8f)
             )
         }
     }
