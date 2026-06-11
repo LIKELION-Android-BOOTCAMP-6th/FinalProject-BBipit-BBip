@@ -99,14 +99,16 @@ class UserRemoteDataSourceImpl @Inject constructor(
         nickname: String?,
         status: String?,
         profileImageUrl: String?,
-        fcmToken: String?
+        fcmToken: String?,
+        sessionId: String?
     ): String {
-        Log.e("프로필 수정 ", "입력값 $nickname, $status, $profileImageUrl")
+        Log.e("프로필 수정 ", "입력값 $nickname, $status, $profileImageUrl, $fcmToken, $sessionId")
         val rawData = hashMapOf(
             "nickname" to nickname,
             "status" to status,
             "profile_image_url" to profileImageUrl,
-            "fcmToken" to fcmToken
+            "fcmToken" to fcmToken,
+            "currentSessionId" to sessionId
         )
         // 유효한 데이터 항목 필터링 후 원격 서버 전송
         val data = rawData.filterValues { it != null }

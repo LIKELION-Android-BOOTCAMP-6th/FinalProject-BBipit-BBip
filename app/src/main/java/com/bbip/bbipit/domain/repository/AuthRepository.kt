@@ -62,4 +62,5 @@ interface AuthRepository {
 
     fun saveSessionId(id: String)
     fun getLocalSessionId(): String?
+    fun deleteLocalSessionId()
 }

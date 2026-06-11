@@ -48,4 +48,7 @@ data class UserDto(
 
     @get:PropertyName("user_code") @set:PropertyName("user_code")
     var userCode: String = "",
+
+    @get:PropertyName("current_session_id") @set:PropertyName("current_session_id")
+    var sessionId: String? = null,
 )

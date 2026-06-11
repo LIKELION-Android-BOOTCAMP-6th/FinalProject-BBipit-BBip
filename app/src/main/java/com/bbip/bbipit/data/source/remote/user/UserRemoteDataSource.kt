@@ -15,7 +15,7 @@ interface UserRemoteDataSource {
     /**
      * 프로필 정보 및 푸시 토큰 갱신 함수
      */
-    suspend fun updateProfile(nickname: String?, status: String?, profileImageUrl: String?, fcmToken: String?): String
+    suspend fun updateProfile(nickname: String?, status: String?, profileImageUrl: String?, fcmToken: String?, sessionId: String?): String
 
     /**
      * 온라인 접속 상태 변경 함수

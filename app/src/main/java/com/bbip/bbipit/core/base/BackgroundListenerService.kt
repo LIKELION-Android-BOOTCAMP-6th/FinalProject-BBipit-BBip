@@ -188,7 +188,7 @@ class BackgroundListenerService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "BackgroundListenerService onCreate 호출됨")
-
+        Log.d("로컬 세션 id", "${authRepository.getLocalSessionId()}")
         scope.launch {
             // 유저 로그인 상태를 실시간 관찰
             authRepository.getAuthStateFlow().collect { uid ->
@@ -383,24 +383,22 @@ class BackgroundListenerService : Service() {
                 when (result) {
                     is Result.Success -> {
 
-                        result.data.sessionId?.let {
-                            val localSessionId = authRepository.getLocalSessionId()
+//                        result.data.sessionId?.let {
+//                            val localSessionId = authRepository.getLocalSessionId()
+//                            Log.d("세션 아이디", "로컬 : $localSessionId, 서버 : $it")
+//                            if (it != localSessionId && localSessionId != null) {
+//
+//                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+//                                authRepository.deleteLocalSessionId()
+//                                lifeCycleManager.stopSession(true)
+//                                sendForceLogoutToWatch()
+//
+//                                authRepository.signOut(isDuplicated = true)
+//                                Log.d("종료 ", "로컬 세션 아이디 : ${authRepository.getLocalSessionId()}")
+//                            }
+//                        }
 
-                            if (localSessionId.isNullOrEmpty()) {
-                                // 1. 🟢 최초 발급 상태: 로컬에 값이 없으므로 안전하게 저장하고 끝냅니다.
-                                authRepository.saveSessionId(it)
-                                Log.d(TAG, "🟢 최초 세션 ID 로컬 저장 완료: $it")
-                            } else if (it != localSessionId) {
-                                // 2. ⚠️ 중복 로그인 상태: 이미 로컬 값이 존재하는데, 서버 값과 다를 때만 로그아웃!
-                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
-                                lifeCycleManager.stopSession(true)
-                                sendForceLogoutToWatch()
-                                authRepository.signOut(isDuplicated = true)
-                            }
-                        }
 
-
-                        Log.d(TAG, "다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
                     }
                     is Result.Failure -> {
                         Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")

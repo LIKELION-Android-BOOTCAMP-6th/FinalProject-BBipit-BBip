@@ -26,5 +26,6 @@ data class User(
     val loginType: String = "",
     val email: String= "",
     //친구요청용 코드
-    val userCode: String = ""
+    val userCode: String = "",
+    val sessionId: String? = null
 )

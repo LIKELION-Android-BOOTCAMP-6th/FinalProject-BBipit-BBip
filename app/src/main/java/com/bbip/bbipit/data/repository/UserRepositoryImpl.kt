@@ -83,7 +83,8 @@ class UserRepositoryImpl @Inject constructor(
         nickname: String?,
         status: String?,
         profileImageUrl: Uri?,
-        fcmToken: String?
+        fcmToken: String?,
+        sessionId: String?
     ): Result<String> {
         return try {
             val uploadImage = profileImageUrl?.let {
@@ -92,7 +93,7 @@ class UserRepositoryImpl @Inject constructor(
 
             // 원격 서버의 프로필 데이터 수정
             val message =
-                userRemoteDataSource.updateProfile(nickname, status, uploadImage, fcmToken)
+                userRemoteDataSource.updateProfile(nickname, status, uploadImage, fcmToken, sessionId)
             Result.Success(message)
         } catch (e: FirebaseFunctionsException) {
             // 업데이트 실패 예외 처리
