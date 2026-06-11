@@ -18,6 +18,7 @@ import com.kakao.sdk.user.UserApiClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -27,22 +28,35 @@ import kotlin.coroutines.resumeWithException
 class SocialTokenProvider @Inject constructor(
     @ApplicationContext private val context: Context,
     private val credentialManager: CredentialManager) {
-    suspend fun fromGoogle(context: Context): String? {
+    suspend fun executeGoogleLogin(context: Context, isBlocking: Boolean): String? {
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setServerClientId(context.getString(R.string.default_web_client_id))
-            .setFilterByAuthorizedAccounts(true)
-            .setAutoSelectEnabled(false) // 구글 로그인 시도 시 핸드폰에 연결된 모든 계정 다이얼로그로 표출
+            .setFilterByAuthorizedAccounts(isBlocking) // 구글 로그인 시도 시 핸드폰에 연결된 모든 계정 다이얼로그로 표출
+            .setAutoSelectEnabled(false) //로그인의 경우 이전 로그인 한 계정을 바로 연결 할 지(true) 모든 계정을 불러올지(false)
             .build()
 
         val request = GetCredentialRequest.Builder()
             .addCredentialOption(googleIdOption)
             .build()
 
-        return try{
-            val result = credentialManager.getCredential(context, request)
-            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
-            googleIdTokenCredential.idToken
+        val result = credentialManager.getCredential(context, request)
+        val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+        return googleIdTokenCredential.idToken
+    }
+    suspend fun fromGoogle(context: Context): String? {
+        return try {
+            val token = withTimeoutOrNull(5000L) { //5초 동안 계정 정보를 불러올 수 없으면 블로킹 상태로 판별
+                executeGoogleLogin(context, isBlocking = false)
+            }
+
+            // 정상적으로 토큰을 받아왔다면 그대로 리턴
+            if (token != null) return token
+
+            Log.w("구글 로그인", "무한 블로킹 발생, 기존에 로그인 한 계정만 불러오기")
+
+            executeGoogleLogin(context, isBlocking = true)
+
         } catch (e: GetCredentialException) {
 
             if (e.javaClass.simpleName.contains("Canceled") || e.message?.contains("cancel", ignoreCase = true) == true) {
@@ -58,7 +72,6 @@ class SocialTokenProvider @Inject constructor(
             throw AppError.Auth("오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
         }
     }
-
     suspend fun fromKakao(context: Context): String= suspendCancellableCoroutine { continuation ->
         val userClient = UserApiClient.instance
 
