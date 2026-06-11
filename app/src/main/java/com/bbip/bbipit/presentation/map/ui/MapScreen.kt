@@ -90,11 +90,13 @@ import com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.CameraPositionState
+import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.MapsComposeExperimentalApi
 import com.google.maps.android.compose.rememberComposeBitmapDescriptor
@@ -690,9 +692,12 @@ private fun MapContent(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        val context = LocalContext.current
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
+            properties = MapProperties(mapStyleOptions
+            = MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style)),
             uiSettings = MapUiSettings(
                 zoomControlsEnabled = false
             )
