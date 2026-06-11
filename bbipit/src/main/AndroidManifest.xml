@@ -57,6 +57,14 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
+        <!-- walkie 타입 브릿지 차단 -->
+        <meta-data
+            android:name="com.google.android.wearable.notificationBridgeMode"
+            android:value="NO_BRIDGING_WITH_DISMISSAL_SYNC" />
+        <meta-data
+            android:name="com.google.android.wearable.notificationChannelBridgeMode.walkie_local_only_channel"
+            android:value="NO_BRIDGING" />
+
         <!-- 메인 액티비티 설정 -->
         <activity
             android:name=".MainActivity"
@@ -75,8 +83,17 @@
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data android:scheme="wear" android:host="*" android:path="/launch_and_play" />
+                <data android:scheme="wear" android:host="*" android:path="/show_notification" />
             </intent-filter>
         </service>
+        <receiver
+            android:name=".notification.WalkieChoiceActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.bbip.bbipit.ACTION_LISTEN_ON_WATCH" />
+                <action android:name="com.bbip.bbipit.ACTION_LISTEN_ON_PHONE" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

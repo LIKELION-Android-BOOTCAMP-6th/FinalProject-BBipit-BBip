@@ -36,6 +36,29 @@ class HistoryViewModel @Inject constructor(
 
     private val TAG = "HistoryViewModel"
 
+    // 특정 히스토리 데이터 수정 요청
+    fun updateHistory(historyId: String, content: String) {
+        viewModelScope.launch {
+            updateState { copy(isLoading = true) }
+            val result = historyRepository.updateHistory(
+                historyId = historyId,
+                content = content
+            )
+
+            result.onSuccess {
+                updateState { copy(isLoading = false) }
+                Log.d(TAG, "🎯 히스토리가 성공적으로 수정되었습니다. ID: $historyId")
+            }.onFailure { error ->
+                updateState {
+                    copy(
+                        isLoading = false,
+                        errorMessage = error.message ?: "히스토리를 수정하지 못했습니다."
+                    )
+                }
+            }
+        }
+    }
+
     // 히스토리 좋아요 토글 요청 함수 추가
     fun toggleHistoryLike(historyId: String) {
         viewModelScope.launch {
@@ -181,5 +204,9 @@ class HistoryViewModel @Inject constructor(
 
     fun getMyUid(): String {
         return authRepository.getCurrentUserUid() ?: ""
+    }
+
+    fun clearErrorMessage() {
+        updateState { copy(errorMessage = null) }
     }
 }

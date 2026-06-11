@@ -24,6 +24,25 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
 ): HistoryRemoteDataSource {
 
+    // 히스토리 수정 요청
+    override suspend fun updateHistory(
+        historyId: String,
+        content: String
+    ): Boolean {
+        val data = hashMapOf(
+            "historyId" to historyId,
+            "content" to content
+        )
+
+        val result = functions
+            .getHttpsCallable("updateHistory")
+            .call(data)
+            .await()
+
+        val responseData = result.data as? Map<*, * >
+        return responseData?.get("success") as? Boolean ?: false
+    }
+
     override suspend fun toggleHistoryLike(historyId: String): Boolean {
         val data = hashMapOf("historyId" to historyId)
         val result = functions
