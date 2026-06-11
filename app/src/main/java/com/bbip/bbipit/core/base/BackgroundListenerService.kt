@@ -124,6 +124,11 @@ class BackgroundListenerService : Service() {
 
     private var myLiveObservationJob: Job? = null
 
+    //시스템 배너 관리용
+    private val notificationManager: NotificationManager by lazy {
+        getSystemService(NotificationManager::class.java)
+    }
+
     /**
      * 웨어러블 디바이스 및 시스템 채널 식별자 통합 상수 공간
      */
@@ -413,20 +418,15 @@ class BackgroundListenerService : Service() {
                             val localSessionId = authRepository.getLocalSessionId()
 
                             if (localSessionId.isNullOrEmpty()) {
-                                // 1. 🟢 최초 발급 상태: 로컬에 값이 없으므로 안전하게 저장하고 끝냅니다.
+                                //최초 로그인 시 로컬에 세션 Id 저장
                                 authRepository.saveSessionId(it)
-                                Log.d(TAG, "🟢 최초 세션 ID 로컬 저장 완료: $it")
                             } else if (it != localSessionId) {
-                                // 2. ⚠️ 중복 로그인 상태: 이미 로컬 값이 존재하는데, 서버 값과 다를 때만 로그아웃!
-                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+                                Log.w("중복로그인", "로그아웃")
                                 lifeCycleManager.stopSession(true)
                                 sendForceLogoutToWatch()
                                 authRepository.signOut(isDuplicated = true)
                             }
                         }
-
-
-                        Log.d(TAG, "다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
                     }
                     is Result.Failure -> {
                         Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")
@@ -923,8 +923,8 @@ class BackgroundListenerService : Service() {
                 enableLights(false)
                 enableVibration(false)
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+//            val manager = getSystemService(NotificationManager::class.java)
+            notificationManager.createNotificationChannel(channel)
         }
 
         // 사용자가 알림에서 '서비스 중단'을 눌렀을 때 작동할 PendingIntent 준비
@@ -997,10 +997,7 @@ class BackgroundListenerService : Service() {
                 )
                 Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
             } catch (e: Exception) {
-                Log.w(
-                    TAG,
-                    "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}"
-                )
+                Log.w(TAG, "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}")
                 try {
                     // DATA_SYNC 단독 타입으로 기동
                     startForeground(
@@ -1031,8 +1028,26 @@ class BackgroundListenerService : Service() {
      */
     private fun observeNotifications() {
         scope.launch {
+
+            var isFirstCollection = true
+
             notificationRepository.notifications.collect { notifications ->
+                //최초 구동 시 배너 강제로 안 띄우고 저장만
+                if (isFirstCollection) {
+                    notifications.forEach { notification ->
+                        if (!notification.isRead && !notifiedIds.contains(notification.id)) {
+                            notifiedIds.add(notification.id)
+                        }
+                    }
+                    isFirstCollection = false // 두 번째부터 알림 띄움
+                    return@collect
+                }
+
                 notifications.forEach { notification ->
+                    if(notification.isRead){
+                        deleteSystemNotification(notification.id.hashCode())
+                        return@forEach
+                    }
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id)
                     ) {
@@ -1083,6 +1098,10 @@ class BackgroundListenerService : Service() {
                 }
             }
         }
+    }
+
+    private fun deleteSystemNotification(id: Int){
+        notificationManager.cancel(id)
     }
 
     /**

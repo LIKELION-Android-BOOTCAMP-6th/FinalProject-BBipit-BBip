@@ -31,7 +31,7 @@ class SocialTokenProvider @Inject constructor(
 
         val googleIdOption = GetGoogleIdOption.Builder()
             .setServerClientId(context.getString(R.string.default_web_client_id))
-            .setFilterByAuthorizedAccounts(false)
+            .setFilterByAuthorizedAccounts(true)
             .setAutoSelectEnabled(false) // 구글 로그인 시도 시 핸드폰에 연결된 모든 계정 다이얼로그로 표출
             .build()
 
