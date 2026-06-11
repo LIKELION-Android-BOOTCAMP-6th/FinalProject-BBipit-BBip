@@ -37,7 +37,8 @@ fun User.toDto(): UserDto = UserDto(
     friendUids = friendUids,
     loginType = loginType,
     email = email,
-    userCode = userCode
+    userCode = userCode,
+    sessionId = sessionId
 )
 
 /**
@@ -57,6 +58,7 @@ fun Map<String, Any>.toDomain(): User {
         friendUids = emptyList(),
         loginType = this["login_type"] as? String ?: "",
         email = this["email"] as? String ?: "",
-        userCode = this["user_code"] as? String ?: ""
+        userCode = this["user_code"] as? String ?: "",
+        sessionId = this["current_session_id"] as String
     )
 }

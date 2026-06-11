@@ -201,7 +201,7 @@ class BackgroundListenerService : Service() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "BackgroundListenerService onCreate 호출됨")
-
+        Log.d("로컬 세션 id", "${authRepository.getLocalSessionId()}")
         scope.launch {
             // 유저 로그인 상태를 실시간 관찰
             authRepository.getAuthStateFlow().collect { uid ->
@@ -414,19 +414,22 @@ class BackgroundListenerService : Service() {
                 when (result) {
                     is Result.Success -> {
 
-                        result.data.sessionId?.let {
-                            val localSessionId = authRepository.getLocalSessionId()
+//                        result.data.sessionId?.let {
+//                            val localSessionId = authRepository.getLocalSessionId()
+//                            Log.d("세션 아이디", "로컬 : $localSessionId, 서버 : $it")
+//                            if (it != localSessionId && localSessionId != null) {
+//
+//                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+//                                authRepository.deleteLocalSessionId()
+//                                lifeCycleManager.stopSession(true)
+//                                sendForceLogoutToWatch()
+//
+//                                authRepository.signOut(isDuplicated = true)
+//                                Log.d("종료 ", "로컬 세션 아이디 : ${authRepository.getLocalSessionId()}")
+//                            }
+//                        }
 
-                            if (localSessionId.isNullOrEmpty()) {
-                                //최초 로그인 시 로컬에 세션 Id 저장
-                                authRepository.saveSessionId(it)
-                            } else if (it != localSessionId) {
-                                Log.w("중복로그인", "로그아웃")
-                                lifeCycleManager.stopSession(true)
-                                sendForceLogoutToWatch()
-                                authRepository.signOut(isDuplicated = true)
-                            }
-                        }
+
                     }
                     is Result.Failure -> {
                         Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")

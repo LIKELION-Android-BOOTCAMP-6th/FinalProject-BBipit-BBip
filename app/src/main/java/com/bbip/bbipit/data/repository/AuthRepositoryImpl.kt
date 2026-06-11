@@ -55,12 +55,13 @@ class AuthRepositoryImpl @Inject constructor(
     override fun saveSessionId(id: String) = authRemoteDataSource.saveSessionId(id)
 
     override fun getLocalSessionId(): String? = authRemoteDataSource.getLocalSessionId()
+    override fun deleteLocalSessionId() = authRemoteDataSource.deleteSessionId()
 
     override suspend fun signOut(type: LoginType, isDuplicated: Boolean){
         if (!isDuplicated){
             authRemoteDataSource.logoutServerCleanup()
         }
-        authRemoteDataSource.deleteSessionId()
+//        authRemoteDataSource.deleteSessionId()
         when(type){
             LoginType.GOOGLE -> authRemoteDataSource.signOutGoogle()
             LoginType.KAKAO -> authRemoteDataSource.signOutKakao()

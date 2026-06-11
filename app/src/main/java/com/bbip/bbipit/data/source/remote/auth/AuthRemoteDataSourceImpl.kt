@@ -51,7 +51,7 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     override fun getLocalSessionId(): String? = _prefs.getString("session_id", null) //로컬에서 세션 id 가져오기
 
     override fun saveSessionId(id: String) = _prefs.edit { putString("session_id", id) } //로컬에 세션 id 저장
-    override fun deleteSessionId()  = _prefs.edit { remove("session_id") }
+    override fun deleteSessionId()  = _prefs.edit(commit = true) { remove("session_id") }
 
 
     // 커스텀 토큰 로그인
