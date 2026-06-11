@@ -11,6 +11,7 @@ plugins {
     id("com.google.gms.google-services")
     alias(libs.plugins.hilt.android)
     kotlin("plugin.serialization") version "2.2.10"
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -151,4 +152,7 @@ dependencies {
 
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.service)
+
+    //비정상종료 감지용
+    implementation("com.google.firebase:firebase-crashlytics")
 }
