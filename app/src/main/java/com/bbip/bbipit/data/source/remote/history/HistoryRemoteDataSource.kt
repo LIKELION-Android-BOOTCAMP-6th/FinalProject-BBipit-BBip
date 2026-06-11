@@ -11,7 +11,7 @@ interface HistoryRemoteDataSource {
     // 히스토리 삭제
     suspend fun deleteHistory(historyId: String): Boolean
     // 히스토리 사진 업로드
-    suspend fun uploadHistoryImages(uid: String, images: List<ByteArray>): List<String>
+    suspend fun uploadHistoryImages(uid: String, historyId: String, images: List<ByteArray>): List<String>
     // 히스토리 코멘트 등록
     suspend fun addHistoryComment(historyId: String, text: String): String
     // 히스토리 좋아요 등록

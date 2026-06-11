@@ -268,7 +268,7 @@ fun HistoryViewerScreen(
 
         // 제스처 마스크 영역 격리
         Box(
-            modifier = Modifier.fillMaxSize().padding(bottom = 340.dp).pointerInput(totalPages) {
+            modifier = Modifier.fillMaxSize().padding(top = 120.dp, bottom = 340.dp).pointerInput(totalPages) {
                 detectTapGestures(
                     onPress = {
                         try {
@@ -299,7 +299,12 @@ fun HistoryViewerScreen(
 
         // 상단 인디케이터 제어바
         Column(
-            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).align(Alignment.TopCenter)
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .align(Alignment.TopCenter)
+                .pointerInput(Unit) {}
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
