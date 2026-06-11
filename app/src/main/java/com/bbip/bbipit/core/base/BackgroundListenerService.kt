@@ -886,7 +886,7 @@ class BackgroundListenerService : Service() {
     private suspend fun processLocationUpdate(myUid: String, latitude: Double, longitude: Double) {
         // 기존 상태 값을 가져와 좌표 정보 데이터 복사 최신화
         val currentStatus = liveStatusRepository.getCachedMyLiveStatus()
-            ?: (liveStatusRepository.getLiveStatusByUid(myUid) as? com.bbip.bbipit.core.result.Result.Success)?.data
+            ?: (liveStatusRepository.getLiveStatusByUid(myUid) as? Result.Success)?.data
 
         val updatedLiveStatus = currentStatus?.copy(latitude = latitude, longitude = longitude)
             ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
@@ -982,7 +982,6 @@ class BackgroundListenerService : Service() {
                     1, notification,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
                             ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
                 )
                 Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
