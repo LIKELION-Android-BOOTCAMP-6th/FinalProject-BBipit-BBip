@@ -76,17 +76,18 @@ class SignInViewModel @Inject constructor(
             authRepository.signInWithEmail(uiState.value.email, uiState.value.password)
                 .onSuccess {
 
-                    if (!getServerData()) {
-                        updateState { copy(isLoading = false, error = "정보를 불러올 수 없습니다.") }
-                        return@launch
-                    }
-
-                    Log.d("로그인 시도" , "서버 토큰 : $_serverToken, 중복 여부 : ${checkDuplicateLogin()}")
-                    if (!_serverToken.isNullOrBlank() && checkDuplicateLogin()) {
-                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
-                    } else {
-                        continueLogin(true)
-                    }
+//                    if (!getServerData()) {
+//                        updateState { copy(isLoading = false, error = "정보를 불러올 수 없습니다.") }
+//                        return@launch
+//                    }
+//
+//                    Log.d("로그인 시도" , "서버 토큰 : $_serverToken, 중복 여부 : ${checkDuplicateLogin()}")
+//                    if (!_serverToken.isNullOrBlank() && checkDuplicateLogin()) {
+//                        updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
+//                    } else {
+//                        continueLogin(true)
+//                    }
+                    continueLogin(true)
 
                 }
                 .onFailure { exception ->
@@ -157,18 +158,19 @@ class SignInViewModel @Inject constructor(
                 if (idToken != null) {
                     authRepository.signInWithCustomToken(idToken, type)
                         .onSuccess {
-                            Log.d("로그인", "서버 받아온 거 ${getServerData()}")
-                            if (!getServerData()) {
-                                updateState { copy(isLoading = false, error = "정보를 불러올 수 없습니다.") }
-                                return@launch
-                            }
-
-                            Log.d("로그인 시도" , "서버 토큰 : $_serverToken, 중복 여부 : ${checkDuplicateLogin()}")
-                            if (!_serverToken.isNullOrBlank() && checkDuplicateLogin()) {
-                                updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
-                            } else {
-                                continueLogin(true)
-                            }
+//                            Log.d("로그인", "서버 받아온 거 ${getServerData()}")
+//                            if (!getServerData()) {
+//                                updateState { copy(isLoading = false, error = "정보를 불러올 수 없습니다.") }
+//                                return@launch
+//                            }
+//
+//                            Log.d("로그인 시도" , "서버 토큰 : $_serverToken, 중복 여부 : ${checkDuplicateLogin()}")
+//                            if (!_serverToken.isNullOrBlank() && checkDuplicateLogin()) {
+//                                updateState { copy(isDuplicatedInfoDialog = true, isLoading = false) }
+//                            } else {
+//                                continueLogin(true)
+//                            }
+                            continueLogin(true)
 
                         }
                         .onFailure {exception ->
