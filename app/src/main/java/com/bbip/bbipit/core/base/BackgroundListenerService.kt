@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -40,6 +41,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileInputStream
@@ -75,6 +77,10 @@ class BackgroundListenerService : Service() {
     @Inject
     lateinit var historyRepository: HistoryRepository
 
+    // 워치 연결 상태 관리 매니저
+    @Inject
+    lateinit var watchConnectionManager: WatchConnectionManager
+
     // 백그라운드 작업 관리용 코루틴 식별자
     private val serviceJob = SupervisorJob()
 
@@ -87,8 +93,7 @@ class BackgroundListenerService : Service() {
     // 음성 메시지 구독 관리용 작업 단위
     private var voiceObservationJob: Job? = null
 
-    // 워치 연결 상태 관리 매니저
-    private lateinit var watchConnectionManager: WatchConnectionManager
+//    private lateinit var watchConnectionManager: WatchConnectionManager
 
     // 실시간 위치 추적용 클라이언트
     private lateinit var fusedLocationClient: FusedLocationProviderClient
@@ -116,6 +121,8 @@ class BackgroundListenerService : Service() {
 
     // 배너 표출이 완료된 알림 식별자 저장소
     private val notifiedIds = mutableSetOf<String>()
+
+    private var myLiveObservationJob: Job? = null
 
     /**
      * 웨어러블 디바이스 및 시스템 채널 식별자 통합 상수 공간
@@ -149,12 +156,21 @@ class BackgroundListenerService : Service() {
         // 푸시 배너 표출용 알림 채널 식별자
         const val CHANNEL_ID_ALERT = "phone_alert_channel"
 
+        // 최초 진입 워치 대상 히스토리 강제 동기화 액션 명칭
+        const val ACTION_SYNC_INITIAL_HISTORIES = "SYNC_INITIAL_HISTORIES"
+
         const val PATH_RESPONSE_HISTORY_DATA = "/response_histories"
+
+        const val PATH_FORCE_LOGOUT_WATCH = "/force_logout_watch"
+
 
         // 무전 워치/폰에서 듣기
         const val ACTION_LISTEN_ON_WATCH = "LISTEN_ON_WATCH"
         const val ACTION_LISTEN_ON_PHONE = "LISTEN_ON_PHONE"
         const val EXTRA_VOICE_ID = "extra_voice_id"
+
+
+        const val ACTION_PLAY_WALKIE_ON_WATCH = "ACTION_PLAY_WALKIE_ON_WATCH"
     }
 
     /**
@@ -183,11 +199,14 @@ class BackgroundListenerService : Service() {
                 if (uid == null) {
                     Log.d(TAG, "💡 유저 세션이 만료되었거나 탈퇴됨 -> 서비스 자체 종료(stopSelf)")
                     stopSelf() // 유저 ID가 없으면 서비스 스스로 종료
+                }else {
+                    // 내 Live데이터를 구독
+                    startMyLiveStatusObservation(uid)
                 }
             }
         }
 
-        watchConnectionManager = WatchConnectionManager(this).apply { startMonitoring() }
+        watchConnectionManager.startMonitoring()
 
         // 워치 통신 리스너 등록
         channelClient = Wearable.getChannelClient(this).apply {
@@ -298,6 +317,9 @@ class BackgroundListenerService : Service() {
                         fetchFreshLocationAndPushToWatch()
                     }
                 }
+                ACTION_SYNC_INITIAL_HISTORIES -> {
+                    fetchInitialHistoriesAndPushToWatch()
+                }
                 // 음성 메시지 읽음 처리
                 ACTION_UPDATE_VOICE_READ -> {
                     val messageId = intent.getStringExtra(EXTRA_VOICE_MESSAGE_ID)
@@ -305,10 +327,155 @@ class BackgroundListenerService : Service() {
                         updateVoiceMessageAsRead(messageId)
                     }
                 }
+                ACTION_PLAY_WALKIE_ON_WATCH -> {
+                    val audioId = intent.getStringExtra("audio_id") ?: return@let
+                    val voiceUrl = intent.getStringExtra("voice_url") ?: return@let
+                    val senderName = intent.getStringExtra("sender_name") ?: ""
+                    scope.launch {
+                        try {
+                            val payload = mapOf(
+                                "messageId" to audioId,
+                                "voiceUrl" to voiceUrl,
+                                "senderName" to senderName,
+                                "senderProfileImage" to ""
+                            )
+                            val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
+                            val nodes = nodeClient.connectedNodes.await()
+                            Log.d(TAG, "🔍 연결된 노드 수: ${nodes.size}")
+                            nodes.forEach { node ->
+                                messageClient.sendMessage(node.id, "/launch_and_play", byteArray).await()
+                                Log.d(TAG, "✅ /walkie_notification 전송 완료: ${node.id}")
+                            }
+                            Log.d(TAG, "✅ 워치로 즉시재생 신호 전송 완료")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ 워치 즉시재생 전송 실패", e)
+                        }
+                    }
+                }
+                ACTION_LISTEN_ON_WATCH -> {
+                    val voiceId = intent.getStringExtra(EXTRA_VOICE_ID) ?: return@let
+                    scope.launch {
+                        val result = voiceRepository.getVoiceMessageById(voiceId)
+                        if (result is Result.Success) {
+                            sendVoiceToWatch(
+                                messageId = result.data.id,
+                                senderId = result.data.senderId,
+                                voiceUrl = result.data.voiceUrl ?: ""
+                            )
+                        }
+                    }
+                }
+
+                ACTION_LISTEN_ON_PHONE -> {
+                    val voiceId = intent.getStringExtra(EXTRA_VOICE_ID) ?: return@let
+                    scope.launch {
+                        val result = voiceRepository.getVoiceMessageById(voiceId)
+                        if (result is Result.Success) {
+                            voiceRepository.emitMobileVoiceEvent(result.data)
+                        }
+                    }
+                }
             }
         }
 
         return START_STICKY
+    }
+
+    /**
+     * 👣 [핵심 추가] 스마트폰 로컬 저장소 내부의 최신 히스토리 목록을
+     * 간소화된 워치 모델 데이터 스펙 배열로 가공하여 무전 전송 채널로 일괄 바이패스합니다.
+     */
+    private fun fetchInitialHistoriesAndPushToWatch() {
+        scope.launch {
+            try {
+                // 캐시 버퍼에 보관된 최신 리스트 스냅샷을 안전하게 한 번만 꺼내옵니다.
+                val currentMobileHistories = historyRepository.observeSharedHistories().first()
+
+                if (currentMobileHistories.isEmpty()) {
+                    Log.d(TAG, "👣 워치로 초기 동기화할 스마트폰 내 히스토리 내역이 비어있습니다.")
+                    return@launch
+                }
+
+                // 워치 전용 간소화 모델로 매핑
+//                val watchHistoriesMap = currentMobileHistories.map { history ->
+//                    mapOf(
+//                        "id" to history.id,
+//                        "userId" to history.userId,
+//                        "category" to history.category,
+//                        "latitude" to history.latitude,
+//                        "longitude" to history.longitude
+//                    )
+//                }
+
+                // JSON 변환
+                val jsonPayload = Gson().toJson(currentMobileHistories)
+                val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
+
+                // 워치로 전송
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_RESPONSE_HISTORY_DATA, byteArray).await()
+                }
+                Log.d(TAG, "👣 [최초 연동 성공] 초기 히스토리 ${currentMobileHistories.size}건을 워치로 전송했습니다.")
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 워치 초기 히스토리 동기화 연산 처리 중 장애 발생", e)
+            }
+        }
+    }
+
+    /**
+     * 내 Live 데이터를 실시간 상시 리스닝하여 중복 로그인을 포착하는 함수
+     */
+    private fun startMyLiveStatusObservation(myUid: String) {
+        myLiveObservationJob?.cancel() // 중복 실행 방지용 초기화
+
+        myLiveObservationJob = scope.launch {
+            liveStatusRepository.observeUserLiveStatus(myUid).collect { result ->
+                when (result) {
+                    is Result.Success -> {
+
+                        result.data.sessionId?.let {
+                            val localSessionId = authRepository.getLocalSessionId()
+
+                            if (localSessionId.isNullOrEmpty()) {
+                                // 1. 🟢 최초 발급 상태: 로컬에 값이 없으므로 안전하게 저장하고 끝냅니다.
+                                authRepository.saveSessionId(it)
+                                Log.d(TAG, "🟢 최초 세션 ID 로컬 저장 완료: $it")
+                            } else if (it != localSessionId) {
+                                // 2. ⚠️ 중복 로그인 상태: 이미 로컬 값이 존재하는데, 서버 값과 다를 때만 로그아웃!
+                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+                                lifeCycleManager.stopSession(true)
+                                sendForceLogoutToWatch()
+                                authRepository.signOut(isDuplicated = true)
+                            }
+                        }
+
+
+                        Log.d(TAG, "다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
+                    }
+                    is Result.Failure -> {
+                        Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 중복 로그인 차단 시 워치 앱도 동시에 튕겨내도록 메세지 송신
+     */
+    private fun sendForceLogoutToWatch() {
+        if (!watchConnectionManager.isPhysicalConnected.value) return
+        scope.launch {
+            runCatching {
+                val nodes = nodeClient.connectedNodes.await()
+                for (node in nodes) {
+                    messageClient.sendMessage(node.id, PATH_FORCE_LOGOUT_WATCH, byteArrayOf()).await()
+                }
+                Log.d(TAG, "⌚ 테더링된 WearOS 워치 기기로 강제 로그아웃 셧다운 신호 송신 완료")
+            }.onFailure { e -> Log.e(TAG, "❌ 워치로 로그아웃 신호 전송 실패", e) }
+        }
     }
 
     // 수집된 전역 히스토리 리스트 데이터 WearOS 전송 요청
@@ -406,37 +573,30 @@ class BackgroundListenerService : Service() {
      * 수신 음성 메시지 모니터링 및 이벤트 분기 함수
      */
     private fun observeVoiceMessages() {
+        // 기존에 돌고 있는 Job이 있다면 취소하여 중복 구독 방지
         voiceObservationJob?.cancel()
 
         voiceObservationJob = scope.launch {
+            // 인증 상태 확인 및 수신 음성메시지 구독
             authRepository.getAuthStateFlow().collect { uid ->
                 if (uid != null) {
-                    voiceRepository.observeIncomingVoice(uid, serviceStartTime)
-                        .collect { voiceMessage ->
-                            val url = voiceMessage.voiceUrl
+                    voiceRepository.observeIncomingVoice(uid, serviceStartTime).collect { voiceMessage ->
+                        val url = voiceMessage.voiceUrl
 
-                            if (url.isNotEmpty() && !voiceMessage.isInitial) {
-                                val isMobileForeground = lifeCycleManager.isAppInForeground.value
-                                val isWatchForeground = watchConnectionManager.isWatchInForeground.value
-                                val isWatchConnected = watchConnectionManager.isPhysicalConnected.value
-
-                                when {
-                                    !isWatchConnected -> {
-                                        voiceRepository.emitMobileVoiceEvent(voiceMessage)
-                                    }
-                                    isMobileForeground -> {
-                                        voiceRepository.emitMobileVoiceEvent(voiceMessage)
-                                    }
-                                    !isMobileForeground && isWatchForeground -> {
-                                        sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
-                                    }
-                                    else -> {
-                                        // 둘 다 백그라운드 → observeNotifications에서 처리
-                                        Log.d(TAG, "⏭ 둘 다 백그라운드 → observeNotifications에서 처리")
-                                    }
+                        // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
+                        if (url.isNotEmpty() && !voiceMessage.isInitial) {
+                            val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
+                            if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
+                                if (!lifeCycleManager.isAppInForeground.value && watchConnectionManager.isPhysicalConnected.value) {
+                                    sendVoiceToWatch(voiceMessage.id, voiceMessage.senderId, url)
+                                } else {
+                                    voiceRepository.emitMobileVoiceEvent(voiceMessage)
                                 }
+                            } else {
+                                Log.d(TAG, "사용자가 오프라인 상태이거나 상태 조회에 실패하여 이벤트를 건너뜜")
                             }
                         }
+                    }
                 }
             }
         }
@@ -796,21 +956,25 @@ class BackgroundListenerService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
+
+
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 // 모든 백그라운드 무전/위치 동기화 타입으로 완벽 기동 시도
                 startForeground(
                     1, notification,
-//                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or ⭐
-//                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ⭐
-//                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or⭐
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
                 )
                 Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
             } catch (e: Exception) {
-                /* TODO 워치 사용 시 주석 해제하기 ⭐
-                Log.w(TAG, "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}")
+                Log.w(
+                    TAG,
+                    "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}"
+                )
                 try {
                     // DATA_SYNC 단독 타입으로 기동
                     startForeground(
@@ -826,15 +990,6 @@ class BackgroundListenerService : Service() {
                         Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
                         throw e3
                     }
-                }
-                 */
-
-                try { //워치 사용 시 이 트라이 캐치 구문 날리기
-                    //무타입 기본 포어그라운드로 최종 폴백
-                    startForeground(1, notification)
-                } catch (e3: Exception) {
-                    Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
-                    throw e3
                 }
             }
         } else {
@@ -873,37 +1028,35 @@ class BackgroundListenerService : Service() {
                                             )
                                         }
                                     }
-                                    watchConnectionManager.isWatchInForeground.value -> {
-                                        Log.d(TAG, "⌚ 워치 포그라운드 → 시스템 알림 스킵")
-                                    }
-                                    else -> {
-                                        Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
-                                        showSystemNotification(notification)
-                                        if (watchConnectionManager.isPhysicalConnected.value) {
+
+                                    watchConnectionManager.isPhysicalConnected.value -> {
+                                        Log.d(TAG, "⌚ 워치 연결됨")
+                                        if (!watchConnectionManager.isWatchInForeground.value) {
                                             scope.launch {
-                                                try {
-                                                    val voiceUrl = when (val result = voiceRepository.getVoiceMessageById(notification.audioId)) {
-                                                        is Result.Success -> result.data.voiceUrl ?: ""
-                                                        else -> ""
-                                                    }
-                                                    val payload = mapOf(
-                                                        "notificationId" to notification.id,
-                                                        "audioId" to notification.audioId,
-                                                        "senderName" to notification.senderName,
-                                                        "voiceUrl" to voiceUrl,
-                                                        "senderProfileImage" to notification.profileImage
+                                                val voiceUrl = when (val result = voiceRepository.getVoiceMessageById(notification.audioId)) {
+                                                    is Result.Success -> result.data.voiceUrl ?: ""
+                                                    else -> ""
+                                                }
+                                                showSystemNotification(notification, voiceUrl)
+                                            }
+                                        } else {
+                                            // 워치 포그라운드 → 워치에서 즉시재생, 폰 배너 없음
+                                            scope.launch {
+                                                val result = voiceRepository.getVoiceMessageById(notification.audioId)
+                                                if (result is Result.Success) {
+                                                    sendVoiceToWatch(
+                                                        messageId = result.data.id,
+                                                        senderId = result.data.senderId,
+                                                        voiceUrl = result.data.voiceUrl ?: ""
                                                     )
-                                                    val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
-                                                    val nodes = nodeClient.connectedNodes.await()
-                                                    nodes.forEach { node ->
-                                                        messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
-                                                        Log.d(TAG, "✅ 워치로 무전 알림 전송 완료")
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
                                                 }
                                             }
                                         }
+                                    }
+
+                                    else -> {
+                                        Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
+                                        showSystemNotification(notification)
                                     }
                                 }
                                 return@forEach
@@ -920,12 +1073,15 @@ class BackgroundListenerService : Service() {
     /**
      * 안드로이드 시스템 알림 채널 구성 및 사용자 대상 헤즈업(Heads-up) 알림 표시 함수
      */
-    private fun showSystemNotification(notification: com.bbip.bbipit.domain.entity.Notification) {
+    private fun showSystemNotification(
+        notification: com.bbip.bbipit.domain.entity.Notification,
+        voiceUrl: String = ""
+    ) {
         Log.d(TAG, "WALKIE 배너 발행 - audioId: ${notification.audioId}")
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
         val channelId = "phone_alert_channel"
         val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         // 오레오(API 26) 이상 대응용 알림 채널 생성 및 중요도(HIGH) 설정
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -978,12 +1134,7 @@ class BackgroundListenerService : Service() {
             }
         }
 
-        Log.d(
-            TAG,
-            "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${
-                intent.getStringExtra("notification_id")
-            }"
-        )
+        Log.d(TAG, "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
 
         // 알림 클릭 시 Intent
         val pendingIntent = PendingIntent.getActivity(

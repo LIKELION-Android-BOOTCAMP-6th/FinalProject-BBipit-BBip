@@ -16,5 +16,6 @@ data class LiveStatus(
     val updatedAt: Long = 0L,
     // 캐시 데이터 사용 여부
     val isFromCache: Boolean = false,
-    val isSharing: Boolean = true
+    val isSharing: Boolean = true,
+    val sessionId : String? = null
 )

@@ -37,7 +37,30 @@ class AuthRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
 ): AuthRepository {
 
-    override suspend fun signOut(type: LoginType){
+    override suspend fun logoutServerCleanup(): Result<Unit> {
+        return try {
+            Log.d("AuthRepository", "logoutServerCleanup API 호출 시작")
+
+            // 서버의 세션ID 및 FCM토큰 초기화 진행
+            authRemoteDataSource.logoutServerCleanup()
+
+            Log.d("AuthRepository", "logoutServerCleanup API 호출 성공")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "logoutServerCleanup 도중 서버 오류 발생: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "서버 로그아웃 상태 정리 중 오류가 발생했습니다."))
+        }
+    }
+
+    override fun saveSessionId(id: String) = authRemoteDataSource.saveSessionId(id)
+
+    override fun getLocalSessionId(): String? = authRemoteDataSource.getLocalSessionId()
+
+    override suspend fun signOut(type: LoginType, isDuplicated: Boolean){
+        if (!isDuplicated){
+            authRemoteDataSource.logoutServerCleanup()
+        }
+        authRemoteDataSource.deleteSessionId()
         when(type){
             LoginType.GOOGLE -> authRemoteDataSource.signOutGoogle()
             LoginType.KAKAO -> authRemoteDataSource.signOutKakao()
@@ -180,7 +203,7 @@ class AuthRepositoryImpl @Inject constructor(
             Log.e("이메일 에러 메세지 확인", "비번 오류 ${e.errorCode}")
             val error = when(e.errorCode){
                 "ERROR_INVALID_EMAIL" -> AppError.Email()
-                 "ERROR_USER_NOT_FOUND", "ERROR_INVALID_CREDENTIAL"
+                "ERROR_USER_NOT_FOUND", "ERROR_INVALID_CREDENTIAL"
                     -> AppError.Password("이메일 또는 비밀번호가 올바르지 않습니다.")
                 else -> AppError.Auth()
 

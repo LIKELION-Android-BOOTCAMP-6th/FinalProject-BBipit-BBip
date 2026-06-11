@@ -30,6 +30,7 @@ import android.net.Uri
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.flow.flow
+import androidx.core.content.edit
 
 /**
  * 인증 관련 원격 데이터 소스 구현체입니다.
@@ -46,6 +47,12 @@ class AuthRemoteDataSourceImpl @Inject constructor(
     private val TAG = "AuthRemoteDataSourceImpl"
 
     override fun isAutoLogin(): Boolean = firebaseAuth.currentUser != null
+    private val _prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+    override fun getLocalSessionId(): String? = _prefs.getString("session_id", null) //로컬에서 세션 id 가져오기
+
+    override fun saveSessionId(id: String) = _prefs.edit { putString("session_id", id) } //로컬에 세션 id 저장
+    override fun deleteSessionId()  = _prefs.edit { remove("session_id") }
+
 
     // 커스텀 토큰 로그인
     override suspend fun signInWithCustomToken(accessToken: String, type: LoginType) {
@@ -167,6 +174,29 @@ class AuthRemoteDataSourceImpl @Inject constructor(
             } else {
                 throw exception
             }
+        }
+    }
+
+    override suspend fun logoutServerCleanup(): Unit = withContext(Dispatchers.IO) {
+        Log.d(TAG, "logoutServerCleanup: Cloud Functions 'processUserSignOut' 호출 시작")
+        try {
+            val result = functions
+                .getHttpsCallable("processUserSignOut")
+                .call()
+                .await()
+
+            val data = result.data as? Map<*, *>
+            val isSuccess = data?.get("success") as? Boolean ?: false
+
+            if (!isSuccess) {
+                Log.w(TAG, "logoutServerCleanup: 서버 상태 정리가 정상적으로 완료되지 않았거나 응답이 없습니다.")
+                throw Exception("서버에서 로그아웃 처리가 실패했습니다.")
+            }
+
+            Log.d(TAG, "logoutServerCleanup: 서버 상태 정리 최종 성공")
+        } catch (exception: Exception) {
+            Log.e(TAG, "logoutServerCleanup: 예외 발생 - ${exception.message}")
+            throw exception
         }
     }
 }

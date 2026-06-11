@@ -168,7 +168,7 @@ class LifeCycleManager @Inject constructor(
     /**
      * 라이브 세션 중단 및 하트비트 루프 종료 함수
      */
-    fun stopSession() {
+    fun stopSession(isDuplicated: Boolean = false) {
         Log.d(TAG, "🔴 전역 라이브 세션 중단 (하트비트 중단)")
         val currentUser = auth.currentUser ?: return
 

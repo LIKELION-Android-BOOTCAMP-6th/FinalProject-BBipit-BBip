@@ -12,6 +12,7 @@ import com.bbip.bbipit.MainActivity
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import com.google.gson.Gson
+import kotlin.collections.get
 
 class WatchMessageListenerService : WearableListenerService() {
 
@@ -23,15 +24,6 @@ class WatchMessageListenerService : WearableListenerService() {
     @SuppressLint("WearRecents")
     override fun onMessageReceived(messageEvent: MessageEvent) {
         when (messageEvent.path) {
-            "/walkie_notification" -> {
-                val data = Gson().fromJson(String(messageEvent.data), Map::class.java)
-                val notificationId = data["notificationId"] as? String ?: return
-                val audioId = data["audioId"] as? String ?: return
-                val senderName = data["senderName"] as? String ?: "무전"
-                val voiceUrl = data["voiceUrl"] as? String ?: ""
-                showWalkieChoiceNotification(notificationId, audioId, senderName, voiceUrl)
-            }
-
             "/launch_and_play" -> {
                 val data = Gson().fromJson(String(messageEvent.data), Map::class.java)
                 val messageId = data["messageId"] as? String ?: return
@@ -54,49 +46,5 @@ class WatchMessageListenerService : WearableListenerService() {
                 Log.d(TAG, "✅ 워치 MainActivity 실행 완료 - messageId: $messageId")
             }
         }
-    }
-
-    private fun showWalkieChoiceNotification(
-        notificationId: String,
-        audioId: String,
-        senderName: String,
-        voiceUrl: String
-    ) {
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "무전 수신", NotificationManager.IMPORTANCE_HIGH
-            ).apply { enableVibration(true) }
-            notificationManager.createNotificationChannel(channel)
-        }
-
-        val tapIntent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            putExtra("auto_play", true)
-            putExtra("message_id", audioId)
-            putExtra("voice_url", voiceUrl)
-            putExtra("sender_name", senderName)
-            putExtra("sender_profile_image", "")
-        }
-        val tapPendingIntent = PendingIntent.getActivity(
-            this,
-            notificationId.hashCode(),
-            tapIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle(senderName)
-            .setContentText("무전이 왔습니다.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setVibrate(longArrayOf(0, 500))
-            .setAutoCancel(true)
-            .setContentIntent(tapPendingIntent)
-            .build()
-
-        notificationManager.notify(notificationId.hashCode(), notification)
     }
 }
