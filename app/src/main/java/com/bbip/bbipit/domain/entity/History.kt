@@ -8,6 +8,7 @@ data class History (
     val category: String, // 카테고리
     val placeName: String, // 장소명
     val content: String, // 본문 내용
+    val isEdited: Boolean, // 수정 여부
     val latitude: Double, // 위도
     val longitude: Double, // 경도
     val createdAt: Long, // 생성 시간
