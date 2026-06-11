@@ -115,7 +115,14 @@ class HistoryRepositoryImpl @Inject constructor(
 
                 // 내 히스토리와 친구 히스토리 병합 및 생성일 기준 내림차순 정렬
                 combine(myHistoryFlow, friendsHistoryFlow) { myHistories, friendsHistories ->
-                    (myHistories + friendsHistories).sortedByDescending { it.createdAt }
+                    val currentTime = System.currentTimeMillis()
+
+                    // 만료된 친구 히스토리 필터링
+                    val validFriendsHistories = friendsHistories.filter { history ->
+                        !history.isExpired(currentTime)
+                    }
+
+                    (myHistories + validFriendsHistories).sortedByDescending { it.createdAt }
                 }
             }
             .onEach { combinedHistories ->
