@@ -182,6 +182,12 @@ class WatchMainViewModel(application: Application) :
                     Log.d(TAG, "📱 [MainViewModel] 휴대폰 응답 수신: $replyStatus")
                     viewModelScope.launch {
                         _mobileStatusEventBus.emit(replyStatus)
+
+                        if (replyStatus == "READY") {
+                            _mobileStatus.value = MobileServiceStatus.READY
+                        } else {
+                            _mobileStatus.value = MobileServiceStatus.SERVICE_RESTRICTED
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ [MainViewModel] 상태 응답 패킷 파싱 실패", e)

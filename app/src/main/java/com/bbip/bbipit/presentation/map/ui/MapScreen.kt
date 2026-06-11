@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -1179,11 +1180,11 @@ fun LocationSharingToggleButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(color = indicatorColor, shape = CircleShape)
-            )
+//            Box(
+//                modifier = Modifier
+//                    .size(10.dp)
+//                    .background(color = indicatorColor, shape = CircleShape)
+//            )
 
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
@@ -1192,6 +1193,23 @@ fun LocationSharingToggleButton(
                 fontWeight = FontWeight.Bold,
                 color = if (isSharingEnabled) fontDefault else Color.DarkGray,
                 letterSpacing = (-0.3).sp
+            )
+
+            Switch(
+                checked = isSharingEnabled,
+                onCheckedChange = null, // Box의 clickable에서 이벤트를 일괄 처리하므로 무효화(null)하여 중복 클릭 방지
+                colors = SwitchDefaults.colors(
+                    // 활성화 상태 (체크됨) 테마 지정
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = online, // 혹은 프로젝트 테마 색상 (예: Color(0xFF5B4DFF))
+                    checkedBorderColor = Color.Transparent,
+
+                    // 비활성화 상태 (체크 해제됨) 테마 지정
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color.LightGray,
+                    uncheckedBorderColor = Color.Transparent
+                ),
+                modifier = Modifier.scale(0.8f)
             )
         }
     }
