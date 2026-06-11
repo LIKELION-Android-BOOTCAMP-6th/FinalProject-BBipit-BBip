@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -171,6 +172,9 @@ class BackgroundListenerService : Service() {
         const val ACTION_LISTEN_ON_WATCH = "LISTEN_ON_WATCH"
         const val ACTION_LISTEN_ON_PHONE = "LISTEN_ON_PHONE"
         const val EXTRA_VOICE_ID = "extra_voice_id"
+
+
+        const val ACTION_PLAY_WALKIE_ON_WATCH = "ACTION_PLAY_WALKIE_ON_WATCH"
     }
 
     /**
@@ -199,14 +203,11 @@ class BackgroundListenerService : Service() {
                 if (uid == null) {
                     Log.d(TAG, "💡 유저 세션이 만료되었거나 탈퇴됨 -> 서비스 자체 종료(stopSelf)")
                     stopSelf() // 유저 ID가 없으면 서비스 스스로 종료
-                }else {
-                    // 내 Live데이터를 구독
-                    startMyLiveStatusObservation(uid)
                 }
             }
         }
 
-        watchConnectionManager.startMonitoring()
+        watchConnectionManager = WatchConnectionManager(this).apply { startMonitoring() }
 
         // 워치 통신 리스너 등록
         channelClient = Wearable.getChannelClient(this).apply {
@@ -983,6 +984,38 @@ class BackgroundListenerService : Service() {
                 } catch (e3: Exception) {
                     Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패.", e3)
                     throw e3
+        // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                // 모든 백그라운드 무전/위치 동기화 타입으로 완벽 기동 시도
+                startForeground(
+                    1, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                )
+                Log.d(TAG, "✅ 모든 FGS 멀티 타입 지정하여 서비스 정상 가동")
+            } catch (e: Exception) {
+                Log.w(
+                    TAG,
+                    "⚠️ 블루투스 등 특정 권한 미부여로 복합 FGS 시작 실패, DATA_SYNC 단독 타입으로 안전 전환합니다: ${e.message}"
+                )
+                try {
+                    // DATA_SYNC 단독 타입으로 기동
+                    startForeground(
+                        1, notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                    )
+                } catch (e2: Exception) {
+                    Log.w(TAG, "⚠️ DATA_SYNC 타입 가동 실패, 기본 무타입 포어그라운드로 최종 전환합니다: ${e2.message}")
+                    try {
+                        //무타입 기본 포어그라운드로 최종 폴백
+                        startForeground(1, notification)
+                    } catch (e3: Exception) {
+                        Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패", e3)
+                        throw e3
+                    }
                 }
             }
         } else {
@@ -1060,7 +1093,7 @@ class BackgroundListenerService : Service() {
         Log.d(TAG, "🔔 showSystemNotification 호출: ${notification.type}, ${notification.senderName}")
         val channelId = "phone_alert_channel"
         val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         // 오레오(API 26) 이상 대응용 알림 채널 생성 및 중요도(HIGH) 설정
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1113,12 +1146,7 @@ class BackgroundListenerService : Service() {
             }
         }
 
-        Log.d(
-            TAG,
-            "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${
-                intent.getStringExtra("notification_id")
-            }"
-        )
+        Log.d(TAG, "WALKIE Intent extras - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
 
         // 알림 클릭 시 Intent
         val pendingIntent = PendingIntent.getActivity(
