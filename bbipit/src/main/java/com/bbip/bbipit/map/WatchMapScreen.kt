@@ -44,6 +44,8 @@ import androidx.wear.compose.material.Button
 import androidx.wear.compose.material.ButtonDefaults
 import com.bbip.bbipit.R
 import com.bbip.bbipit.base.createHistoryMarkerBitmap
+import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.maps.android.compose.MapProperties
 import kotlinx.coroutines.launch
 
 @Composable
@@ -175,6 +177,8 @@ fun WatchMapScreen(
     Box(modifier = modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
+            properties = MapProperties(mapStyleOptions
+            = MapStyleOptions.loadRawResourceStyle(context, R.raw.map_style)),
             uiSettings = MapUiSettings(zoomControlsEnabled = false),
             cameraPositionState = cameraPositionState,
         ) {
