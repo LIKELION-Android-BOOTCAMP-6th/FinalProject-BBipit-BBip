@@ -59,6 +59,6 @@ fun Map<String, Any>.toDomain(): User {
         loginType = this["login_type"] as? String ?: "",
         email = this["email"] as? String ?: "",
         userCode = this["user_code"] as? String ?: "",
-        sessionId = this["current_session_id"] as String
+        sessionId = this["current_session_id"] as? String
     )
 }
