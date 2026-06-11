@@ -33,7 +33,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bbipit">
 
-        <!-- 음성 수신 서비스 -->
+        <!-- 위치 및 음성 수신 서비스 -->
         <service
             android:name=".core.base.BackgroundListenerService"
             android:foregroundServiceType="connectedDevice|location|dataSync"

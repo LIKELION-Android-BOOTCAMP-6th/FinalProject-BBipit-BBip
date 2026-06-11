@@ -163,6 +163,10 @@ class BackgroundListenerService : Service() {
 
         const val PATH_FORCE_LOGOUT_WATCH = "/force_logout_watch"
 
+        // 알림창에서 서비스 중지 버튼을 눌럿을 때 식별자
+        const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
+        const val ACTION_NOTIFICATION_DISMISSED = "ACTION_NOTIFICATION_DISMISSED"
+
 
         // 무전 워치/폰에서 듣기
         const val ACTION_LISTEN_ON_WATCH = "LISTEN_ON_WATCH"
@@ -293,6 +297,38 @@ class BackgroundListenerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "BackgroundListenerService onStartCommand 수신")
 
+        val action = intent?.action
+
+        // 사용자가 알림에서 '서비스 중단' 버튼을 누른 경우 처리
+        if (action == ACTION_STOP_SERVICE) {
+            Log.w(TAG, "🛑 사용자가 알림에서 서비스 중단을 요청함 -> 백그라운드 엔진 해제")
+
+            // 포어그라운드 상태 해제 및 알림 제거
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                stopForeground(true)
+            }
+
+            // 서비스 자체를 완전히 종료
+            stopSelf()
+
+            // 현재 실행 중인 앱의 모든 프로세스와 태스크를 운영체제 단에서 완전히 처분
+            android.os.Process.killProcess(android.os.Process.myPid())
+
+            // 만약의 상황을 대비해 가상머신(JVM) 레벨에서도 즉시 종료
+            System.exit(0)
+
+            return START_NOT_STICKY
+        }
+
+        // 사용자가 알림을 밀어서 지웠을 때 (Android 14 대응)
+        if (action == ACTION_NOTIFICATION_DISMISSED) {
+            Log.w(TAG, "⚠️ 사용자가 알림을 밀어서 지움 -> 시스템 강제 상주 알림 즉시 재발행")
+            startForegroundServiceNotification()
+            return START_STICKY
+        }
+
         // 상주 알림 표시
         try {
             startForegroundServiceNotification()
@@ -310,7 +346,6 @@ class BackgroundListenerService : Service() {
                 ACTION_PUSH_LOCATION_TO_WATCH -> {
                     scope.launch {
                         Log.d(TAG, "🔄 워치의 요청으로 실시간 GPS 강제 새로고침 파이프라인 가동")
-
                         fetchFreshLocationAndPushToWatch()
                     }
                 }
@@ -327,11 +362,12 @@ class BackgroundListenerService : Service() {
             }
         }
 
+        // 언제나 서비스가 강제 종료되어도 시스템이 자동으로 부활시키도록 sticky를 보장
         return START_STICKY
     }
 
     /**
-     * 👣 [핵심 추가] 스마트폰 로컬 저장소 내부의 최신 히스토리 목록을
+     * 스마트폰 로컬 저장소 내부의 최신 히스토리 목록을
      * 간소화된 워치 모델 데이터 스펙 배열로 가공하여 무전 전송 채널로 일괄 바이패스합니다.
      */
     private fun fetchInitialHistoriesAndPushToWatch() {
@@ -344,17 +380,6 @@ class BackgroundListenerService : Service() {
                     Log.d(TAG, "👣 워치로 초기 동기화할 스마트폰 내 히스토리 내역이 비어있습니다.")
                     return@launch
                 }
-
-                // 워치 전용 간소화 모델로 매핑
-//                val watchHistoriesMap = currentMobileHistories.map { history ->
-//                    mapOf(
-//                        "id" to history.id,
-//                        "userId" to history.userId,
-//                        "category" to history.category,
-//                        "latitude" to history.latitude,
-//                        "longitude" to history.longitude
-//                    )
-//                }
 
                 // JSON 변환
                 val jsonPayload = Gson().toJson(currentMobileHistories)
@@ -895,19 +920,70 @@ class BackgroundListenerService : Service() {
             ).apply {
                 setShowBadge(false)
                 setSound(null, null)
+                enableLights(false)
+                enableVibration(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
 
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
+        // 사용자가 알림에서 '서비스 중단'을 눌렀을 때 작동할 PendingIntent 준비
+        val stopIntent = Intent(this, BackgroundListenerService::class.java).apply {
+            action = ACTION_STOP_SERVICE
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            1, // 다른 인텐트와 겹치지 않게 고유 ID 부여
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 2. 사용자가 알림을 밀어서 지웠을 때 신호를 받을 PendingIntent
+        val deleteIntent = Intent(this, BackgroundListenerService::class.java).apply {
+            action = ACTION_NOTIFICATION_DISMISSED
+        }
+        val deletePendingIntent = PendingIntent.getService(
+            this,
+            0,
+            deleteIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 알림 빌더 생성
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Bipp-it 대기 중")
-            .setContentText("워치로부터 음성 신호를 받을 준비가 되었습니다.")
+            .setContentText("백그라운드에서 위치 동기화 및 무전 수신이 가동 중입니다.")
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setOngoing(true)
+            .setDeleteIntent(deletePendingIntent)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
 
+            // 알림창 하단에 "서비스 중단" 버튼을 노출
+            .addAction(
+                com.bbip.bbipit.R.drawable.ic_stop,
+                "서비스 중단",
+                stopPendingIntent
+            )
+
+        // 최종 알림 객체 빌드 및 플래그 결합
+        val notification = notificationBuilder.build().apply {
+            flags = flags or Notification.FLAG_ONGOING_EVENT or Notification.FLAG_NO_CLEAR
+        }
+
+        // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+                Log.d(TAG, "✅ LOCATION 타입을 지정하여 포어그라운드 서비스 정상 가동")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ LOCATION 타입 가동 실패, 기본 포어그라운드로 폴백 시도: ${e.message}")
+                try {
+                    // 무타입 기본 포어그라운드로 최종 폴백
+                    startForeground(1, notification)
+                } catch (e3: Exception) {
+                    Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패.", e3)
+                    throw e3
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
