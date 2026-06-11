@@ -977,19 +977,6 @@ class BackgroundListenerService : Service() {
         // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
-                startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-                Log.d(TAG, "✅ LOCATION 타입을 지정하여 포어그라운드 서비스 정상 가동")
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ LOCATION 타입 가동 실패, 기본 포어그라운드로 폴백 시도: ${e.message}")
-                try {
-                    // 무타입 기본 포어그라운드로 최종 폴백
-                    startForeground(1, notification)
-                } catch (e3: Exception) {
-                    Log.e(TAG, "❌ 모든 방식의 Foreground Service 가동 실패.", e3)
-                    throw e3
-        // 최신 안드로이드 버전에 따른 필수 실행 유형 명시 설정 분기
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            try {
                 // 모든 백그라운드 무전/위치 동기화 타입으로 완벽 기동 시도
                 startForeground(
                     1, notification,
