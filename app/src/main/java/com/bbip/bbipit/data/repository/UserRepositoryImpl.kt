@@ -32,6 +32,27 @@ class UserRepositoryImpl @Inject constructor(
 ) : UserRepository {
 
     /**
+     * 유저 고유 코드를 이용한 유저 검색
+     */
+    override suspend fun getUserProfileByCode(targetCode: String): Result<User> {
+        return try {
+            val response = userRemoteDataSource.getUserProfileByCode(targetCode)
+            val success = response?.get("success") as? Boolean ?: false
+            val profileMap = response?.get("profile") as? Map<String, Any>
+
+            if (success && profileMap != null) {
+                val userEntity = profileMap.toDomain()
+                Result.Success(userEntity)
+            } else {
+                Result.Failure(AppError.Unknown("해당 코드를 사용하는 사용자를 찾을 수 없습니다."))
+            }
+        } catch (e: Exception) {
+            Log.e("UserRepository", "코드로 유저 검색 실패: ${e.message}")
+            Result.Failure(AppError.Unknown(e.message ?: "유저 검색 중 오류가 발생했습니다."))
+        }
+    }
+
+    /**
      * 특정 유저의 온라인 접속 상태 직접 조회 함수
      */
     override suspend fun getUserOnlineStatus(uid: String): Result<Boolean> {

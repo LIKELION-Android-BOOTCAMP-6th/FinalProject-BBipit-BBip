@@ -25,5 +25,8 @@ data class ChatRoomDto(
 
     // [추가] 상대방의 온라인 상태를 필드에서 직접 받아올 경우
     @get:PropertyName("is_online") @set:PropertyName("is_online")
-    var isOnline: Boolean = false
+    var isOnline: Boolean = false,
+
+    @get:PropertyName("created_at") @set:PropertyName("created_at")
+    var createdAt: Timestamp? = null
 )

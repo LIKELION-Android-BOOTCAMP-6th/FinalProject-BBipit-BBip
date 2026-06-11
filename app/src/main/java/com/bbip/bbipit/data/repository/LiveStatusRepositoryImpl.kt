@@ -145,10 +145,10 @@ class LiveStatusRepositoryImpl @Inject constructor(
     /**
      * 유저 온라인 상태 및 현재 채팅방 정보 업데이트 함수
      */
-    override suspend fun updateLifeCycle(currentRoomId: String?, currentSessionId: String?): Result<Unit> {
+    override suspend fun updateLifeCycle(currentRoomId: String?): Result<Unit> {
         return try {
             // 서버에 활성 상태 전송
-            liveStatusRemoteDataSource.updateLifeCycle(currentRoomId, currentSessionId)
+            liveStatusRemoteDataSource.updateLifeCycle(currentRoomId)
             Result.Success(Unit)
         } catch (e: Exception) {
             // 전송 실패 예외 처리

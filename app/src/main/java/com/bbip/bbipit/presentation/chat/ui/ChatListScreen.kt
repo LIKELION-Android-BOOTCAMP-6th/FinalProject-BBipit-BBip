@@ -1,5 +1,6 @@
 package com.bbip.bbipit.presentation.chat.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,18 +33,24 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import coil.compose.AsyncImage
+import com.bbip.bbipit.core.extension.navigateSingleTop
 import com.bbip.bbipit.core.ui.theme.Pink80
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
 import com.bbip.bbipit.core.ui.theme.online
 import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.core.ui.theme.recording
+import com.bbip.bbipit.presentation.base.ConfirmDialog
+import kotlinx.coroutines.launch
 
 /**
  * UI State 정의
@@ -77,16 +84,25 @@ fun ChatListScreen(
     viewModel: ChatListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var showToastMessage by remember { mutableStateOf<String?>(null) }
+
 
     LaunchedEffect(Unit) {
         viewModel.clearSearch()
         viewModel.navigationEvent.collect { route ->
-            navController.navigate(route)
+            navController.navigateSingleTop(route)
         }
     }
     LaunchedEffect(Unit) {
         // 상세방에서 백스택으로 돌아올 때마다 목록을 새로 땡겨와서 읽음 상태 갱신
         viewModel.observeChatRooms()
+    }
+    LaunchedEffect(showToastMessage) {
+        showToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            showToastMessage = null // 메시지 출력 후 초기화
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(color = background)) {
@@ -114,7 +130,12 @@ fun ChatListScreen(
                     items(uiState.chatList, key = { it.id }) { chatItem ->
                         ChatItemRow( // 이름을 Row로 변경
                             chatItem = chatItem,
-                            onClick = { viewModel.onChatItemClicked(chatItem) }
+                            onClick = { viewModel.onChatItemClicked(chatItem) },
+                            onDelete = {
+                                viewModel.deleteChatRoom(chatItem.id) { message ->
+                                    showToastMessage = message // 결과 메시지를 여기에 담음
+                                }
+                            }
                         )
                         // 아이템 사이의 얇은 구분선 추가
                         HorizontalDivider(
@@ -219,92 +240,143 @@ fun ChatListHeader(viewModel: ChatListViewModel) {
 @Composable
 fun ChatItemRow(
     chatItem: ChatItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() } // 클릭 피드백이 들어감
-            .padding(horizontal = 20.dp, vertical = 16.dp), // 적절한 터치 영역 확보
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 프로필 섹션
-        Box {
-            Surface(
-                modifier = Modifier.size(56.dp), // 리스트형에 맞춰 살짝 키움
-                shape = CircleShape,
-            ) { AsyncImage(
-                model = chatItem.profileImageUrl,
-                contentDescription = "프로필 이미지",
-                error = rememberVectorPainter(image = Icons.Default.Person),
-                modifier = Modifier.fillMaxSize()
-                    .clip(CircleShape) // 원형으로 자르기
-                    .border(
-                        width = 2.dp,
-                        color = background, // 하얀색 테두리
-                        shape = CircleShape
-                    )
-                    .background(Color.White),
-                contentScale = ContentScale.Crop)
-            }
 
+    val scope = rememberCoroutineScope()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    // 스와이프 상태 관리
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            // EndToStart(오른쪽에서 왼쪽) 방향으로 스와이프했을 때만 감지
+            if (it == SwipeToDismissBoxValue.EndToStart) {
+                showDeleteDialog = true
+            }
+            // 2. 핵심: 항상 false를 반환하여 컴포넌트가 스스로 '삭제 상태'로 고정되지 않게 함
+            false
+        }
+    )
+
+    // 삭제 확인 다이얼로그
+    if (showDeleteDialog) {
+        ConfirmDialog(
+            text = "채팅방 나가기",
+            semiText = "'${chatItem.senderName}'님과의 대화방을 나가시겠습니까?",
+            isSingleBtn = false,
+            onDismiss = {
+                showDeleteDialog = false
+                scope.launch { dismissState.reset() }
+            },
+            onConfirm = {
+                onDelete()
+
+                showDeleteDialog = false
+                scope.launch { dismissState.reset() }
+            }
+        )
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false, // 오른쪽으로 미는 동작은 비활성화
+        backgroundContent = {
             Box(
                 modifier = Modifier
-                    .size(14.dp)
-                    .background(
-                        color = if (chatItem.isOnline) online else Color.Gray,
-                        shape = CircleShape
-                    )
-                    .border(2.dp, Color.White, CircleShape)
-                    .align(Alignment.BottomEnd)
-            )
-        }
+                    .fillMaxSize()
+                    .padding(vertical = 6.dp) // 카드의 위치와 정확히 맞춰주세요
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(recording), // 삭제 색상 고정
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "삭제",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 24.dp)
+                )
+            }
+        },
+        content = {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = background),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onClick() }
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 프로필 섹션
+                    Box {
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = CircleShape,
+                        ) {
+                            AsyncImage(
+                                model = chatItem.profileImageUrl,
+                                contentDescription = "프로필 이미지",
+                                error = rememberVectorPainter(image = Icons.Default.Person),
+                                modifier = Modifier.fillMaxSize()
+                                    .clip(CircleShape)
+                                    .border(2.dp, background, CircleShape)
+                                    .background(Color.White),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
 
-        Spacer(modifier = Modifier.width(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .background(if (chatItem.isOnline) online else Color.Gray, CircleShape)
+                                .border(2.dp, Color.White, CircleShape)
+                                .align(Alignment.BottomEnd)
+                        )
+                    }
 
-        // 텍스트 섹션
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = chatItem.senderName,
-                style = Typography.bodySmall,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                // DB의 last_message 연결
-                text = if (chatItem.hasImage) "📷 사진을 보냈습니다" else chatItem.lastMessage,
-                style = Typography.bodySmall,
-                color = if (chatItem.isRead) Color.Gray else Color.Black,
-                fontWeight = if (chatItem.isRead) FontWeight.Normal else FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
 
-        Column(
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // 우측 상단: 시간
-            Text(
-                text = chatItem.time,
-                style = Typography.labelSmall,
-            )
+                    // 텍스트 섹션
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = chatItem.senderName,
+                            style = Typography.bodySmall,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (chatItem.hasImage) "📷 사진을 보냈습니다" else chatItem.lastMessage,
+                            style = Typography.bodySmall,
+                            color = if (chatItem.isRead) Color.Gray else Color.Black,
+                            fontWeight = if (chatItem.isRead) FontWeight.Normal else FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(8.dp)) // 시간과 뱃지 사이 간격
+                    Spacer(modifier = Modifier.width(12.dp))
 
-            // 우측 하단: 안읽음 뱃지
-            if (chatItem.unreadCount > 0) {
-                ChatBadge(count = chatItem.unreadCount)
-            } else {
-                // 뱃지가 없을 때 가드 공간 확보
-                Spacer(modifier = Modifier.size(20.dp))
+                    // 시간 및 뱃지 섹션
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(text = chatItem.time, style = Typography.labelSmall)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (chatItem.unreadCount > 0) {
+                            ChatBadge(count = chatItem.unreadCount)
+                        } else {
+                            Spacer(modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
             }
         }
-    }
+    )
 }
 
 @Composable

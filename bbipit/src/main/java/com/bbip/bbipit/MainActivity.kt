@@ -23,11 +23,7 @@ import com.bbip.bbipit.base.WatchIncomingVoiceDialog
 import com.bbip.bbipit.base.WatchServiceRestrictedScreen
 import com.bbip.bbipit.map.WatchMapScreen
 import com.bbip.bbipit.models.MobileServiceStatus
-import com.bbip.bbipit.models.WatchVoiceData
 import com.bbip.bbipit.theme.BbipitTheme
-import com.bbip.bbipit.util.VoiceEventBus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -83,7 +79,10 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         viewModel.handlePlayIntent(intent)
+        viewModel.isWatchActiveInForeground = false
+
     }
+
     /**
      * 워치의 포그라운드 유무 상태를 폰으로 즉시 쏘아주는 헬퍼 함수
      */

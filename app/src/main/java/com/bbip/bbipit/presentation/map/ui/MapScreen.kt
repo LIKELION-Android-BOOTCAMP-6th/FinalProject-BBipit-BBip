@@ -19,6 +19,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,8 +27,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.*
@@ -35,9 +36,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -74,6 +79,7 @@ import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
+import com.bbip.bbipit.presentation.main.MainActivity
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 import com.bbip.bbipit.presentation.map.viewmodel.MapUiState
 import com.bbip.bbipit.presentation.map.viewmodel.MapViewModel
@@ -121,11 +127,15 @@ fun MapScreen(
     var viewerHistoriesSource by remember { mutableStateOf<List<History>>(emptyList()) }
     var selectedHistory by remember { mutableStateOf<History?>(null) }
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var showHistories by remember { mutableStateOf(true) }
 
     val seoul = LatLng(37.5665, 126.9780)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(seoul, 15f)
     }
+
+    // MainActivity 참조 확보를 위한 Context 캐스팅
+    val activity = context as? MainActivity
 
     val TAG = "MapScreen"
 
@@ -178,6 +188,25 @@ fun MapScreen(
         } else {
             showPermissionDialog = false
             navController.navigate(Routes.ServiceRestricted)
+        }
+    }
+
+    // 휴대폰 지도 화면이 활성화(Resume)되는 시점마다
+    // 워치 연동 인텐트로 유입된 미소비 문서 ID가 있는지 검사하여 뷰어를 강제로 실행
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.fetchLiveStatusAndRefreshCache()
+
+        if (uiState.myStatus?.uid?.isNotEmpty() == true) {
+            historyViewModel.startHistoryObservation()
+        }
+
+        // ⌚ 워치 '폰으로 열기' 연동 원격 제어 신호 소모 프로세스 가동
+        activity?.consumeWatchHistoryId()?.let { watchHistoryId ->
+            if (watchHistoryId.isNotEmpty()) {
+                Log.d("MapScreen", "⌚ 워치 원격 제어 수락 ➔ 스토리 뷰어 다이얼로그 강제 팝업 실행 ID: $watchHistoryId")
+                targetHistoryId = watchHistoryId
+                isHistoryViewerOpen = true
+            }
         }
     }
 
@@ -268,6 +297,7 @@ fun MapScreen(
                 MapContent(
                     mapUiState = uiState,
                     histories = historyUiState.histories,
+                    showHistories = showHistories,
                     cameraPositionState = cameraPositionState,
                     modifier = Modifier.fillMaxSize(),
                     onFriendClick = { friend -> clickedFriendUid = friend.uid },
@@ -285,7 +315,6 @@ fun MapScreen(
                         onDismissRequest = {
                             isHistoryViewerOpen = false
                             targetHistoryId = ""
-                            viewerHistoriesSource = emptyList()
                             historyViewModel.closeCommentsObservation()
                         },
                         properties = DialogProperties(
@@ -296,9 +325,11 @@ fun MapScreen(
                         val windowProvider = LocalView.current.parent as? DialogWindowProvider
                         windowProvider?.window?.setDimAmount(0.0f)
 
+                        Log.d(TAG, "targetHistoryId: $targetHistoryId")
+
                         HistoryViewerScreen(
                             myUid = uiState.myStatus?.uid.orEmpty(),
-                            histories = viewerHistoriesSource,
+                            histories = historyUiState.histories,
                             initialHistoryId = targetHistoryId,
                             comments = historyUiState.currentComments,
                             onHistoryChanged = { currentId ->
@@ -308,11 +339,11 @@ fun MapScreen(
                             onDismiss = {
                                 isHistoryViewerOpen = false
                                 targetHistoryId = ""
-                                viewerHistoriesSource = emptyList()
                                 historyViewModel.closeCommentsObservation()
                             },
                             onLikeToggle = { targetHistory ->
-                                Toast.makeText(context, "좋아요 토글됨", Toast.LENGTH_SHORT).show()
+                                // 좋아요 토글
+                                historyViewModel.toggleHistoryLike(targetHistory.id)
                             },
                             onCommentSubmit = { historyId, commentText ->
                                 // 선택된 히스토리에 댓글 데이터 추가
@@ -323,7 +354,6 @@ fun MapScreen(
                                 historyViewModel.deleteHistory(historyId)
                                 isHistoryViewerOpen = false
                                 targetHistoryId = ""
-                                viewerHistoriesSource = emptyList()
                                 historyViewModel.closeCommentsObservation()
                                 Toast.makeText(context, "발자취를 삭제했습니다.", Toast.LENGTH_SHORT).show()
                             }
@@ -345,6 +375,32 @@ fun MapScreen(
                         .statusBarsPadding()
                         .padding(top = 16.dp)
                 )
+
+                FilledIconButton(
+                    onClick = { showHistories = !showHistories },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .statusBarsPadding()
+                        .padding(end = 16.dp, bottom = 340.dp)
+                        .size(50.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = Color.White
+                    )
+                ) {
+                    Icon(
+                        painter = if (showHistories) painterResource(id = R.drawable.ic_footprint_icon_hidden)
+                        else painterResource(id = R.drawable.ic_footprint_icon_hidden),
+                        contentDescription = "히스토리 마커 토글",
+                        modifier = Modifier.size(32.dp),
+                        tint = if (!showHistories) Color(0xFF956AFC) else Color.Gray
+                    )
+                }
 
                 // 히스토리 작성 바텀시트 호출 버튼
                 FilledIconButton(
@@ -414,7 +470,7 @@ fun MapScreen(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Autorenew,
+                        imageVector = Icons.Default.MyLocation,
                         contentDescription = "위치 업데이트",
                         modifier = Modifier.size(24.dp),
                         tint = primary
@@ -530,7 +586,6 @@ fun MapScreen(
                         return@HistoryWriteSheet
                     }
                     uiState.myStatus?.let { myStatus ->
-                        // 입력 폼 데이터 기반 신규 히스토리 데이터 생성
                         historyViewModel.createNewHistory(
                             category = selectedCategory,
                             placeName = placeName.ifEmpty { "알 수 없음" },
@@ -595,6 +650,7 @@ fun MapScreen(
 private fun MapContent(
     mapUiState: MapUiState,
     histories: List<History>, // 전체 히스토리 리스트 데이터
+    showHistories: Boolean,
     cameraPositionState: CameraPositionState,
     modifier: Modifier = Modifier,
     onFriendClick: (LiveStatus) -> Unit,
@@ -639,9 +695,11 @@ private fun MapContent(
             }
 
             // 지도 상에 히스토리 커스텀 마커 리스트 표시
-            histories.forEach { history ->
-                key(history.id) {
-                    HistoryMarker(history = history, onHistoryClick = onHistoryClick)
+            if(showHistories) {
+                histories.forEach { history ->
+                    key(history.id) {
+                        HistoryMarker(history = history, onHistoryClick = onHistoryClick)
+                    }
                 }
             }
         }
@@ -727,51 +785,6 @@ private fun FriendMarker(friend: LiveStatus, onFriendClick: (LiveStatus) -> Unit
             )
         }
     }
-}
-
-// 지도 상의 개별 히스토리 컴포저블 마커 표현식
-@OptIn(MapsComposeExperimentalApi::class)
-@Composable
-private fun HistoryMarker(history: History, onHistoryClick: (History) -> Unit) {
-    val historyLatLng = remember(history.latitude, history.longitude) {
-        LatLng(history.latitude, history.longitude)
-    }
-    val markerState = remember(history.id) { MarkerState(position = historyLatLng) }
-
-    LaunchedEffect(history.latitude, history.longitude) {
-        markerState.position = historyLatLng
-    }
-
-    val bitmapKey = remember(history.id, history.category) { "${history.id}_${history.category}" }
-
-    // 카테고리 정보 기반 테마 색상 및 리소스 아이콘 반환식
-    val (iconResId, bgColor, iconColor) = remember(history.category) {
-        when (history.category) {
-            "무전" -> Triple(R.drawable.ic_walkie_talkie_icon, Color(0xFFFAF5FF), Color(0xFFA855F7))
-            "카페" -> Triple(R.drawable.ic_cafe_icon, Color(0xFFFFFBEB), Color(0xFFD97706))
-            "음식" -> Triple(R.drawable.ic_restaurant_icon, Color(0xFFFFF1F2), Color(0xFFF43F5E))
-            "운동" -> Triple(R.drawable.ic_exercise_icon, Color(0xFFECFDF5), Color(0xFF10B981))
-            else -> Triple(R.drawable.ic_daily_icon, Color(0xFFEEF2FF), Color(0xFF6366F1))
-        }
-    }
-
-    // 컴포즈 UI 기반 맵 마커용 비트맵 생성 및 캐싱
-    val composeMarkerBitmap = rememberComposeBitmapDescriptor(bitmapKey, bitmapKey) {
-        HistoryIconCircle(iconResId = iconResId, iconTint = iconColor, backgroundColor = bgColor)
-    }
-
-    Marker(
-        state = markerState,
-        title = "[${history.category}] ${history.placeName}",
-        snippet = "${history.userNickname}: ${history.content}",
-        icon = composeMarkerBitmap,
-        alpha = 0.95f,
-        zIndex = 2.0f,
-        onClick = {
-            onHistoryClick(history)
-            true
-        }
-    )
 }
 
 // 친구찾기 토글 버튼
@@ -1059,27 +1072,108 @@ fun HistoryIconCircle(
     modifier: Modifier = Modifier,
     iconTint: Color = Color.White
 ) {
-    val markerShape = RoundedCornerShape(12.dp)
+    val markerShape = CircleShape
 
+    // 💡 [해결 핵심]: 캡처 엔진이 잘라먹지 못하도록
+    // 네이티브 캔버스 가속을 이용해 내부 스냅샷 비트맵에 그림자를 직접 구워버립니다.
     Box(
         modifier = modifier
-            .shadow(
-                elevation = 4.dp,
-                shape = markerShape,
-                clip = false
-            )
-            .size(38.dp)
-            .background(backgroundColor, shape = markerShape)
-            .padding(7.dp),
+            .size(56.dp) // 비트맵 캡처 전체 바운더리 공간
+            .drawBehind {
+                // 컴포즈 캔버스에서 안드로이드 원본 네이티브 캔버스 인프라 추출
+                val frameworkPaint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    color = Color.Transparent.toArgb() // 본체는 투명 처리 후 그림자만 투사
+
+                    // 💡 하드웨어 가속 그림자 레이어 선언 (반지름, x오프셋, y오프셋, 그림자 색상 및 투명도)
+                    setShadowLayer(
+                        10f, // 그림자 번짐 정도 (Blur)
+                        0f,  // X축 치우침
+                        6f,  // Y축 아래로 내림 (입체감 유발)
+                        android.graphics.Color.argb(90, 0, 0, 0) // 투명도 90의 검은색 그림자
+                    )
+                }
+
+                // 그림자가 안착할 중앙 영역 베이스 원 좌표 계산 (44.dp 반경에 대응)
+                val radius = 22.dp.toPx()
+                drawContext.canvas.nativeCanvas.drawCircle(
+                    center.x,
+                    center.y,
+                    radius,
+                    frameworkPaint
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(id = iconResId),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            colorFilter = ColorFilter.tint(iconTint)
-        )
+        // 알맹이 배지 뷰 레이아웃 (흰색 보더 + 내부 카테고리 컬러 원형 테마)
+        Box(
+            modifier = Modifier
+                .border(
+                    width = 2.5.dp,
+                    color = Color.White,
+                    shape = markerShape
+                )
+                .size(44.dp)
+                .background(backgroundColor, shape = markerShape)
+                .padding(10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = iconResId),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                colorFilter = ColorFilter.tint(iconTint)
+            )
+        }
     }
+}
+
+// 지도 상의 개별 히스토리 컴포저블 마커 표현식
+@OptIn(MapsComposeExperimentalApi::class)
+@Composable
+private fun HistoryMarker(history: History, onHistoryClick: (History) -> Unit) {
+    val historyLatLng = remember(history.latitude, history.longitude) {
+        LatLng(history.latitude, history.longitude)
+    }
+    val markerState = remember(history.id) { MarkerState(position = historyLatLng) }
+
+    LaunchedEffect(history.latitude, history.longitude) {
+        markerState.position = historyLatLng
+    }
+
+    val bitmapKey = remember(history.id, history.category) { "${history.id}_${history.category}" }
+
+    // 카테고리 정보 기반 테마 색상 및 리소스 아이콘 반환식
+    val (iconResId, bgColor, iconColor) = remember(history.category) {
+        when (history.category) {
+            "무전" -> Triple(R.drawable.ic_walkie_talkie_icon, Color(0xFFFAF5FF), Color(0xFFA855F7))
+            "카페" -> Triple(R.drawable.ic_cafe_icon, Color(0xFFFFFBEB), Color(0xFFD97706))
+            "음식" -> Triple(R.drawable.ic_restaurant_icon, Color(0xFFFFF1F2), Color(0xFFF43F5E))
+            "운동" -> Triple(R.drawable.ic_exercise_icon, Color(0xFFECFDF5), Color(0xFF10B981))
+            else -> Triple(R.drawable.ic_daily_icon, Color(0xFFEEF2FF), Color(0xFF6366F1))
+        }
+    }
+
+    // 컴포즈 UI 기반 맵 마커용 비트맵 생성 및 캐싱
+    val composeMarkerBitmap = rememberComposeBitmapDescriptor(bitmapKey, bitmapKey) {
+        HistoryIconCircle(iconResId = iconResId, iconTint = iconColor, backgroundColor = bgColor)
+    }
+
+    Marker(
+        state = markerState,
+        title = "[${history.category}] ${history.placeName}",
+        snippet = "${history.userNickname}: ${history.content}",
+        icon = composeMarkerBitmap,
+        alpha = 1.0f, // 묻히지 않도록 투명도를 완전 불투명으로 변경
+
+        // 💡 [핵심] 유저/친구 마커(0.0~1.0)보다 높은 레이어 우선순위를 부여해 무조건 지도 최상단에 노출시킵니다.
+        zIndex = 3.0f,
+
+        onClick = {
+            onHistoryClick(history)
+            true
+        }
+    )
 }
 
 /**
@@ -1115,11 +1209,11 @@ fun LocationSharingToggleButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(color = indicatorColor, shape = CircleShape)
-            )
+//            Box(
+//                modifier = Modifier
+//                    .size(10.dp)
+//                    .background(color = indicatorColor, shape = CircleShape)
+//            )
 
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
@@ -1128,6 +1222,23 @@ fun LocationSharingToggleButton(
                 fontWeight = FontWeight.Bold,
                 color = if (isSharingEnabled) fontDefault else Color.DarkGray,
                 letterSpacing = (-0.3).sp
+            )
+
+            Switch(
+                checked = isSharingEnabled,
+                onCheckedChange = null, // Box의 clickable에서 이벤트를 일괄 처리하므로 무효화(null)하여 중복 클릭 방지
+                colors = SwitchDefaults.colors(
+                    // 활성화 상태 (체크됨) 테마 지정
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = online, // 혹은 프로젝트 테마 색상 (예: Color(0xFF5B4DFF))
+                    checkedBorderColor = Color.Transparent,
+
+                    // 비활성화 상태 (체크 해제됨) 테마 지정
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color.LightGray,
+                    uncheckedBorderColor = Color.Transparent
+                ),
+                modifier = Modifier.scale(0.8f)
             )
         }
     }

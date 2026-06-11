@@ -12,4 +12,33 @@ data class History (
     val longitude: Double, // 경도
     val createdAt: Long, // 생성 시간
     val imageUrls: List<String>, // 사진들
-)
+    val likedUserIds: List<String>, // 좋아요 누른 유저 ID 리스트
+) {
+    // 만료 시간
+    val expiryTime: Long
+        get() = createdAt + (24 * 60 * 60 * 1000)
+
+    // 만료까지 남은 시간 (밀리초 단위 반환)
+    fun getRemainingTimeMillis(now: Long): Long {
+        return (expiryTime - now).coerceAtLeast(0L)
+    }
+    // 만료까지 남은  시간에 표시될 텍스트 (유동적인 단위 반환)
+    fun getRemainingHoursText(now: Long): String {
+        val remainingMillis = getRemainingTimeMillis(now)
+        val remainingHours = remainingMillis / (1000 * 60 * 60)
+        val remainingMinutes = (remainingMillis / (1000 * 60)) % 60
+
+        return when {
+            remainingMillis <= 0 -> "만료됨"
+            remainingHours >= 1 -> "${remainingHours}시간 남음"
+            else -> "${remainingMinutes}분 남음" // 1시간 미만 시 분 단위 표시
+        }
+    }
+    // 만료 여부 반환
+    fun isExpired(now: Long): Boolean {
+        return now >= expiryTime
+    }
+
+    // 특정 사용자가 이 히스토리에 좋아요를 눌렀는지 여부 반환
+    fun isLikedByUser(myUid: String): Boolean = likedUserIds.contains(myUid)
+}

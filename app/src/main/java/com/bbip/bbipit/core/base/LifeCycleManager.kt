@@ -175,13 +175,15 @@ class LifeCycleManager @Inject constructor(
         // 진행 중인 하트비트 루프 중단
         stopHeartbeatLoop()
 
-        // 명시적으로 나갈 때는 온디스커넥트를 해제하고 직접 offline을 박아줍니다.
-        val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
-        userStatusRef.onDisconnect().cancel()
-        userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
-
-        sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(null, null)
+        //중복 로그인이 아닌 경우에만 offline으로 변경
+        if (!isDuplicated){
+            // 명시적으로 나갈 때는 온디스커넥트를 해제하고 직접 offline을 박아줍니다.
+            val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
+            userStatusRef.onDisconnect().cancel()
+            userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
+            sessionScope.launch {
+                liveStatusRepository.updateLifeCycle(null)
+            }
         }
     }
 
@@ -194,7 +196,7 @@ class LifeCycleManager @Inject constructor(
 
         // 현재 채팅방 위치 및 활성 상태를 서버에 전송
         sessionScope.launch {
-            liveStatusRepository.updateLifeCycle(currentRoomId, null)
+            liveStatusRepository.updateLifeCycle(currentRoomId)
         }
     }
 

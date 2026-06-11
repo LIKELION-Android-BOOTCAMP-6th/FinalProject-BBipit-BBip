@@ -33,5 +33,6 @@ interface UserRemoteDataSource {
     suspend fun getMyProfile(uid: String): Map<String, Any>?
     suspend fun getUserOnlineStatus(uid: String): Boolean?
 
+    suspend fun getUserProfileByCode(targetCode: String): Map<String, Any>?
     suspend fun uploadProfileImage(localFileUri: Uri): String
 }

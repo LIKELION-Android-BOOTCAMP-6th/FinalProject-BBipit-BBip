@@ -2,7 +2,7 @@ package com.bbip.bbipit.data.repository
 
 import android.util.Log
 import com.bbip.bbipit.core.result.Result
-import com.bbip.bbipit.data.source.model.HistoryRequestDto
+import com.bbip.bbipit.data.source.model.HistoryDto
 import com.bbip.bbipit.data.source.remote.auth.AuthRemoteDataSource
 import com.bbip.bbipit.data.source.remote.history.HistoryRemoteDataSource
 import com.bbip.bbipit.domain.entity.History
@@ -40,6 +40,26 @@ class HistoryRepositoryImpl @Inject constructor(
 
     // 전역 구독 파이프라인 제어용 Job
     private var observationJob: kotlinx.coroutines.Job? = null
+
+    // 히스토리 좋아요 토글(추가/삭제)
+    override suspend fun toggleHistoryLike(historyId: String): Result<Unit> {
+        return try {
+            // 사용자 인증 확인
+            authDataSource.getCurrentUserUid()
+                ?: return Result.Failure(AppError.Unknown("인증된 사용자 정보가 없습니다."))
+
+            val success = remoteDataSource.toggleHistoryLike(historyId)
+            if (success) {
+                Result.Success(Unit)
+            } else {
+                Result.Failure(AppError.Unknown("좋아요 처리에 실패했습니다."))
+            }
+        } catch (e: FirebaseFunctionsException) {
+            Result.Failure(AppError.Unknown("[좋아요 서버 코드 ${e.code}]: ${e.message}"))
+        } catch (e: Exception) {
+            Result.Failure(AppError.Unknown(e.message ?: "좋아요 처리 중 예기치 못한 오류 발생"))
+        }
+    }
 
     // 백그라운드 서비스 시작 시 영구 구독을 실행하는 함수
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -133,7 +153,7 @@ class HistoryRepositoryImpl @Inject constructor(
                 emptyList()
             }
 
-            val requestDto = HistoryRequestDto(
+            val requestDto = HistoryDto(
                 category = category,
                 placeName = placeName,
                 content = content,

@@ -182,6 +182,12 @@ class WatchMainViewModel(application: Application) :
                     Log.d(TAG, "📱 [MainViewModel] 휴대폰 응답 수신: $replyStatus")
                     viewModelScope.launch {
                         _mobileStatusEventBus.emit(replyStatus)
+
+                        if (replyStatus == "READY") {
+                            _mobileStatus.value = MobileServiceStatus.READY
+                        } else {
+                            _mobileStatus.value = MobileServiceStatus.SERVICE_RESTRICTED
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ [MainViewModel] 상태 응답 패킷 파싱 실패", e)
@@ -211,23 +217,6 @@ class WatchMainViewModel(application: Application) :
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ 발자취(History) 데이터 패킷 파싱 실패", e)
                 }
-            }
-            "/walkie_notification" -> {
-                val data = Gson().fromJson(String(messageEvent.data), Map::class.java)
-                val notificationId = data["notificationId"] as? String ?: return
-                val audioId = data["audioId"] as? String ?: return
-                val senderName = data["senderName"] as? String ?: "무전"
-                val voiceUrl = data["voiceUrl"] as? String ?: ""
-                val senderProfileImage = data["senderProfileImage"] as? String ?: ""
-                WatchNotificationHelper.showWalkieNotification(
-                    getApplication(),
-                    WatchVoiceData(
-                        messageId = audioId,
-                        voiceUrl = voiceUrl,
-                        senderProfileUrl = senderProfileImage,
-                        senderName = senderName
-                    )
-                )
             }
         }
     }

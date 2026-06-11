@@ -3,6 +3,9 @@ package com.bbip.bbipit.presentation.chat.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.result.onFailure
+import com.bbip.bbipit.core.result.onSuccess
+import com.bbip.bbipit.core.util.HangulUtils
 import com.bbip.bbipit.domain.entity.ChatRoom
 import com.bbip.bbipit.domain.repository.ChatRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
@@ -209,7 +212,21 @@ class ChatListViewModel @Inject constructor(
         val filteredList = if (query.isBlank()) {
             allChatList
         } else {
-            allChatList.filter { it.senderName.contains(query, ignoreCase = true) }
+            val lowerQuery = query.lowercase()
+            val queryChosung = HangulUtils.getChosungString(query)
+
+            allChatList.filter { item ->
+                val name = item.senderName
+
+                // 1. 일반 검색 (이름 포함 여부)
+                val isMatchName = name.contains(query, ignoreCase = true)
+
+                // 2. 초성 검색 (이름의 초성을 추출하여 비교)
+                val nameChosung = HangulUtils.getChosungString(name)
+                val isMatchChosung = nameChosung.contains(queryChosung)
+
+                isMatchName || isMatchChosung
+            }
         }
         _uiState.update {
             it.copy(
@@ -240,5 +257,21 @@ class ChatListViewModel @Inject constructor(
         val date = java.util.Date(timestamp)
         val sdf = java.text.SimpleDateFormat("a h:mm", java.util.Locale.KOREA)
         return sdf.format(date)
+    }
+
+    fun deleteChatRoom(roomId: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            chatRepository.deleteChatRoom(roomId)
+                .onSuccess {
+                    // UI 갱신 로직 수행
+                    val currentList = _uiState.value.chatList.filterNot { it.id == roomId }
+                    _uiState.value = _uiState.value.copy(chatList = currentList)
+
+                    onResult("채팅방이 삭제되었습니다.") // 성공 메시지 전달
+                }
+                .onFailure { error ->
+                    onResult(error.message ?: "오류가 발생했습니다.") // 실패 메시지 전달
+                }
+        }
     }
 }

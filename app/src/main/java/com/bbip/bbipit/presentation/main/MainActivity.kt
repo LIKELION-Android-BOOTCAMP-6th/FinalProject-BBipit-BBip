@@ -1,7 +1,5 @@
 package com.bbip.bbipit.presentation.main
 
-import android.app.Activity
-import androidx.core.app.ActivityCompat
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -9,9 +7,11 @@ import androidx.core.content.ContextCompat
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -54,8 +54,14 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.Lifecycle
+import com.bbip.bbipit.core.base.BackgroundListenerService
 import com.bbip.bbipit.core.base.LifeCycleManager
 import com.bbip.bbipit.presentation.base.NetworkWarningBanner
+import com.google.android.gms.wearable.Wearable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 // 파이어베이스 App Check 관련 임포트 추가
 import com.google.firebase.appcheck.FirebaseAppCheck
@@ -77,6 +83,11 @@ class MainActivity : ComponentActivity() {
 
     private var pendingNotificationId by mutableStateOf<String?>(null)
 
+    private var pendingWatchHistoryId by mutableStateOf<String?>(null)
+
+    // 워치로 비동기 신호를 보내기 위한 액티비티 전역 스코프
+    private val activityScope = CoroutineScope(Dispatchers.IO)
+
     private val TAG = "MobileMainActivity"
 
     // 안드로이드 공식 권한 요청 런처 정의
@@ -90,11 +101,93 @@ class MainActivity : ComponentActivity() {
         }
 
         if (isBluetoothGranted) {
-            Log.d(TAG, "✅ 사용자가 블루투스 연결 권한을 승인했습니다.")
-            // 필요 시 여기에 워치로 다시 READY 신호를 강제 푸시하는 로직을 연동할 수 있습니다.
+            Log.d(TAG, "✅ 사용자가 블루투스 연결 권한을 승인했습니다. 워치로 READY 신호 송신을 시작합니다.")
+
+            //  권한 승인 즉시 연결된 WearOS 기기들을 찾아 복구 신호(READY) 전달
+            activityScope.launch {
+                try {
+                    val nodeClient = Wearable.getNodeClient(this@MainActivity)
+                    val messageClient = Wearable.getMessageClient(this@MainActivity)
+
+                    val nodes = nodeClient.connectedNodes.await()
+                    if (nodes.isEmpty()) {
+                        Log.w(TAG, "⚠️ 권한은 승인되었으나 현재 물리적으로 연결된 워치가 없습니다.")
+                        return@launch
+                    }
+
+                    for (node in nodes) {
+                        // 워치가 대기 중인 /phone_status_reply 경로로 "READY" 페이로드 전송
+                        messageClient.sendMessage(
+                            node.id,
+                            "/phone_status_reply",
+                            "READY".toByteArray(Charsets.UTF_8)
+                        ).await()
+                    }
+                    Log.d(TAG, "⌚ 테더링된 워치 기기(들)로 READY 복구 신호 주입 완료!")
+
+                    // 복구되었으므로 멈춰있던 데이터 동기화 서비스 작동 유발
+                    val intent = Intent(this@MainActivity, BackgroundListenerService::class.java).apply {
+                        action = BackgroundListenerService.ACTION_PUSH_LOCATION_TO_WATCH
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ 워치로 READY 신호 강제 푸시 중 장애 발생", e)
+                }
+            }
         } else {
             Log.w(TAG, "❌ 사용자가 블루투스 권한을 거부했습니다.")
         }
+    }
+
+    /**
+     * 꺼진 화면을 물리적으로 깨우고 잠금화면 위로 액티비티를 강제 주입하는 헬퍼 함수
+     */
+    private fun turnOnScreenAndShowWhenLocked() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            // 안드로이드 8.1 (API 27) 이상 정석 API 사용
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+
+            // 잠금화면이 단순 드래그 락이라면 액티비티 진입 시 자동으로 해제 요청
+            val keyguardManager = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+            keyguardManager.requestDismissKeyguard(this, null)
+        } else {
+            // 구버전 안드로이드 호환성 플래그 조율
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+        }
+        Log.d(TAG, "⌚ [WearOS 연동] 휴대폰 디스플레이 하드웨어 가공: 깨우기 및 락스크린 해제 요청 완료")
+    }
+
+    /**
+     * 워치 히스토리 라우팅 전용 데이터 검증 헬퍼 함수
+     */
+    private fun handleWatchHistoryIntent(intent: Intent?) {
+        intent?.let {
+            if (it.getStringExtra("notification_type") == "OPEN_HISTORY") {
+                val targetId = it.getStringExtra("target_history_id")
+                if (!targetId.isNullOrEmpty()) {
+                    pendingWatchHistoryId = targetId
+                    Log.d(TAG, "🎯 [인텐트 캡처] 워치 원격 호출 히스토리 확정: $pendingWatchHistoryId")
+                }
+            }
+        }
+    }
+
+    // 외부 MapScreen에서 액티비티에 접근하여 소모해 갈 수 있는 단발성 Getter & Clear 함수 마련
+    fun consumeWatchHistoryId(): String? {
+        val id = pendingWatchHistoryId
+        pendingWatchHistoryId = null // 소비 완료 후 캐시 비우기 (중복 팝업 방지 방어코드)
+        return id
     }
 
     /**
@@ -125,19 +218,42 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingNotificationIntent = intent
-        pendingNotificationId = intent.getStringExtra("notification_id")
+        // 앱이 백그라운드에 살아있다가 워치 신호로 다시 깨어날 때도 화면을 켭니다.
+        if (intent.getStringExtra("notification_type") == "OPEN_HISTORY") {
+            turnOnScreenAndShowWhenLocked()
+        }
+
+        // 워치 발자취 연동 인텐트인지 체크
+        val isWatchHistoryIntent = intent.getStringExtra("notification_type") == "OPEN_HISTORY"
+        if(isWatchHistoryIntent) {
+            pendingNotificationIntent = null
+            pendingNotificationId = null
+        }
+        else {
+            pendingNotificationIntent = intent
+            pendingNotificationId = intent.getStringExtra("notification_id")
+        }
+
 
         // 처음 앱이 켜질 때 서비스로부터 전달받은 인텐트가 있는지 검사
         checkIntentAndRequestPermissions(intent)
+
+        // 워치 연동 인텐트 분석 가동
+        handleWatchHistoryIntent(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 워치 연동 시 화면을 강제로 깨우기 위한 윈도우 매니저 플래그 설정
+        if (intent?.getStringExtra("notification_type") == "OPEN_HISTORY") {
+            turnOnScreenAndShowWhenLocked()
+        }
+
         enableEdgeToEdge()
 
         // 처음 앱이 켜질 때 서비스로부터 전달받은 인텐트가 있는지 검사
         checkIntentAndRequestPermissions(intent)
+        handleWatchHistoryIntent(intent) // 초기 기동 시점 인텐트 분석
 
         // App Check 디버그 환경 구성 설정
 //        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
@@ -147,9 +263,16 @@ class MainActivity : ComponentActivity() {
         // 앱 수명 주기 관찰자 등록
         ProcessLifecycleOwner.get().lifecycle.addObserver(lifeCycleManager)
 
-        // 알림 클릭으로 온 Intent인지 구분
-        pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
-        pendingNotificationId = intent.getStringExtra("notification_id")
+        // 워치 발자취 연동 인텐트인지 체크
+        val isWatchHistoryIntent = intent.getStringExtra("notification_type") == "OPEN_HISTORY"
+        if (isWatchHistoryIntent) {
+            pendingNotificationIntent = null
+            pendingNotificationId = null
+        } else {
+            // 알림 클릭으로 온 Intent인지 구분
+            pendingNotificationIntent = if (intent.hasExtra("notification_type")) intent else null
+            pendingNotificationId = intent.getStringExtra("notification_id")
+        }
         Log.d("MainActivity", "onCreate - type: ${intent.getStringExtra("notification_type")}, id: ${intent.getStringExtra("notification_id")}")
 
         setContent {
