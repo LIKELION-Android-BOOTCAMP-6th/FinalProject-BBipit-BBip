@@ -39,6 +39,7 @@ import com.bbip.bbipit.core.ui.theme.primary
 import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.HistoryComment
 import com.bbip.bbipit.presentation.map.ui.HistoryViewerScreen
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,11 +48,13 @@ fun MyHistoryGridViewerDialog(
     histories: List<History>,
     comments: List<HistoryComment>,
     onHistoryChanged: (String) -> Unit,
+    viewModel: HistoryViewModel,
     onLikeToggle: (History) -> Unit,
     onCommentSubmit: (String, String) -> Unit,
     onDeleteClick: (String) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onHistoryUpdate: (String, String) -> Unit,
 ) {
     var selectedCategory by remember { mutableStateOf("전체") }
     val categories = listOf("전체", "🎙️ 무전", "☕ 카페", "🍽️ 맛집", "🏃 운동", "📸 사진", "🌟 일상")
@@ -242,6 +245,7 @@ fun MyHistoryGridViewerDialog(
                 histories = myHistories,
                 initialHistoryId = targetHistoryId,
                 comments = comments,
+                viewModel = viewModel,
                 onHistoryChanged = onHistoryChanged,
                 onDismiss = {
                     isViewerOpen = false
@@ -253,7 +257,8 @@ fun MyHistoryGridViewerDialog(
                     onDeleteClick(id)
                     isViewerOpen = false
                     targetHistoryId = ""
-                }
+                },
+                onHistoryUpdate = onHistoryUpdate
             )
         }
     }

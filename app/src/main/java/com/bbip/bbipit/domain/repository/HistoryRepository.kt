@@ -30,4 +30,5 @@ interface HistoryRepository {
     fun startSharedHistoryObservation(myUid: String)
     // 히스토리 좋아요 토글 (추가/취소)
     suspend fun toggleHistoryLike(historyId: String): Result<Unit>
+    suspend fun updateHistory(historyId: String, content: String): Result<Unit>
 }

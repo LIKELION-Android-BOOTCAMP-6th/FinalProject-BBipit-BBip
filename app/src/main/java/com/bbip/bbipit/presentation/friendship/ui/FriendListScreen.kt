@@ -255,6 +255,7 @@ fun FriendListScreen(
                     initialHistoryId = targetHistoryId,
                     comments = historyUiState.currentComments,
                     isFromFriendList = true,
+                    viewModel = historyViewModel,
                     onHistoryChanged = { currentId ->
                         historyViewModel.observeComments(currentId) // 히스토리 변경 시 댓글 데이터 갱신
                     },
@@ -269,7 +270,10 @@ fun FriendListScreen(
                     onCommentSubmit = { historyId, commentText ->
                         historyViewModel.addHistoryComment(historyId, commentText)
                     },
-                    onDeleteClick = { _ -> }
+                    onDeleteClick = { _ -> },
+                    onHistoryUpdate = { historyId, commentText ->
+                        historyViewModel.updateHistory(historyId, commentText)
+                    }
                 )
             }
         }

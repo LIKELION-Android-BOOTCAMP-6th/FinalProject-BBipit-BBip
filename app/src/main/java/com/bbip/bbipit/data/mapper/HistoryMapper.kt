@@ -22,6 +22,7 @@ fun Map<*, *>.toDomainHistory(): History? {
             category = this["category"] as? String ?: "",
             placeName = this["placeName"] as? String ?: "",
             content = this["content"] as? String ?: "",
+            isEdited = this["isEdited"] as? Boolean ?: false,
             latitude = (this["latitude"] as? Number)?.toDouble() ?: 0.0,
             longitude = (this["longitude"] as? Number)?.toDouble() ?: 0.0,
             createdAt = (this["createdAt"] as? Timestamp)?.toDate()?.time ?: 0L,

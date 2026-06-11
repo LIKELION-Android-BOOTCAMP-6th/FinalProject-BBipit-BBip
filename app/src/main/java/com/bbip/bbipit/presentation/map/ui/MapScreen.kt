@@ -332,6 +332,7 @@ fun MapScreen(
                             histories = historyUiState.histories,
                             initialHistoryId = targetHistoryId,
                             comments = historyUiState.currentComments,
+                            viewModel = historyViewModel,
                             onHistoryChanged = { currentId ->
                                 // 히스토리 변경에 따른 댓글 데이터 리스너 재설정
                                 historyViewModel.observeComments(currentId)
@@ -356,6 +357,9 @@ fun MapScreen(
                                 targetHistoryId = ""
                                 historyViewModel.closeCommentsObservation()
                                 Toast.makeText(context, "발자취를 삭제했습니다.", Toast.LENGTH_SHORT).show()
+                            },
+                            onHistoryUpdate = { historyId, commentText ->
+                                historyViewModel.updateHistory(historyId, commentText)
                             }
                         )
                     }

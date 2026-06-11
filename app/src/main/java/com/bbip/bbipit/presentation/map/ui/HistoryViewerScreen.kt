@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -34,10 +35,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -56,6 +60,14 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.HistoryComment
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryUiState
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
 
 // 단일 이미지 단위 타임라인 조각 모델
 data class StoryItem(
@@ -73,18 +85,19 @@ fun HistoryViewerScreen(
     initialHistoryId: String, // 초기 진입 히스토리 식별자
     comments: List<HistoryComment>,
     isFromFriendList: Boolean = false,
+    viewModel: HistoryViewModel,
     onHistoryChanged: (String) -> Unit, // 히스토리 변경 콜백 (댓글 리스너 갱신용)
     onDismiss: () -> Unit,
     onLikeToggle: (History) -> Unit,
     onCommentSubmit: (String, String) -> Unit,
-    onDeleteClick: (String) -> Unit
+    onDeleteClick: (String) -> Unit,
+    onHistoryUpdate: (String, String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
     val listState = rememberLazyListState()
-    var showMenu by remember { mutableStateOf(false) }
 
     val filteredHistories = remember(histories, initialHistoryId, isFromFriendList) {
         val initialHistory = histories.find { it.id == initialHistoryId } ?: return@remember emptyList()
@@ -133,6 +146,19 @@ fun HistoryViewerScreen(
     var progressTicks by remember { mutableStateOf(0) }
     val isKeyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            // 토스트 메시지 표시
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
+            // 토스트를 띄운 후 ViewModel의 에러 메시지 상태를 초기화
+            viewModel.clearErrorMessage()
+        }
+    }
+
     LaunchedEffect(currentHistory.createdAt) {
         while (true) {
             val now = System.currentTimeMillis()
@@ -144,8 +170,7 @@ fun HistoryViewerScreen(
                 break
             }
 
-            // 1분 단위로 갱신해도 충분하지만,
-            // 1시간 미만일 때 분 단위를 실시간으로 보여주려면 30초~1분 정도 딜레이가 적당합니다.
+            // 1시간 미만일 때 분 단위를 실시간으로 보여주려면 30초~1분 정도 딜레이가 적당
             delay(60000)
         }
     }
@@ -456,6 +481,12 @@ fun HistoryViewerScreen(
                 colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth().border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(32.dp))
             ) {
+                // 개별 카드의 수정 상태 모니터링을 위한 내부 상태 변수 선언
+                var isEditingMode by remember { mutableStateOf(false) }
+                var editedContent by remember(currentHistory.content) { mutableStateOf(currentHistory.content) }
+                val contentFocusRequester = remember { FocusRequester() }
+                val contentFocusManager = LocalFocusManager.current
+
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -511,23 +542,52 @@ fun HistoryViewerScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
 
-                            // 본인 작성 히스토리일 때만 수정 버튼 노출
+                            // 본인 작성 히스토리일 때만 제어 버튼 노출
                             if (currentHistory.userId == myUid) {
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
-                                        .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isEditingMode) Color(0xFF10B981).copy(alpha = 0.2f) else Color.White.copy(
+                                                alpha = 0.1f
+                                            ),
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isEditingMode) Color(0xFF10B981) else Color.White.copy(
+                                                alpha = 0.1f
+                                            ),
+                                            RoundedCornerShape(12.dp)
+                                        )
                                         .clickable {
-                                            isPaused = true // 수정 시 타이머 일시정지
-                                            // TODO: 상위 컴포넌트로 수정 이벤트 전달할 콜백 연동
+                                            if (isEditingMode) {
+                                                // 1. 완료 상태 진입 시: 포커스 해제, 타이머 재개, 뷰모델 통신 호출
+                                                contentFocusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                isEditingMode = false
+                                                isPaused = false
+
+                                                // 공백이 아닐 때만 뷰모델 수정 함수 트리거
+                                                if (editedContent.trim().isNotEmpty()) {
+                                                    onHistoryUpdate(
+                                                        currentHistory.id,
+                                                        editedContent
+                                                    )
+                                                }
+                                            } else {
+                                                // 2. 수정 모드 진입 시: 타이머 일시정지 및 포커스 요청
+                                                isPaused = true
+                                                isEditingMode = true
+                                                contentFocusRequester.requestFocus()
+                                            }
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "발자취 수정",
-                                        tint = Color.White,
+                                        imageVector = if (isEditingMode) Icons.Default.Check else Icons.Default.Edit, // 수정 중일 땐 체크 아이콘으로 변경 (Icons.Default.Check 추가 필요)
+                                        contentDescription = if (isEditingMode) "수정 완료" else "발자취 수정",
+                                        tint = if (isEditingMode) Color(0xFF10B981) else Color.White,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -569,13 +629,50 @@ fun HistoryViewerScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Text(
-                        text = currentHistory.content,
-                        color = Color.White.copy(alpha = 0.95f),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 20.sp
-                    )
+                    if (isEditingMode) {
+                        BasicTextField(
+                            value = editedContent,
+                            onValueChange = { editedContent = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(contentFocusRequester),
+                            textStyle = TextStyle(
+                                color = Color.White.copy(alpha = 0.95f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 20.sp
+                            ),
+                            cursorBrush = SolidColor(Color.White)
+                        )
+                    } else {
+                        val annotatedBodyText = buildAnnotatedString {
+                            withStyle(style = SpanStyle(
+                                color = Color.White.copy(alpha = 0.95f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            ) {
+                                append(currentHistory.content)
+                            }
+
+                            //  만약 수정된 문서라면 본문 뒤에 한 칸 띄우고 작고 흐린 회색 텍스트 추가
+                            if (currentHistory.isEdited) {
+                                withStyle(style = SpanStyle(
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Normal
+                                )) {
+                                    append(" (수정됨)")
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = annotatedBodyText,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 
