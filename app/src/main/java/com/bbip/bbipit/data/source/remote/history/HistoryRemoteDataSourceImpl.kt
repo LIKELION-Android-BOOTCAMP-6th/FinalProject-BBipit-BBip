@@ -149,7 +149,7 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
     }
 
     // 히스토리 사진 저장
-    override suspend fun uploadHistoryImages(uid: String, images: List<ByteArray>): List<String> {
+    override suspend fun uploadHistoryImages(uid: String, historyId: String, images: List<ByteArray>): List<String> {
         if (images.isEmpty()) return emptyList()
 
         val downloadUrls = mutableListOf<String>()
@@ -177,7 +177,7 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
             originalBitmap.recycle()
 
             val fileName = "${batchGroupId}_$index.jpg"
-            val storageRef = storage.reference.child("history/$uid/$fileName")
+            val storageRef = storage.reference.child("history/$uid/$historyId/$fileName")
 
             // 업로드 작업 수행 후 await()로 대기
             storageRef.putBytes(compressedByteArray).await()

@@ -10,6 +10,7 @@ import com.bbip.bbipit.domain.entity.HistoryComment
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.HistoryRepository
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +31,8 @@ import javax.inject.Singleton
 class HistoryRepositoryImpl @Inject constructor(
     private val remoteDataSource: HistoryRemoteDataSource,
     private val authDataSource: AuthRemoteDataSource,
-    private val friendRepository: FriendRepository
+    private val friendRepository: FriendRepository,
+    private val firestore: FirebaseFirestore,
 ) : HistoryRepository {
 
     // 최신 데이터 1개 캐시 및 다중 구독 가능한 전역 공유용 Hot Flow
@@ -175,14 +177,18 @@ class HistoryRepositoryImpl @Inject constructor(
             val currentUid = authDataSource.getCurrentUserUid()
                 ?: return Result.Failure(AppError.Unknown("인증된 사용자 정보가 없습니다."))
 
+            // 서버에 저장하기 전, 고유한 히스토리 ID를 로컬에 즉시 발급
+            val preGeneratedHistoryId = firestore.collection("History").document().id
+
             // 이미지 업로드 및 파일 URL 리스트 획득
             val uploadedUrls = if (images.isNotEmpty()) {
-                remoteDataSource.uploadHistoryImages(uid = currentUid, images = images)
+                remoteDataSource.uploadHistoryImages(uid = currentUid, historyId = preGeneratedHistoryId, images = images)
             } else {
                 emptyList()
             }
 
             val requestDto = HistoryDto(
+                historyId = preGeneratedHistoryId,
                 category = category,
                 placeName = placeName,
                 content = content,
