@@ -541,6 +541,7 @@ fun MapScreen(
                             FriendListDrawer(
                                 friends = uiState.friendsStatuses,
                                 selectedFriendUid = clickedFriendUid,
+                                isLocationSharing = uiState.isLocationSharing,
                                 onCloseClick = { isDrawerOpen = false },
                                 onFriendClick = { friend ->
                                     scope.launch {

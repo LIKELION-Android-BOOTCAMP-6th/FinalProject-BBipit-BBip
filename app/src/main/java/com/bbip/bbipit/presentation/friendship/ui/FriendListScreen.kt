@@ -225,7 +225,7 @@ fun FriendListScreen(
                                 Log.d("FriendList", "onClick")
                             } else {
                                 showToastMessage =
-                                    "'${friend.nickname}'님이 최근 12시간 내에 남긴 발자취가 없습니다. 👣"
+                                    "'${friend.nickname}'님이 최근 24시간 내에 남긴 발자취가 없습니다. 👣"
                             }
                         }
                     )
