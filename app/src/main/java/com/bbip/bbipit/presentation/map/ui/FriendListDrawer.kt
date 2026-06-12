@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,17 +35,17 @@ import com.bbip.bbipit.domain.entity.LiveStatus
 fun FriendListDrawer(
     friends: List<LiveStatus>,
     selectedFriendUid: String?,
+    isLocationSharing: Boolean,
     onFriendClick: (LiveStatus) -> Unit,
     onCloseClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     ModalDrawerSheet(
         modifier = modifier.width(280.dp),
         drawerContainerColor = Color.White,
         drawerContentColor = Color.Gray
     ) {
-        // HEADER 영역
+        // [HEADER 영역]
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -92,27 +93,68 @@ fun FriendListDrawer(
         )
 
         // 친구 목록 영역
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .background(Color.LightGray.copy(alpha = 0.1f))
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .background(Color.LightGray.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
         ) {
-            items(
-                items = friends,
-                key = { friend -> friend.uid }
-            ) { friend ->
-                val isSelected = friend.uid == selectedFriendUid && friend.isSharing
-
-                FriendDrawerItem(
-                    friend = friend,
-                    isSelected = isSelected,
-                    mainColor = primary,
-                    onClick = { onFriendClick(friend) }
+            if (!isLocationSharing) {
+                // Case 1: 본인이 위치 공유를 꺼둔 경우
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                ) {
+                    Text(
+                        text = "위치 공유가 꺼져 있습니다",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.DarkGray,
+                        style = Typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "나의 실시간 위치 공유를 켜야\n친구들의 위치를 확인할 수 있습니다.",
+                        fontSize = 11.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+                }
+            } else if (friends.isEmpty()) {
+                // Case 2: 위치 공유는 켰으나 표시할 친구가 없는 경우
+                Text(
+                    text = "위치를 공유 중인 친구가 없습니다.",
+                    fontSize = 13.sp,
+                    color = Color.Gray,
+                    style = Typography.bodyMedium,
+                    textAlign = TextAlign.Center
                 )
+            } else {
+                //  Case 3: 정상적으로 친구 리스트 레이아웃 표시
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        items = friends,
+                        key = { friend -> friend.uid }
+                    ) { friend ->
+                        val isSelected = friend.uid == selectedFriendUid && friend.isSharing
+
+                        FriendDrawerItem(
+                            friend = friend,
+                            isSelected = isSelected,
+                            mainColor = primary,
+                            onClick = { onFriendClick(friend) }
+                        )
+                    }
+                }
             }
         }
     }
