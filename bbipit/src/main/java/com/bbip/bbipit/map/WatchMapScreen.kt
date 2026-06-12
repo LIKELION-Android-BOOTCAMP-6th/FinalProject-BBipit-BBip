@@ -314,6 +314,19 @@ fun WatchMapScreen(
         Button(
             onClick = {
                 viewModel.refreshCurrentLocationAndSync(context)
+
+                // 위치 데이터가 변하지 않아도 버튼 클릭 시 내 위치로 카메라 강제 이동
+                myLocation?.let { my ->
+                    coroutineScope.launch {
+                        cameraPositionState.animate(
+                            update = CameraUpdateFactory.newLatLngZoom(
+                                LatLng(my.latitude, my.longitude),
+                                15.5f
+                            ),
+                            durationMs = 500
+                        )
+                    }
+                }
             },
             modifier = Modifier
                 .align(Alignment.CenterEnd) // 우측 중앙 정렬
