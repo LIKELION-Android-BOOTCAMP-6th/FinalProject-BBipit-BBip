@@ -9,4 +9,13 @@ data class WatchHistory (
     val category: String, // 카테고리
     val latitude: Double, // 위도
     val longitude: Double, // 경도
-)
+    val createdAt: Long, // 생성 시간
+) {
+    val expiryTime: Long
+        get() = createdAt + (24 * 60 * 60 * 1000)
+
+    // 만료 여부 반환
+    fun isExpired(now: Long): Boolean {
+        return now >= expiryTime
+    }
+}

@@ -31,10 +31,14 @@ class LiveStatusRemoteDataSourceImpl @Inject constructor(
     /**
      * Live 컬렉션에 내 실시간 위치를 업데이트하는 함수
      */
-    override fun updateMyLiveStatus(uid: String, dto: LiveStatusDto) {
+    override fun updateMyLiveLocation(uid: String, latitude: Double, longitude: Double) {
+        val data = mapOf(
+            "latitude" to latitude,
+            "longitude" to longitude
+        )
         firestore.collection("Live")
             .document(uid)
-            .update(dto.toMapLifeCycle())
+            .update(data)
     }
 
     /**

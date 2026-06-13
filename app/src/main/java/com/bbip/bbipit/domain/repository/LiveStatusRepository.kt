@@ -19,7 +19,7 @@ interface LiveStatusRepository {
     /**
      * 친구 목록 기반 실시간 위치 구독 함수
      */
-    fun observeFriendsLiveStatus(myUid: String)
+    fun observeFriendsLiveStatus()
 
     /**
      * 특정 유저의 라이브 상태 변화를 구독(관찰)하는 Flow 생성 함수
@@ -29,7 +29,7 @@ interface LiveStatusRepository {
     /**
      * 내 위치 및 상태 정보를 원격 서버에 업데이트하는 함수
      */
-    suspend fun updateMyLiveStatus(liveStatus: LiveStatus): Result<Unit>
+    suspend fun updateMyLiveLocation(latitude: Double, longitude: Double): Result<Unit>
 
     /**
      * 특정 유저의 상태 정보를 1회성으로 조회하는 함수
@@ -47,5 +47,6 @@ interface LiveStatusRepository {
     suspend fun updateLifeCycle(currentRoomId: String?): Result<Unit>
     suspend fun updateLocationSharingState(isSharing: Boolean): Result<Unit>
     fun observeLocationSharingState(): Flow<Boolean>
-    suspend fun refreshMyLiveStatusCache(): Result<String>
+//    suspend fun refreshMyLiveStatusCache(): Result<String>
+    fun startObserveMyLiveStatus()
 }
