@@ -20,3 +20,4 @@ app/src/main/assets/adi-registration.properties
 *.jks
 *.keystore
 app/release/
+bbipit/release/

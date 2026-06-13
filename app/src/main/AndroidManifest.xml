@@ -101,13 +101,13 @@
             android:value="NO_BRIDGING" />
 
         <!-- 테스트 알림 브로드캐스트 리시버 -->
-        <receiver
-            android:name=".presentation.notification.TestNotificationReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.bbip.bbipit.TEST_NOTIFICATION" />
-            </intent-filter>
-        </receiver>
+<!--        <receiver-->
+<!--            android:name=".presentation.notification.TestNotificationReceiver"-->
+<!--            android:exported="true">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="com.bbip.bbipit.TEST_NOTIFICATION" />-->
+<!--            </intent-filter>-->
+<!--        </receiver>-->
     </application>
 
 </manifest>

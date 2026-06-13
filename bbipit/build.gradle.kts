@@ -15,12 +15,20 @@ android {
     compileSdk {
         version = release(36)
     }
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/bbip_keystore.jks")
+            storePassword = properties.getProperty("password") ?: ""
+            keyAlias = "release"
+            keyPassword = properties.getProperty("password") ?: ""
+        }
+    }
 
     defaultConfig {
         applicationId = "com.bbip.bbipit"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
+        versionCode = 361010103 // targetSdk(36) app version(1.0.1) wear version (01) 워치 전용 (03)
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
