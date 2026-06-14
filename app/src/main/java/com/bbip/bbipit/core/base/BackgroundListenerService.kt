@@ -238,6 +238,7 @@ class BackgroundListenerService : Service() {
                 val isUserLoggedIn = authRepository.getCurrentUserUid() != null
                 if (!isUserLoggedIn) {
                     lifeCycleManager.stopSession()
+                    return@combine
                 } else if (isMobileForeground || isWatchForeground) {
                     lifeCycleManager.startSession()
                 } else {
@@ -822,7 +823,6 @@ class BackgroundListenerService : Service() {
             ) { myStatus, friendsList ->
                 listOfNotNull(myStatus) + friendsList
             }.collect { totalLocations ->
-                Log.d("TotalLocations", totalLocations.toString())
                 pushLocationsToWatch(totalLocations)
             }
         }
@@ -1099,12 +1099,12 @@ class BackgroundListenerService : Service() {
                     if (!notification.isRead &&
                         !notifiedIds.contains(notification.id)
                     ) {
-                        Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
+                        // Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
                         notifiedIds.add(notification.id)
-                        Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})")
+                        // Log.d(TAG, "🔔 신규 알림 감지 및 중복 차단 등록: ${notification.id} (타입: ${notification.type})")
 
                         if (!notification.isInitial) {
-                            Log.d(TAG, "isInitial false - type: ${notification.type}, watchForeground: ${watchConnectionManager.isWatchInForeground.value}, phoneForeground: ${lifeCycleManager.isAppInForeground.value}")
+                            // Log.d(TAG, "isInitial false - type: ${notification.type}, watchForeground: ${watchConnectionManager.isWatchInForeground.value}, phoneForeground: ${lifeCycleManager.isAppInForeground.value}")
                             if (notification.type == "WALKIE") {
                                 when {
                                     lifeCycleManager.isAppInForeground.value -> {
