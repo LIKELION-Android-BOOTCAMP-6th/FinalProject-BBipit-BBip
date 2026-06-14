@@ -401,7 +401,17 @@ fun WatchMapScreen(
         )
 
         val currentClickedFriend = remember(uiState.selectedFriendUid, uiState.liveStatusList) {
-            uiState.liveStatusList.find { it.uid == uiState.selectedFriendUid }
+            uiState.liveStatusList.find { it.uid == uiState.selectedFriendUid && it.isSharing }
+        }
+
+        // 친구가 리스트에서 사라지면(위치 공유 중단 등) 자동으로 선택 해제
+        LaunchedEffect(currentClickedFriend, uiState.selectedFriendUid) {
+            if (uiState.selectedFriendUid != null && currentClickedFriend == null) {
+                viewModel.selectFriend(null)
+                voiceViewModel.setTargetUid(null)
+                Log.d("TAG1", "TAG1")
+            }
+            Log.d("TAG2", "TAG2")
         }
 
         // 친구 프로필 상세 다이얼로그 노출 및 무전 버튼 연결
