@@ -199,7 +199,7 @@ class WatchMainViewModel(application: Application) :
                     val type = object : TypeToken<List<WatchLiveStatus>>() {}.type
                     val decryptedList: List<WatchLiveStatus> = Gson().fromJson(jsonStr, type)
 
-                    // 💡 핵심: 수신한 데이터를 전역 싱글톤 저장소에 업데이트합니다.
+                    // 수신한 데이터를 전역 싱글톤 저장소에 업데이트합니다.
                     WatchDataRepository.updateLocationList(decryptedList)
                     Log.d(TAG, "🎯 [전역 저장소 저장 완료] 친구 위치 인원: ${decryptedList.size}명")
                 } catch (e: Exception) {

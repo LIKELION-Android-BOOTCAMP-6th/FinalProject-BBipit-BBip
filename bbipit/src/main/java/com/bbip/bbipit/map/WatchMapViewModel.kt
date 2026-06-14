@@ -84,11 +84,16 @@ class WatchMapViewModel:
     fun refreshCurrentLocationAndSync(context: Context) {
         val messageClient = Wearable.getMessageClient(context)
         val nodeClient = Wearable.getNodeClient(context)
+
+        // UI 상태를 로딩 중으로 변경하여 프로그레스바 등 시각적 피드백 제공
+        updateState { copy(isLoading = true) }
+
         viewModelScope.launch {
             try {
                 val nodes = nodeClient.connectedNodes.await()
                 if (nodes.isEmpty()) {
                     Log.e(TAG, "❌ 연결된 휴대폰 디바이스가 없습니다.")
+                    updateState { copy(isLoading = false) }
                     return@launch
                 }
 
@@ -98,6 +103,8 @@ class WatchMapViewModel:
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 실시간 위치 전달 프로세스 중 에러 발생", e)
+            } finally {
+                updateState { copy(isLoading = false) }
             }
         }
     }

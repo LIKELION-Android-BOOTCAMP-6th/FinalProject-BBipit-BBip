@@ -6,8 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaCodec
@@ -83,6 +81,8 @@ class BackgroundListenerService : Service() {
 
     // 백그라운드 작업 관리용 코루틴 식별자
     private val serviceJob = SupervisorJob()
+
+    private var startFriendsLocationObservationJob: Job? = null
 
     // 백그라운드 연산 처리용 비동기 스코프
     private val scope = CoroutineScope(Dispatchers.IO + serviceJob)
@@ -180,6 +180,8 @@ class BackgroundListenerService : Service() {
 
 
         const val ACTION_PLAY_WALKIE_ON_WATCH = "ACTION_PLAY_WALKIE_ON_WATCH"
+
+        const val ACTION_REQUEST_SINGLE_LOCATION_UPDATE = "ACTION_REQUEST_SINGLE_LOCATION_UPDATE"
     }
 
     /**
@@ -202,6 +204,7 @@ class BackgroundListenerService : Service() {
         super.onCreate()
         Log.d(TAG, "BackgroundListenerService onCreate 호출됨")
         Log.d("로컬 세션 id", "${authRepository.getLocalSessionId()}")
+
         scope.launch {
             // 유저 로그인 상태를 실시간 관찰
             authRepository.getAuthStateFlow().collect { uid ->
@@ -211,6 +214,9 @@ class BackgroundListenerService : Service() {
                 }
             }
         }
+
+        // 워치 포그라운드/백그라운드 상태 전달받음
+        requestWatchStatus()
 
         watchConnectionManager = WatchConnectionManager(this).apply { startMonitoring() }
 
@@ -242,10 +248,10 @@ class BackgroundListenerService : Service() {
 
         // 사용자 데이터 및 위치 관찰 가동
         authRepository.getCurrentUserUid()?.let { myUid ->
+            liveStatusRepository.startObserveMyLiveStatus()
             friendRepository.startObservingFriends(myUid)
-            startFriendsLocationObservation(myUid)
+            startFriendsLocationObservation()
             initLocationTracker()
-            requestWatchStatus()
 
             // 실시간 친구 목록 수락 상태가 변동될 때마다 히스토리의 상주 쿼리 타겟을 동적 재배정
             historyRepository.startSharedHistoryObservation(myUid = myUid)
@@ -349,9 +355,22 @@ class BackgroundListenerService : Service() {
             when (action) {
                 // 친구 위치 정보를 워치로 전송
                 ACTION_PUSH_LOCATION_TO_WATCH -> {
+                    Log.d(TAG, "🔄 워치의 요청으로 실시간 GPS 강제 새로고침 파이프라인 가동")
+                    requestSingleLocationUpdate()
                     scope.launch {
-                        Log.d(TAG, "🔄 워치의 요청으로 실시간 GPS 강제 새로고침 파이프라인 가동")
-                        fetchFreshLocationAndPushToWatch()
+                        try {
+
+                            val myStatus = liveStatusRepository.myLiveStatusFlow.first()
+                            val friendsList = liveStatusRepository.friendsLiveStatusFlow.first()
+                            if(myStatus == null) return@launch
+                            val totalLocations =
+                                if (myStatus.isSharing) listOfNotNull(myStatus) + friendsList
+                            else listOfNotNull(myStatus)
+
+                            pushLocationsToWatch(totalLocations)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ 워치 요청 응답 처리 중 에러 발생: ${e.message}")
+                        }
                     }
                 }
                 ACTION_SYNC_INITIAL_HISTORIES -> {
@@ -363,6 +382,9 @@ class BackgroundListenerService : Service() {
                     if (!messageId.isNullOrEmpty()) {
                         updateVoiceMessageAsRead(messageId)
                     }
+                }
+                ACTION_REQUEST_SINGLE_LOCATION_UPDATE -> {
+                    requestSingleLocationUpdate()
                 }
             }
         }
@@ -404,16 +426,16 @@ class BackgroundListenerService : Service() {
     }
 
     /**
-     * 내 Live 데이터를 실시간 상시 리스닝하여 중복 로그인을 포착하는 함수
+     * 내 Live 데이터를 실시간 상시 리스닝하여 중복 로그인을 포착하는 함수 -> LiveStatusRepositoryImpl이관
      */
-    private fun startMyLiveStatusObservation(myUid: String) {
-        myLiveObservationJob?.cancel() // 중복 실행 방지용 초기화
-
-        myLiveObservationJob = scope.launch {
-            liveStatusRepository.observeUserLiveStatus(myUid).collect { result ->
-                when (result) {
-                    is Result.Success -> {
-
+//    private fun startMyLiveStatusObservation(myUid: String) {
+//        myLiveObservationJob?.cancel() // 중복 실행 방지용 초기화
+//
+//        myLiveObservationJob = scope.launch {
+//            liveStatusRepository.observeUserLiveStatus(myUid).collect { result ->
+//                when (result) {
+//                    is Result.Success -> {
+//
 //                        result.data.sessionId?.let {
 //                            val localSessionId = authRepository.getLocalSessionId()
 //                            Log.d("세션 아이디", "로컬 : $localSessionId, 서버 : $it")
@@ -428,16 +450,16 @@ class BackgroundListenerService : Service() {
 //                                Log.d("종료 ", "로컬 세션 아이디 : ${authRepository.getLocalSessionId()}")
 //                            }
 //                        }
-
-
-                    }
-                    is Result.Failure -> {
-                        Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")
-                    }
-                }
-            }
-        }
-    }
+//
+//
+//                    }
+//                    is Result.Failure -> {
+//                        Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     /**
      * 중복 로그인 차단 시 워치 앱도 동시에 튕겨내도록 메세지 송신
@@ -471,48 +493,32 @@ class BackgroundListenerService : Service() {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun fetchFreshLocationAndPushToWatch() {
-        scope.launch { // 서비스 내부 CoroutineScope 활용
-            try {
-                val locationRequest = CurrentLocationRequest.Builder()
-                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY) // GPS 위성 강제 가동
-                    .build()
-
-                // 1. 단발성으로 현재 장소의 가장 정확한 좌표를 즉시 측정
-                fusedLocationClient.getCurrentLocation(locationRequest, null)
-                    .addOnSuccessListener { location ->
-                        if (location != null) {
-                            scope.launch {
-                                // 서버 및 로컬 Repository에 최신 좌표 업데이트 반영
-                                val currentCache = liveStatusRepository.getCachedMyLiveStatus()
-                                val freshMyStatus = currentCache?.copy(
-                                        latitude = location.latitude,
-                                        longitude = location.longitude,
-                                        isOnline = true,
-                                    )
-
-                                if (freshMyStatus != null) {
-                                    // 파이어베이스 Live 컬렉션 및 원격 동기화 진행
-                                    liveStatusRepository.updateMyLiveStatus(freshMyStatus)
-
-                                    // 갱신이 완료된 최신 데이터를 워치로 전송
-                                    pushLocationsToWatch(listOfNotNull(freshMyStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
-                                    Log.d(TAG, "⚡ 워치 요청에 따른 진짜 실시간 GPS 좌표 동기화 및 송신 완료!")
-                                }
-                            }
-                        } else {
-                            Log.w(TAG, "⚠️ GPS 측정 결과가 null입니다. 캐시된 마지막 위치로 대체 송신합니다.")
-                            // 실패 시 방어 코드로 기존 푸시 로직 가동
-                            val cacheMyStatus = liveStatusRepository.getCachedMyLiveStatus()
-                            pushLocationsToWatch(listOfNotNull(cacheMyStatus) + liveStatusRepository.friendsLiveStatusFlow.value)
-                        }
-                    }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 백그라운드 강제 GPS 갱신 중 실패: ${e.message}")
-            }
-        }
-    }
+//    @SuppressLint("MissingPermission")
+//    private fun startObserveLocation() {
+//        scope.launch {
+//            try {
+//                val locationRequest = CurrentLocationRequest.Builder()
+//                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY) // GPS 위성 강제 가동
+//                    .build()
+//
+//                // 1. 단발성으로 현재 장소의 가장 정확한 좌표를 즉시 측정
+//                fusedLocationClient.getCurrentLocation(locationRequest, null)
+//                    .addOnSuccessListener { location ->
+//                        if (location != null) {
+//                            scope.launch {
+//                                // 서버에 최신 좌표 업데이트 반영
+//                                liveStatusRepository.updateMyLiveLocation(location.latitude, location.longitude)
+//                                Log.d(TAG, "⚡ GPS 좌표 측정을 완료하여 Repository 엔진에 업데이트했습니다.")
+//                            }
+//                        } else {
+//                            Log.w(TAG, "⚠️ GPS 측정 결과가 null입니다. 캐시된 마지막 위치로 대체 송신합니다.")
+//                        }
+//                    }
+//            } catch (e: Exception) {
+//                Log.e(TAG, "❌ 백그라운드 강제 GPS 갱신 중 실패: ${e.message}")
+//            }
+//        }
+//    }
 
     /**
      * 음성 메시지 상태 읽음 업데이트 함수
@@ -803,16 +809,20 @@ class BackgroundListenerService : Service() {
     /**
      * 내 위치 및 친구 라이브 상태 결합 스트림 관찰 함수
      */
-    private fun startFriendsLocationObservation(myUid: String) {
-        scope.launch {
+    private fun startFriendsLocationObservation() {
+        if(startFriendsLocationObservationJob?.isActive == true) return
+
+        startFriendsLocationObservationJob = scope.launch {
+            Log.d(TAG, "📡 워치 전용 라이브 데이터 실시간 관측을 시작합니다.")
             // 위치 변경 데이터를 통합 수집하여 워치 전송으로 연계
-            liveStatusRepository.observeFriendsLiveStatus(myUid)
+            liveStatusRepository.observeFriendsLiveStatus()
             combine(
                 liveStatusRepository.myLiveStatusFlow,
                 liveStatusRepository.friendsLiveStatusFlow
             ) { myStatus, friendsList ->
                 listOfNotNull(myStatus) + friendsList
             }.collect { totalLocations ->
+                Log.d("TotalLocations", totalLocations.toString())
                 pushLocationsToWatch(totalLocations)
             }
         }
@@ -825,14 +835,27 @@ class BackgroundListenerService : Service() {
         if (!watchConnectionManager.isPhysicalConnected.value) return
         scope.launch {
             runCatching {
+                val myUid = authRepository.getCurrentUserUid()
+
+                // 방어코드: 리스트에 내가 존재하는지 검사
+                val hasMyStatus = locations.any { it.uid == myUid }
+                if (!hasMyStatus) {
+                    Log.w(TAG, "⚠️ 내 위치 데이터가 아직 잡히지 않아 워치 전송을 보류합니다.")
+                    return@runCatching // 내 위치가 없으면 워치로 보내지 않고 정지
+                }
+
+                // 내 UID를 가진 객체가 무조건 '0번째 인덱스'로 오도록 강제 정렬
+                val sortedLocations = locations.sortedByDescending { it.uid == myUid }
+
                 // 데이터를 직렬화하여 연결된 워치 기기들에 송신
-                val jsonPayload = Gson().toJson(locations)
+                val jsonPayload = Gson().toJson(sortedLocations)
                 val byteArray = jsonPayload.toByteArray(Charsets.UTF_8)
                 val nodes = nodeClient.connectedNodes.await()
                 for (node in nodes) {
                     messageClient.sendMessage(node.id, PATH_RESPONSE_FRIENDS_LOCATION, byteArray)
                         .await()
                 }
+                Log.d(TAG, "🎯 [정렬 완료] 내 위치(0번 인덱스) 보장하여 워치 푸시 완료")
             }.onFailure { e -> Log.e(TAG, "❌ 워치 위치 푸시 에러", e) }
         }
     }
@@ -850,49 +873,85 @@ class BackgroundListenerService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 scope.launch {
-                    val myUid = authRepository.getCurrentUserUid() ?: return@launch
                     for (location in locationResult.locations) {
-                        processLocationUpdate(myUid, location.latitude, location.longitude)
+                        liveStatusRepository.updateMyLiveLocation( location.latitude, location.longitude)
                     }
                 }
             }
         }
 
         // 초기 위치 동기화 및 실시간 추적 시작
-        fetchLastKnownLocationAndSync()
+        //fetchLastKnownLocationAndSync()
         startLocationUpdates(locationRequest)
     }
 
     /**
-     * 로컬 장치 최종 기록 좌표 확인 및 동기화 유발 함수
+     * GPS 위치를 단발성(One-shot)으로 조회하고,
+     * 취득한 위치 데이터를 기존 locationCallback 엔진으로 전달하는 함수
      */
     @SuppressLint("MissingPermission")
-    private fun fetchLastKnownLocationAndSync() {
+    private fun requestSingleLocationUpdate() {
         scope.launch {
-            val myUid = authRepository.getCurrentUserUid() ?: return@launch
+            try {
+                // 단발성 위치 측정을 위한 최고 정확도(GPS 위성 강제) 요청 빌드
+                val currentLocationRequest = CurrentLocationRequest.Builder()
+                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                    .build()
 
-            // 캐시 기록 기반의 기기 현재 위치 안전 추출 및 서버 전송
-            runCatching {
-                fusedLocationClient.lastLocation.await()?.let { location ->
-                    processLocationUpdate(myUid, location.latitude, location.longitude)
-                }
-            }.onFailure { e -> Log.e(TAG, "초기 위치 확보 실패: ${e.message}") }
+                Log.d(TAG, "🎯 단발성 GPS 현재 위치 측정 요청 시작")
+
+                // FusedLocationProviderClient를 통해 일회성 좌표 추출
+                fusedLocationClient.getCurrentLocation(currentLocationRequest, null)
+                    .addOnSuccessListener { location ->
+                        if (location != null) {
+                            Log.d(TAG, "⚡ 단발성 GPS 측정 성공: [위도: ${location.latitude}, 경도: ${location.longitude}]")
+
+                            // 취득한 위치 정보를 LocationResult 객체로 래핑
+                            val locationResult = LocationResult.create(listOf(location))
+
+                            // 기존에 정의된 시스템 locationCallback을 수동으로 호출하여 파이프라인 연동
+                            locationCallback.onLocationResult(locationResult)
+                        } else {
+                            Log.w(TAG, "⚠️ 단발성 GPS 측정 결과가 null입니다. (GPS 기능이 꺼져있거나 음영 지역일 수 있음)")
+                        }
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e(TAG, "❌ 단발성 위치 측정 중 내부 Task 오류 발생: ${exception.message}")
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 단발성 GPS 갱신 프로세스 수행 중 장애 발생: ${e.message}")
+            }
         }
     }
+
+//    /**
+//     * 로컬 장치 최종 기록 좌표 확인 및 동기화 유발 함수
+//     */
+//    @SuppressLint("MissingPermission")
+//    private fun fetchLastKnownLocationAndSync() {
+//        scope.launch {
+//            // 캐시 기록 기반의 기기 현재 위치 안전 추출 및 서버 전송
+//            runCatching {
+//                fusedLocationClient.lastLocation.await()?.let { location ->
+//                    liveStatusRepository.updateMyLiveLocation(location.latitude, location.longitude)
+//                }
+//            }.onFailure { e -> Log.e(TAG, "초기 위치 확보 실패: ${e.message}") }
+//        }
+//    }
 
     /**
      * 위치 데이터 가공 및 원격 서버 동기화 함수
      */
-    private suspend fun processLocationUpdate(myUid: String, latitude: Double, longitude: Double) {
-        // 기존 상태 값을 가져와 좌표 정보 데이터 복사 최신화
-        val currentStatus = liveStatusRepository.getCachedMyLiveStatus()
-            ?: (liveStatusRepository.getLiveStatusByUid(myUid) as? Result.Success)?.data
-
-        val updatedLiveStatus = currentStatus?.copy(latitude = latitude, longitude = longitude)
-            ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
-
-        liveStatusRepository.updateMyLiveStatus(updatedLiveStatus)
-    }
+//    private suspend fun processLocationUpdate(myUid: String, latitude: Double, longitude: Double) {
+//        // 기존 상태 값을 가져와 좌표 정보 데이터 복사 최신화
+//        val currentStatus = liveStatusRepository.getCachedMyLiveStatus()
+//            ?: (liveStatusRepository.getLiveStatusByUid(myUid) as? Result.Success)?.data
+//
+//        val updatedLiveStatus = currentStatus?.copy(latitude = latitude, longitude = longitude)
+//            ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
+//
+//        liveStatusRepository.updateMyLiveLocation(updatedLiveStatus)
+//    }
 
     /**
      * 시스템 위치 프로바이더 엔진 가동 등록 함수

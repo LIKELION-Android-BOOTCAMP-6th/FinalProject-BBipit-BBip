@@ -6,14 +6,11 @@ import com.bbip.bbipit.data.mapper.toDomain
 import com.bbip.bbipit.data.mapper.toDto
 import com.bbip.bbipit.data.source.model.LiveStatusDto
 import com.bbip.bbipit.data.source.remote.live.LiveStatusRemoteDataSource
-import com.bbip.bbipit.data.source.remote.user.UserRemoteDataSourceImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.error.AppError
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.FriendRepository
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
-import com.bbip.bbipit.domain.repository.UserRepository
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,29 +45,43 @@ class LiveStatusRepositoryImpl @Inject constructor(
 
     private val _isLocationSharingEnabled = MutableStateFlow(true) // 기본값 true
 
-    override suspend fun refreshMyLiveStatusCache(): Result<String> {
-        return try {
-            val myUid = authRepository.getCurrentUserUid() ?: ""
+    override fun startObserveMyLiveStatus() {
+        val myUid = authRepository.getCurrentUserUid() ?: return
 
-            // 원격 데이터 조회 및 도메인 엔티티 변환 (기존 원본 로직)
-            val dto = liveStatusRemoteDataSource.getLiveStatusByUid(myUid)
-            val domainEntity = dto.toDomain(uid = myUid, isFromCache = false)
+        liveStatusRemoteDataSource.observeUserLiveStatus(myUid)
+            .map { (dto, _) ->
+                // 1. 도메인 엔티티로 변환
+                val domainEntity = dto.toDomain(myUid, false)
+                _isLocationSharingEnabled.value = domainEntity.isSharing
 
-            _isLocationSharingEnabled.value = dto.isSharing
-
-            _myLiveStatusFlow.value = domainEntity
-
-            Result.Success("라이브 캐시 갱신 완료")
-        } catch (e: Exception) {
-            Result.Failure(AppError.Unknown(e.message ?: "라이브 캐시 갱신 실패"))
-        }
+                _myLiveStatusFlow.value = domainEntity
+            }
+            .launchIn(repositoryScope) // Repository가 가진 공통 스코프 사용
     }
+
+//    override suspend fun refreshMyLiveStatusCache(): Result<String> {
+//        return try {
+//            val myUid = authRepository.getCurrentUserUid() ?: ""
+//
+//            // 원격 데이터 조회 및 도메인 엔티티 변환 (기존 원본 로직)
+//            val dto = liveStatusRemoteDataSource.getLiveStatusByUid(myUid)
+//            val domainEntity = dto.toDomain(uid = myUid, isFromCache = false)
+//
+//            _isLocationSharingEnabled.value = dto.isSharing
+//
+//            _myLiveStatusFlow.value = domainEntity
+//
+//            Result.Success("라이브 캐시 갱신 완료")
+//        } catch (e: Exception) {
+//            Result.Failure(AppError.Unknown(e.message ?: "라이브 캐시 갱신 실패"))
+//        }
+//    }
 
     /**
      * 친구 목록과 내 위치 공유 상태를 기반으로 개별 위치를 실시간 구독하는 함수
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    override fun observeFriendsLiveStatus(myUid: String) {
+    override fun observeFriendsLiveStatus() {
         // 1. 친구 목록 Flow와 내 위치 공유 상태 Flow를 combine으로 결합합니다.
         combine(
             friendRepository.myFriends,
@@ -116,18 +127,18 @@ class LiveStatusRepositoryImpl @Inject constructor(
     /**
      * 내 위치 및 상태 정보를 원격 서버에 업데이트하는 함수
      */
-    override suspend fun updateMyLiveStatus(liveStatus: LiveStatus): Result<Unit> {
+    override suspend fun updateMyLiveLocation(latitude: Double, longitude: Double): Result<Unit> {
         return try {
-            // 메모리 캐시 선제 갱신
-            _myLiveStatusFlow.value = liveStatus
-
+            val myUid = authRepository.getCurrentUserUid()
+                ?: return Result.Failure(AppError.Unknown("유저 UID가 존재하지 않습니다."))
             // 현재 위치 공유가 켜져있는지 확인
             observeLocationSharingState().first().let { isSharingEnabled ->
                 if (isSharingEnabled) {
                     // 원격 저장소에 데이터 저장
-                    liveStatusRemoteDataSource.updateMyLiveStatus(
-                        uid = liveStatus.uid,
-                        dto = liveStatus.toDto()
+                    liveStatusRemoteDataSource.updateMyLiveLocation(
+                        uid = myUid,
+                        latitude = latitude,
+                        longitude = longitude,
                     )
                 } else {
                     Log.d("관제탑 서비스", "위치 공유가 비활성화되어 백그라운드 위치를 서버에 전송하지 않습니다.")
@@ -186,6 +197,7 @@ class LiveStatusRepositoryImpl @Inject constructor(
             .map<Pair<LiveStatusDto, Boolean>, Result<LiveStatus>> { (dto, isFromCache) ->
                 // 데이터 수신 후 도메인 엔티티로 변환하여 반환
                 val domainEntity = dto.toDomain(uid, isFromCache)
+
                 Result.Success(domainEntity)
             }
             .catch { exception ->

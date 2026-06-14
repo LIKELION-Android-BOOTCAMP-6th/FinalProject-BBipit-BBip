@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
  */
 interface LiveStatusRemoteDataSource {
     suspend fun updateLifeCycle(currentRoomId: String?)
-    fun updateMyLiveStatus(uid: String, dto: LiveStatusDto)
+    fun updateMyLiveLocation(uid: String, latitude: Double, longitude: Double)
     fun observeUserLiveStatus(uid: String): Flow<Pair<LiveStatusDto, Boolean>>
     suspend fun getLiveStatusByUid(targetUid: String): LiveStatusDto
 }

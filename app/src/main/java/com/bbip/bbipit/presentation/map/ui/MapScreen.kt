@@ -194,8 +194,6 @@ fun MapScreen(
     // 휴대폰 지도 화면이 활성화(Resume)되는 시점마다
     // 워치 연동 인텐트로 유입된 미소비 문서 ID가 있는지 검사하여 뷰어를 강제로 실행
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.fetchLiveStatusAndRefreshCache()
-
         if (uiState.myStatus?.uid?.isNotEmpty() == true) {
             historyViewModel.startHistoryObservation()
         }
@@ -226,15 +224,6 @@ fun MapScreen(
         checkAndStartService()
     }
 
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.fetchLiveStatusAndRefreshCache()
-
-        // 화면이 다시 보일 때 히스토리 리스너가 죽어있다면 다시 살림
-        if (uiState.myStatus?.uid?.isNotEmpty() == true) {
-            historyViewModel.startHistoryObservation()
-        }
-    }
-
     LaunchedEffect(isDrawerOpen) {
         bottomBarViewModel.onUpdateDrawerShown(isDrawerOpen)
     }
@@ -259,7 +248,7 @@ fun MapScreen(
             onDismiss = { viewModel.onUpdateStopSharingDialog(false) },
             onConfirm = {
                 viewModel.onUpdateStopSharingDialog(false)
-                viewModel.toggleLocationSharing(false)
+                viewModel.toggleLocationSharing(false, context)
             }
         )
     }
@@ -288,9 +277,13 @@ fun MapScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
-    ) { _ ->
+    ) { innerPadding ->
         BackgroundBox {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
                 MapContent(
                     mapUiState = uiState,
                     histories = historyUiState.histories,
@@ -367,7 +360,7 @@ fun MapScreen(
                         if (uiState.isLocationSharing) {
                             viewModel.onUpdateStopSharingDialog(true)
                         } else {
-                            viewModel.toggleLocationSharing(isEnable)
+                            viewModel.toggleLocationSharing(isEnable, context)
                         }
                     },
                     modifier = Modifier
@@ -445,7 +438,7 @@ fun MapScreen(
 
                 FilledIconButton(
                     onClick = {
-                        viewModel.refreshCurrentLocationAndSync()
+                        viewModel.updateCurrentLocation(context)
                         uiState.myStatus?.let { my ->
                             scope.launch {
                                 cameraPositionState.animate(

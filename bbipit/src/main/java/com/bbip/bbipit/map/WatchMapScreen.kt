@@ -61,6 +61,21 @@ fun WatchMapScreen(
     val myLocation = uiState.liveStatusList.firstOrNull() // 리스트의 첫 번째가 '나'의 상태
 
     val historyList = uiState.historyList
+    // 히스토리 만료기간에 사용되는 파라미터
+    val myUid = myLocation?.uid.orEmpty()
+    val currentTime = remember(historyList) { System.currentTimeMillis() }
+    // 히스토리 맵 화면 표시용 필터링
+    val visibleHistories = remember(historyList, myUid) {
+        historyList.filter { history ->
+            if (history.userId == myUid) {
+                // 내 히스토리라면: 만료되지 않은 것만 마커로 표시
+                !history.isExpired(currentTime)
+            } else {
+                // 친구 히스토리라면: 서버에서 유효한 것만 내려오므로 무조건 통과
+                true
+            }
+        }
+    }
     // 마커 그래픽 중복 생성 방지용 캐시 맵
     var historyDescriptors by remember { mutableStateOf<Map<String, BitmapDescriptor>>(emptyMap()) }
     // 클릭된 히스토리 상태 관리를 위한 변수
@@ -80,6 +95,15 @@ fun WatchMapScreen(
 
     // ✅ 마커 비트맵 캐시 상태를 상단에 단 하나만 선언
     var markerDescriptors by remember { mutableStateOf<Map<String, BitmapDescriptor>>(emptyMap()) }
+    val visibleFriends = remember(uiState.liveStatusList) {
+        uiState.liveStatusList.filterIndexed { index, userStatus ->
+            if (index == 0) {
+                true
+            } else {
+                userStatus.isSharing
+            }
+        }
+    }
 
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
@@ -96,6 +120,11 @@ fun WatchMapScreen(
             snapAnimationSpec = tween(durationMillis = 300),
             decayAnimationSpec = exponentialDecay()
         )
+    }
+
+    LaunchedEffect(Unit) {
+        Log.d(TAG, "🗺️ 워치 지도 진입 -> 폰에 실시간 라이브데이터 동기화 요청 실행")
+        viewModel.refreshCurrentLocationAndSync(context)
     }
 
     // 리스트 유입 시 카테고리별 마커 비트맵 캐싱
@@ -182,7 +211,7 @@ fun WatchMapScreen(
             uiSettings = MapUiSettings(zoomControlsEnabled = false),
             cameraPositionState = cameraPositionState,
         ) {
-            liveStatusList.forEachIndexed { index, userStatus ->
+            visibleFriends.forEachIndexed { index, userStatus ->
                 val cacheKey = "${userStatus.profileImageUrl}_${userStatus.isOnline}"
                 val customMarkerIcon = markerDescriptors[cacheKey]
 
@@ -215,7 +244,7 @@ fun WatchMapScreen(
 
             // 실시간 공유된 간소화 발자취 마커 그리기 추가
             if (showHistories) {
-                historyList.forEach { history ->
+                visibleHistories.forEach { history ->
                     val customIcon = historyDescriptors[history.category]
 
                     val markerState = rememberMarkerState(
