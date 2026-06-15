@@ -557,9 +557,6 @@ class BackgroundListenerService : Service() {
      * 수신 음성 메시지 모니터링 및 이벤트 분기 함수
      */
     private fun observeVoiceMessages() {
-        val isMobileForeground = lifeCycleManager.isAppInForeground.value
-        val isWatchForeground = watchConnectionManager.isWatchInForeground.value
-        val isPhysicalConnected = watchConnectionManager.isPhysicalConnected.value
         // 기존에 돌고 있는 Job이 있다면 취소하여 중복 구독 방지
         voiceObservationJob?.cancel()
 
@@ -572,6 +569,9 @@ class BackgroundListenerService : Service() {
 
                         // 상황에 맞춰 워치 전송 또는 모바일 이벤트 발생
                         if (url.isNotEmpty() && !voiceMessage.isInitial) {
+                            val isMobileForeground = lifeCycleManager.isAppInForeground.value
+                            val isWatchForeground = watchConnectionManager.isWatchInForeground.value
+                            val isPhysicalConnected = watchConnectionManager.isPhysicalConnected.value
                             val onlineStatusResult = userRepository.getUserOnlineStatus(uid)
                             if (onlineStatusResult is Result.Success && onlineStatusResult.data) {
                                 if (!isMobileForeground && isPhysicalConnected) {
@@ -1096,8 +1096,7 @@ class BackgroundListenerService : Service() {
                         deleteSystemNotification(notification.id.hashCode())
                         return@forEach
                     }
-                    if (!notification.isRead &&
-                        !notifiedIds.contains(notification.id)
+                    if (!notifiedIds.contains(notification.id)
                     ) {
                         // Log.d(TAG, "알림 감지 - id: ${notification.id}, type: ${notification.type}, isInitial: ${notification.isInitial}")
                         notifiedIds.add(notification.id)
@@ -1119,16 +1118,22 @@ class BackgroundListenerService : Service() {
                                     }
 
                                     watchConnectionManager.isPhysicalConnected.value -> {
-                                        Log.d(TAG, "⌚ 워치 연결됨 → sendVoiceToWatch 호출")
-                                        // showSystemNotification 제거 → 워치 미러링 없음
+                                        Log.d(TAG, "⌚ 워치 연결됨 → 워치로 무전 알림 메시지 전송")
+                                        showSystemNotification(notification)
                                         scope.launch {
-                                            val result = voiceRepository.getVoiceMessageById(notification.audioId)
-                                            if (result is Result.Success) {
-                                                sendVoiceToWatch(
-                                                    messageId = result.data.id,
-                                                    senderId = result.data.senderId,
-                                                    voiceUrl = result.data.voiceUrl ?: ""
+                                            try {
+                                                val payload = mapOf(
+                                                    "notificationId" to notification.id,
+                                                    "audioId" to notification.audioId,
+                                                    "senderName" to notification.senderName
                                                 )
+                                                val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
+                                                val nodes = nodeClient.connectedNodes.await()
+                                                nodes.forEach { node ->
+                                                    messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
+                                                }
+                                            } catch (e: Exception) {
+                                                Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
                                             }
                                         }
                                     }
@@ -1140,7 +1145,15 @@ class BackgroundListenerService : Service() {
                                 return@forEach
                             }
                             // 일반 알림(DM, REQ, ACP) 처리
-                            showSystemNotification(notification)
+                            if (notification.type == "ACP") {
+                                showSystemNotification(notification)
+                                scope.launch {
+                                    delay(3000)
+                                    notificationRepository.markAsRead(notification.id)
+                                }
+                            } else {
+                                showSystemNotification(notification)
+                            }
                         }
                     }
                 }
