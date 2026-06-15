@@ -79,6 +79,7 @@
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
                 <data android:scheme="wear" android:host="*" android:path="/launch_and_play" />
                 <data android:scheme="wear" android:host="*" android:path="/show_notification" />
+                <data android:scheme="wear" android:host="*" android:path="/walkie_notification" />
             </intent-filter>
         </service>
         <receiver

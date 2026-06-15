@@ -45,6 +45,32 @@ class WatchMessageListenerService : WearableListenerService() {
                 startActivity(launchIntent)
                 Log.d(TAG, "✅ 워치 MainActivity 실행 완료 - messageId: $messageId")
             }
+            "/walkie_notification" -> {
+                val data = Gson().fromJson(String(messageEvent.data), Map::class.java)
+                val notificationId = data["notificationId"] as? String ?: return
+                val senderName = data["senderName"] as? String ?: "무전"
+                Log.d(TAG, "🔔 무전 알림 수신 - senderName: $senderName")
+
+                val notificationManager =
+                    getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
+                val channel = NotificationChannel(
+                    CHANNEL_ID, "무전 수신", NotificationManager.IMPORTANCE_HIGH
+                ).apply { enableVibration(true) }
+                notificationManager.createNotificationChannel(channel)
+
+                val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(com.bbip.bbipit.R.mipmap.ic_launcher)
+                    .setContentTitle(senderName)
+                    .setContentText("무전이 왔습니다.")
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setVibrate(longArrayOf(0, 500))
+                    .setAutoCancel(true)
+                    .setLocalOnly(false)
+                    .build()
+
+                notificationManager.notify(notificationId.hashCode(), notification)
+            }
         }
     }
 }
