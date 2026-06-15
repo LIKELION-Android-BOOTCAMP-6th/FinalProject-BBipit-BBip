@@ -11,4 +11,9 @@ interface LiveStatusRemoteDataSource {
     fun updateMyLiveLocation(uid: String, latitude: Double, longitude: Double)
     fun observeUserLiveStatus(uid: String): Flow<Pair<LiveStatusDto, Boolean>>
     suspend fun getLiveStatusByUid(targetUid: String): LiveStatusDto
+    fun observeRtdbConnection(uid: String): Flow<Boolean>
+    fun setRtdbOffline()
+    fun setRtdbOnline(uid: String)
+    fun purgeOutstandingWrites()
+    fun goOnlineRtdb()
 }

@@ -300,7 +300,8 @@ class BackgroundListenerService : Service() {
 
         // 라이프사이클 매니저 콜백 해제 및 실시간 세션 강제 종료
         lifeCycleManager.onAppForegroundStatusChanged = null
-        lifeCycleManager.stopSession()
+        lifeCycleManager.clearSession()
+
     }
 
     /**
