@@ -16,10 +16,16 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
 import com.bbip.bbipit.domain.repository.UserRepository
+import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -78,6 +84,52 @@ class LifeCycleManager @Inject constructor(
     private val _isNetworkConnected = MutableStateFlow(true)
     val isNetworkConnected: StateFlow<Boolean> = _isNetworkConnected.asStateFlow()
 
+    init {
+        auth.currentUser .let { currentUser ->
+            rtdb.purgeOutstandingWrites()
+
+            Log.d(TAG, "🟢 전역 라이브 RTDB 소켓 연결 확보")
+
+            // RTDB 연결 상태 모니터링 및 onDisconnect 예약
+            val userStatusRef = rtdb.getReference("/status/${currentUser?.uid}")
+            // Firebase Realtime Database에서 제공하는 클라이언트-서버 연결 상태 확인 시스템 경로
+            val connectedRef = rtdb.getReference(".info/connected")
+            // 커넥션이 수립되면 서버에 상태 기록
+            val onlineStatus = mapOf(
+                "state" to "online",
+                "last_changed" to ServerValue.TIMESTAMP
+            )
+            val offlineStatus = mapOf(
+                "state" to "offline",
+                "last_changed" to ServerValue.TIMESTAMP
+            )
+
+            // 연결이 끊어졌을 때 서버 측에서 처리할 오프라인 액션을 미리 예약
+            connectedRef.addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val isConnected = snapshot.getValue(Boolean::class.java) ?: false
+
+                    if (isConnected) {
+                        // 소켓이 연결되었을 때, 세션이 끊기면 서버가 수행할 오프라인 액션 예약
+                        userStatusRef.onDisconnect().setValue(offlineStatus).addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                // 예약 성공 및 소켓 연결이 확인되었으므로 즉시 현재 상태를 online으로 변경
+                                userStatusRef.setValue(onlineStatus)
+                                Log.d(TAG, "🟢 RTDB 연결 성공")
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "🔴 RTDB 연결 끊김 감지")
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e(TAG, "연결 상태 리스너 실패: ${error.message}")
+                }
+            })
+        }
+    }
+
     /**
      * 현재 활성화된 채팅방 정보 갱신 및 상태 전송 함수
      */
@@ -99,7 +151,7 @@ class LifeCycleManager @Inject constructor(
 
         onAppForegroundStatusChanged?.invoke(true)
 
-        startSession()
+//        startSession()
         registerNetworkCallback() // 네트워크 감지 시작
     }
 
@@ -113,7 +165,7 @@ class LifeCycleManager @Inject constructor(
 
         onAppForegroundStatusChanged?.invoke(false)
 
-        stopSession()
+//        stopSession()
         unregisterNetworkCallback() // 네트워크 감지 해제
     }
 
@@ -121,10 +173,7 @@ class LifeCycleManager @Inject constructor(
      * 라이브 세션 가동 및 주기적 하트비트 시작 함수
      */
     fun startSession() {
-        // 미인증 사용자의 접근 차단
-        val currentUser = auth.currentUser ?: return
-        Log.d(TAG, "🟢 전역 라이브 세션 가동 (RTDB 소켓 연결 확보)")
-
+        Log.d(TAG, "🟢 전역 라이브 세션 시작")
         // 기존 진행 중인 하트비트 종료
         stopHeartbeatLoop()
 
@@ -138,29 +187,6 @@ class LifeCycleManager @Inject constructor(
 
         // 하트비트 반복 실행 예약
         handler.post(heartbeatRunnable!!)
-
-        rtdb.purgeOutstandingWrites()
-
-        // RTDB 연결 상태 모니터링 및 onDisconnect 예약
-        val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
-
-        // 커넥션이 수립되면 서버에 상태 기록
-        val onlineStatus = mapOf(
-            "state" to "online",
-            "last_changed" to ServerValue.TIMESTAMP
-        )
-        val offlineStatus = mapOf(
-            "state" to "offline",
-            "last_changed" to ServerValue.TIMESTAMP
-        )
-
-        // 연결이 끊어졌을 때 서버 측에서 처리할 오프라인 액션을 미리 예약
-        userStatusRef.onDisconnect().setValue(offlineStatus).addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                // 예약 성공 후 현재 상태를 online으로 변경
-                userStatusRef.setValue(onlineStatus)
-            }
-        }
 
         rtdb.goOnline()
     }
@@ -178,12 +204,13 @@ class LifeCycleManager @Inject constructor(
         //중복 로그인이 아닌 경우에만 offline으로 변경
         if (!isDuplicated){
             // 명시적으로 나갈 때는 온디스커넥트를 해제하고 직접 offline을 박아줍니다.
-            val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
-            userStatusRef.onDisconnect().cancel()
-            userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
+//            val userStatusRef = rtdb.getReference("/status/${currentUser.uid}")
+//            userStatusRef.onDisconnect().cancel()
+//            userStatusRef.setValue(mapOf("state" to "offline", "last_changed" to ServerValue.TIMESTAMP))
             sessionScope.launch {
                 liveStatusRepository.updateLifeCycle(null)
             }
+            rtdb.goOffline()
         }
     }
 
@@ -237,7 +264,7 @@ class LifeCycleManager @Inject constructor(
                     sessionScope.launch {
 //                        userRepository.updateOnlineStatus(true)
                     }
-                    startSession()
+//                    startSession()
                 }
             }
 
