@@ -15,6 +15,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -31,6 +32,8 @@ class LiveStatusRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : LiveStatusRepository {
 
+    private val TAG = "LiveStatusRepositoryImpl"
+
     // 비동기 작업 처리용 Scope
     private val repositoryScope = CoroutineScope(Dispatchers.IO)
 
@@ -43,39 +46,67 @@ class LiveStatusRepositoryImpl @Inject constructor(
     override val friendsLiveStatusFlow: StateFlow<List<LiveStatus>> =
         _friendsLiveStatusFlow.asStateFlow()
 
-    private val _isLocationSharingEnabled = MutableStateFlow(true) // 기본값 true
+    private val _isLocationSharingEnabled = MutableStateFlow(true)
+
+    private var rtdbMonitorJob: Job? = null
+
+    override fun monitorRtdbSession() {
+        val myUid = authRepository.getCurrentUserUid() ?: return
+
+        // 기존에 실행 중이던 리스너 Job이 있다면 취소
+        if (rtdbMonitorJob?.isActive == true) {
+            Log.d(TAG, "ℹ️ RTDB 모니터링 리스너가 이미 가동 중입니다.")
+            return
+        }
+
+        // 연결 상태 모니터링 Flow 구독
+        Log.d(TAG, "📡 RTDB 연결 모니터링 리스너 최초 등록 (UID: $myUid)")
+        rtdbMonitorJob = liveStatusRemoteDataSource.observeRtdbConnection(myUid)
+            .onEach { isConnected ->
+                if (isConnected) {
+                    Log.d(TAG, "🟢 RTDB 연결 성공 감지 -> 세션 활성화")
+                    liveStatusRemoteDataSource.setRtdbOnline(myUid)
+                } else {
+                    Log.d(TAG, "🔴 RTDB 연결 끊김 감지")
+                }
+            }
+            .launchIn(repositoryScope)
+    }
+
+    // 모니터링 리스너 및 소켓 해제
+    override fun clearRtdbSession() {
+        liveStatusRemoteDataSource.setRtdbOffline()
+        rtdbMonitorJob?.cancel()
+        rtdbMonitorJob = null
+        Log.d(TAG, "🧹 RTDB 모니터링 리스너 및 소켓 자원 전역 해제 완료")
+    }
+
+    override fun connectSession() {
+        authRepository.getCurrentUserUid() ?: return
+        monitorRtdbSession()
+        // 미처 안 올라간 쓰기를 비움
+        liveStatusRemoteDataSource.purgeOutstandingWrites()
+        // 소켓 개방
+        liveStatusRemoteDataSource.goOnlineRtdb()
+    }
+
+    override fun disconnectSession() {
+        liveStatusRemoteDataSource.setRtdbOffline()
+        Log.d(TAG, "🧹 RTDB 모니터링 리스너 및 소켓 자원 전역 해제 완료")
+    }
 
     override fun startObserveMyLiveStatus() {
         val myUid = authRepository.getCurrentUserUid() ?: return
 
         liveStatusRemoteDataSource.observeUserLiveStatus(myUid)
             .map { (dto, _) ->
-                // 1. 도메인 엔티티로 변환
                 val domainEntity = dto.toDomain(myUid, false)
                 _isLocationSharingEnabled.value = domainEntity.isSharing
 
                 _myLiveStatusFlow.value = domainEntity
             }
-            .launchIn(repositoryScope) // Repository가 가진 공통 스코프 사용
+            .launchIn(repositoryScope)
     }
-
-//    override suspend fun refreshMyLiveStatusCache(): Result<String> {
-//        return try {
-//            val myUid = authRepository.getCurrentUserUid() ?: ""
-//
-//            // 원격 데이터 조회 및 도메인 엔티티 변환 (기존 원본 로직)
-//            val dto = liveStatusRemoteDataSource.getLiveStatusByUid(myUid)
-//            val domainEntity = dto.toDomain(uid = myUid, isFromCache = false)
-//
-//            _isLocationSharingEnabled.value = dto.isSharing
-//
-//            _myLiveStatusFlow.value = domainEntity
-//
-//            Result.Success("라이브 캐시 갱신 완료")
-//        } catch (e: Exception) {
-//            Result.Failure(AppError.Unknown(e.message ?: "라이브 캐시 갱신 실패"))
-//        }
-//    }
 
     /**
      * 친구 목록과 내 위치 공유 상태를 기반으로 개별 위치를 실시간 구독하는 함수
