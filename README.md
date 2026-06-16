@@ -30,17 +30,25 @@
 
 ## 🛠 Tech Stack
 
-| 구분 | 기술 |
-| :--- | :--- |
-| **Language** | Kotlin |
-| **UI** | Jetpack Compose |
-| **Architecture** | Clean Architecture + MVVM |
-| **Asynchronous** | Coroutines, Flow |
-| **DI** | Hilt |
-| **Image Loading** | Coil |
-| **Backend/Cloud** | Firebase (Auth, Firestore, Functions, RealtimeDatabase), Google Maps, Kakao Auth |
+### Language & UI
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
 
----
+### Architecture & Tools
+![Clean Architecture](https://img.shields.io/badge/Clean_Architecture-000000?style=for-the-badge)
+![MVVM](https://img.shields.io/badge/MVVM-3DDC84?style=for-the-badge)
+![Hilt](https://img.shields.io/badge/Hilt-FF9800?style=for-the-badge)
+![Coroutines](https://img.shields.io/badge/Coroutines-8A2BE2?style=for-the-badge)
+
+### Backend & Cloud
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![Google Maps](https://img.shields.io/badge/Google_Maps-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white)
+![Kakao Auth](https://img.shields.io/badge/Kakao-FAE100?style=for-the-badge&logo=kakaotalk&logoColor=black)
+
+### Collaboration
+![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
+![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
 
 ## ⚙️ Getting Started
 
