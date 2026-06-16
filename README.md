@@ -1,1 +1,97 @@
-# FinalProject-BBipit-BBip
+# 🛰️ BBip-it (삐-빗)
+**"지도 위에 목소리를 얹다, 실시간 위치 무 SNS 삐-빗!"**
+
+**BBip-it(삐빗)** 은 친구로 연결된 사람들끼리만 실시간 위치를 공유하고 무전을 주고받을 수 있는 프라이빗 위치 기반 소셜 서비스입니다.
+'히스토리' 기능을 통해 인스타 스토리처럼 현재 위치에 일상을 남기고, 친구들과 더 깊게 연결되어 보세요.
+
+---
+
+## 👥 Project Overview
+* **개발 인원:** 4명
+* **개발 기간:** 2026.05.04 ~ 2026.06.17
+
+## 👤 Team Members
+| 이름 | 역할 | 주요 업무 |
+| :--- | :--- | :--- |
+| **장지은(팀장)** | FE | Firebase Auth 기반 로그인/회원가입/인증, 마이페이지(상태메세지) |
+| **정우석(부팀장)** | BE/FE | Google Maps API 지도 서비스, 실시간 위치 확인, Firebase 무전 기능, 백엔드 API 개발 |
+| **이유빈(팀원)** | FE | 실시간 DM, 채팅방 관리, 친구 추가/조회/삭제, 프로필 수정 |
+| **서은신(팀원)** | FE | 인앱 알림 및 배너 알림 시스템 (친구 신청/DM/무전 수신 알림) |
+
+---
+## 🎯 Target Audience
+**BBip-it**은 복잡하고 과시적인 대형 SNS에 피로감을 느끼는 사용자들을 위해 만들어졌습니다.
+
+* **SNS 피로감 해소:** 타인의 시선을 의식한 과시형 포스팅에 지쳐, 소수 정예 친구들과 편안하게 소통하고 싶은 분들
+* **일상의 기록자:** 나의 현재 위치와 함께 그 순간의 감정을 히스토리로 남겨 친구들과 공유하고 싶은 분들
+* **얼리어답터 (MZ 세대):** 위치 기반 서비스와 무전기 형태의 새로운 소통 방식을 즐기며, 트렌디한 디지털 경험을 원하는 분들
+
+---
+
+## 🛠 Tech Stack
+
+### Language & UI
+![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)
+
+### Architecture & Tools
+![Clean Architecture](https://img.shields.io/badge/Clean_Architecture-000000?style=for-the-badge)
+![MVVM](https://img.shields.io/badge/MVVM-3DDC84?style=for-the-badge)
+![Hilt](https://img.shields.io/badge/Hilt-FF9800?style=for-the-badge)
+![Coroutines](https://img.shields.io/badge/Coroutines-8A2BE2?style=for-the-badge)
+
+### Backend & Cloud
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
+![Google Maps](https://img.shields.io/badge/Google_Maps-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white)
+![Kakao Auth](https://img.shields.io/badge/Kakao-FAE100?style=for-the-badge&logo=kakaotalk&logoColor=black)
+
+### Collaboration
+![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
+![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
+
+## ⚙️ Getting Started
+
+### 환경 설정
+* `google-services.json` 파일이 프로젝트 루트 디렉토리에 필요합니다.
+* API 로컬 키는 보안을 위해 커밋하지 않고 별도의 설정 파일로 관리합니다.
+* **Firestore 인덱스:** 일부 쿼리는 복합 인덱스가 필요합니다. 최초 실행 시 Logcat에 출력되는 링크를 통해 Firebase Console에서 인덱스를 등록해야 합니다.
+
+### 실행 방법
+* **IDE:** Android Studio Otter 이상 권장
+* **JDK:** 11 버전 이상
+* **SDK:** minSdk 26 / targetSdk 36 / compileSdk 36
+* 프로젝트 오픈 후 **Gradle Sync**를 진행합니다.
+* 에뮬레이터 또는 실기기에 빌드하여 실행합니다.
+
+---
+
+## 🚀 Key Features
+
+### 1. 프라이빗 위치 기반 무전 (Walkie-Talkie)
+* **친구 전용 통신:** 친구로 등록된 사용자들 사이에서만 실시간 위치 확인 및 무전 통신이 가능한 폐쇄형 네트워크를 제공합니다.
+* **실시간 알림:** Firebase를 활용하여 친구로부터 오는 무전을 즉각적으로 수신할 수 있습니다.
+
+### 2. 위치 기반 히스토리 (History)
+* **일상의 흔적:** 현재 위치에 히스토리를 남겨 친구들에게 나의 일상을 공유할 수 있습니다.
+* **직관적인 공유:** Google Maps API를 연동하여 특정 위치를 기반으로 포스트를 남기고 열람하는 인터페이스를 구현했습니다.
+
+---
+
+## 📂 Project & Demo
+프로젝트의 상세 기획 과정과 실제 동작을 확인할 수 있는 자료입니다.
+
+* **[기획 및 문서]** [프로젝트 상세 기획서 바로가기 (Notion)]
+* **[시연 영상]** [BBip-it 주요 기능 시연 영상 보기 (YouTube)]
+
+---
+
+## 🏗 Architecture & Collaboration
+**BBip-it**은 유지보수성과 확장성을 고려하여 **Clean Architecture**와 **MVVM 패턴**을 기반으로 설계되었습니다.
+
+* **UI 구현:** Jetpack Compose를 활용하여 현대적이고 유연한 사용자 인터페이스를 구축하였습니다.
+* **협업 프로세스:** Notion을 활용한 문서화, Figma를 통한 UI/UX 설계, 그리고 Git을 통한 효율적인 버전 관리를 진행하고 있습니다.
+
+---
+
+*BBip-it은 불필요한 외부 노출 없이, 오직 신뢰할 수 있는 관계 내에서만 이루어지는 안전하고 즐거운 소통 경험을 지향합니다.*

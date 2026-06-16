@@ -49,4 +49,8 @@ interface LiveStatusRepository {
     fun observeLocationSharingState(): Flow<Boolean>
 //    suspend fun refreshMyLiveStatusCache(): Result<String>
     fun startObserveMyLiveStatus()
+    fun monitorRtdbSession()
+    fun disconnectSession()
+    fun connectSession()
+    fun clearRtdbSession()
 }
