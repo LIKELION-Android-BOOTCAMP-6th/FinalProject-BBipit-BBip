@@ -1121,22 +1121,6 @@ class BackgroundListenerService : Service() {
                                     watchConnectionManager.isPhysicalConnected.value -> {
                                         Log.d(TAG, "⌚ 워치 연결됨 → 워치로 무전 알림 메시지 전송")
                                         showSystemNotification(notification)
-                                        scope.launch {
-                                            try {
-                                                val payload = mapOf(
-                                                    "notificationId" to notification.id,
-                                                    "audioId" to notification.audioId,
-                                                    "senderName" to notification.senderName
-                                                )
-                                                val byteArray = Gson().toJson(payload).toByteArray(Charsets.UTF_8)
-                                                val nodes = nodeClient.connectedNodes.await()
-                                                nodes.forEach { node ->
-                                                    messageClient.sendMessage(node.id, "/walkie_notification", byteArray).await()
-                                                }
-                                            } catch (e: Exception) {
-                                                Log.e(TAG, "❌ 워치 메시지 전송 실패: ${e.message}")
-                                            }
-                                        }
                                     }
                                     else -> {
                                         Log.d(TAG, "📱 백그라운드 → 시스템 알림 발행")
