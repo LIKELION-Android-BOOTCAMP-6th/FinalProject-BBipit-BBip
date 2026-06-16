@@ -1,7 +1,5 @@
 package com.bbip.bbipit.presentation.map.viewmodel
 
-import android.R.attr.action
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -13,19 +11,12 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
-import com.google.android.gms.location.CurrentLocationRequest
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.Priority
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * 기존 UI 구조 명세 완벽 충족 목적의 최적화 완료 지도 매핑 아키텍처 상태 구조 클래스
@@ -41,22 +32,14 @@ data class MapUiState(
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
-    // private val fusedLocationClient: FusedLocationProviderClient,
     private val chatRepository: ChatRepositoryImpl,
 ): BaseViewModel<MapUiState>(MapUiState()) {
     private val myLiveStatus = MutableStateFlow<LiveStatus?>(null)
     private val TAG = "MapViewModel"
 
     init {
-        // 인스턴스 초기화 즉시 기기 캐시 기반 마지막 동선 확보 가동
-        // fetchLastKnownLocation()
         observeLiveStatusStreams()
     }
-
-//    companion object {
-//        private const val DEFAULT_LATITUDE = 37.5665
-//        private const val DEFAULT_LONGITUDE = 126.9780
-//    }
 
     /**
      * 친구와의 1:1 채팅방 생성 또는 기존 방 ID 가져오기
@@ -141,96 +124,6 @@ class MapViewModel @Inject constructor(
         }
         context.startService(intent)
     }
-
-//    /**
-//     * 위치 공유를 켤 때 최신 좌표를 강제로 긁어와 서버에 즉시 전송하는 헬퍼 함수
-//     */
-//    @SuppressLint("MissingPermission")
-//    fun refreshCurrentLocationAndSync() {
-//        viewModelScope.launch {
-//            FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
-//            try {
-//                val locationRequest = CurrentLocationRequest.Builder()
-//                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-//                    .build()
-//
-//                // 단발성으로 현재 장소의 정확한 좌표를 즉시 측정
-//                fusedLocationClient.getCurrentLocation(locationRequest, null)
-//                    .addOnSuccessListener { location ->
-//                        if (location != null) {
-//                            viewModelScope.launch {
-//                                // Live 컬렉션 업데이트
-//                                liveStatusRepository.updateMyLiveLocation(location.latitude, location.longitude)
-//                                Log.d(TAG, "현재 위치 즉시 동기화 완료")
-//                            }
-//                        }
-//                    }
-//            } catch (e: Exception) {
-//                Log.e(TAG, "현재 위치 즉시 갱신 실패: ${e.message}")
-//            }
-//        }
-//    }
-
-//    /**
-//     * Google Fused Location 서비스 인프라 활용 기반 원격 데이터 수신 지연 현상 방어 최적화 함수
-//     */
-//    @SuppressLint("MissingPermission")
-//    private fun fetchLastKnownLocation() {
-//        viewModelScope.launch {
-//            val uid = FirebaseAuth.getInstance().currentUser?.uid ?: "unknown_me"
-//            try {
-//                // 안전하게 취소 가능한 형태로 최근 위치 파싱 [suspendCancellableCoroutine]
-//                var lastLocation = suspendCancellableCoroutine { continuation ->
-//                    fusedLocationClient.lastLocation
-//                        .addOnSuccessListener { location -> continuation.resume(location) }
-//                        .addOnFailureListener { exception ->
-//                            continuation.resumeWithException(
-//                                exception
-//                            )
-//                        }
-//                }
-//
-//                if (lastLocation == null) {
-//                    Log.d(TAG, "캐시 위치가 없으므로 실시간 단발성 위치를 조회합니다.")
-//                    val locationRequest = CurrentLocationRequest.Builder()
-//                        .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-//                        .build()
-//
-//                    lastLocation = suspendCancellableCoroutine { continuation ->
-//                        fusedLocationClient.getCurrentLocation(locationRequest, null)
-//                            .addOnSuccessListener { location -> continuation.resume(location) }
-//                            .addOnFailureListener { exception ->
-//                                continuation.resumeWithException(
-//                                    exception
-//                                )
-//                            }
-//                    }
-//                }
-//
-//                if (lastLocation != null) {
-//                    Log.d(TAG, "🎯 초기 위치 확보 성공: ${lastLocation.latitude}, ${lastLocation.longitude}")
-//                    myLiveStatus.value = LiveStatus(
-//                        uid = uid,
-//                        latitude = lastLocation.latitude,
-//                        longitude = lastLocation.longitude
-//                    )
-//                } else {
-//                    setDefaultLocation(uid, "모든 위치 조회 실패")
-//                }
-//            } catch (e: Exception) {
-//                setDefaultLocation(uid, "예외 발생: ${e.message}")
-//            }
-//        }
-//    }
-
-//    private fun setDefaultLocation(uid: String, reason: String) {
-//        Log.w(TAG, "⚠️ $reason: 무한 로딩 방지를 위해 기본 앵커를 설정합니다.")
-//        myLiveStatus.value = LiveStatus(
-//            uid = uid,
-//            latitude = DEFAULT_LATITUDE,
-//            longitude = DEFAULT_LONGITUDE
-//        )
-//    }
 
     fun onUpdateStopSharingDialog(value : Boolean) = updateState { copy(isStopSharingDialogShown = value) }
 }

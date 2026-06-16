@@ -93,8 +93,6 @@ class BackgroundListenerService : Service() {
     // 음성 메시지 구독 관리용 작업 단위
     private var voiceObservationJob: Job? = null
 
-//    private lateinit var watchConnectionManager: WatchConnectionManager
-
     // 실시간 위치 추적용 클라이언트
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
@@ -110,19 +108,11 @@ class BackgroundListenerService : Service() {
     // 워치 노드 연결 상태 관리 컴포넌트
     private val nodeClient by lazy { Wearable.getNodeClient(this) }
 
-    // 워치 앱의 화면 활성화 여부 플래그
-//    private var isWatchInForeground = false
-
-    // 알림 최초 로딩 스킵용 플래그
-    private var isInitialData = true
-
     // 과거 알림 필터링용 서비스 시작 타임스탬프
     private val serviceStartTime = System.currentTimeMillis()
 
     // 배너 표출이 완료된 알림 식별자 저장소
     private val notifiedIds = mutableSetOf<String>()
-
-    private var myLiveObservationJob: Job? = null
 
     //시스템 배너 관리용
     private val notificationManager: NotificationManager by lazy {
@@ -266,9 +256,6 @@ class BackgroundListenerService : Service() {
 
             scope.launch {
                 notificationRepository.startObserving(myUid, serviceStartTime)
-//                notificationRepository.notifications.first { it.isNotEmpty() }.forEach { notification ->
-//                    notifiedIds.add(notification.id)
-//                }
                 observeNotifications()
             }
         }
@@ -428,42 +415,6 @@ class BackgroundListenerService : Service() {
     }
 
     /**
-     * 내 Live 데이터를 실시간 상시 리스닝하여 중복 로그인을 포착하는 함수 -> LiveStatusRepositoryImpl이관
-     */
-//    private fun startMyLiveStatusObservation(myUid: String) {
-//        myLiveObservationJob?.cancel() // 중복 실행 방지용 초기화
-//
-//        myLiveObservationJob = scope.launch {
-//            liveStatusRepository.observeUserLiveStatus(myUid).collect { result ->
-//                when (result) {
-//                    is Result.Success -> {
-//
-//                        result.data.sessionId?.let {
-//                            val localSessionId = authRepository.getLocalSessionId()
-//                            Log.d("세션 아이디", "로컬 : $localSessionId, 서버 : $it")
-//                            if (it != localSessionId && localSessionId != null) {
-//
-//                                Log.w(TAG, "🔴 다른 기기에서 로그인 감지! 기존 사용자를 쳐냅니다.")
-//                                authRepository.deleteLocalSessionId()
-//                                lifeCycleManager.stopSession(true)
-//                                sendForceLogoutToWatch()
-//
-//                                authRepository.signOut(isDuplicated = true)
-//                                Log.d("종료 ", "로컬 세션 아이디 : ${authRepository.getLocalSessionId()}")
-//                            }
-//                        }
-//
-//
-//                    }
-//                    is Result.Failure -> {
-//                        Log.e(TAG, "❌ 내 라이브 세션 정보를 가져오는 데 실패했습니다.")
-//                    }
-//                }
-//            }
-//        }
-//    }
-
-    /**
      * 중복 로그인 차단 시 워치 앱도 동시에 튕겨내도록 메세지 송신
      */
     private fun sendForceLogoutToWatch() {
@@ -494,33 +445,6 @@ class BackgroundListenerService : Service() {
             }.onFailure { e -> Log.e(TAG, "❌ 워치 히스토리 푸시 에러", e) }
         }
     }
-
-//    @SuppressLint("MissingPermission")
-//    private fun startObserveLocation() {
-//        scope.launch {
-//            try {
-//                val locationRequest = CurrentLocationRequest.Builder()
-//                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY) // GPS 위성 강제 가동
-//                    .build()
-//
-//                // 1. 단발성으로 현재 장소의 가장 정확한 좌표를 즉시 측정
-//                fusedLocationClient.getCurrentLocation(locationRequest, null)
-//                    .addOnSuccessListener { location ->
-//                        if (location != null) {
-//                            scope.launch {
-//                                // 서버에 최신 좌표 업데이트 반영
-//                                liveStatusRepository.updateMyLiveLocation(location.latitude, location.longitude)
-//                                Log.d(TAG, "⚡ GPS 좌표 측정을 완료하여 Repository 엔진에 업데이트했습니다.")
-//                            }
-//                        } else {
-//                            Log.w(TAG, "⚠️ GPS 측정 결과가 null입니다. 캐시된 마지막 위치로 대체 송신합니다.")
-//                        }
-//                    }
-//            } catch (e: Exception) {
-//                Log.e(TAG, "❌ 백그라운드 강제 GPS 갱신 중 실패: ${e.message}")
-//            }
-//        }
-//    }
 
     /**
      * 음성 메시지 상태 읽음 업데이트 함수
@@ -881,8 +805,7 @@ class BackgroundListenerService : Service() {
             }
         }
 
-        // 초기 위치 동기화 및 실시간 추적 시작
-        //fetchLastKnownLocationAndSync()
+        // 실시간 추적 시작
         startLocationUpdates(locationRequest)
     }
 
@@ -924,35 +847,6 @@ class BackgroundListenerService : Service() {
             }
         }
     }
-
-//    /**
-//     * 로컬 장치 최종 기록 좌표 확인 및 동기화 유발 함수
-//     */
-//    @SuppressLint("MissingPermission")
-//    private fun fetchLastKnownLocationAndSync() {
-//        scope.launch {
-//            // 캐시 기록 기반의 기기 현재 위치 안전 추출 및 서버 전송
-//            runCatching {
-//                fusedLocationClient.lastLocation.await()?.let { location ->
-//                    liveStatusRepository.updateMyLiveLocation(location.latitude, location.longitude)
-//                }
-//            }.onFailure { e -> Log.e(TAG, "초기 위치 확보 실패: ${e.message}") }
-//        }
-//    }
-
-    /**
-     * 위치 데이터 가공 및 원격 서버 동기화 함수
-     */
-//    private suspend fun processLocationUpdate(myUid: String, latitude: Double, longitude: Double) {
-//        // 기존 상태 값을 가져와 좌표 정보 데이터 복사 최신화
-//        val currentStatus = liveStatusRepository.getCachedMyLiveStatus()
-//            ?: (liveStatusRepository.getLiveStatusByUid(myUid) as? Result.Success)?.data
-//
-//        val updatedLiveStatus = currentStatus?.copy(latitude = latitude, longitude = longitude)
-//            ?: LiveStatus(uid = myUid, latitude = latitude, longitude = longitude)
-//
-//        liveStatusRepository.updateMyLiveLocation(updatedLiveStatus)
-//    }
 
     /**
      * 시스템 위치 프로바이더 엔진 가동 등록 함수

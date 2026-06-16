@@ -125,19 +125,18 @@ class WatchMainViewModel(application: Application) :
                     return@launch
                 }
 
-                // 1. 휴대폰으로 상태 체크 신호 송신
+                // 휴대폰으로 상태 체크 신호 송신
                 for (node in nodes) {
                     messageClient.sendMessage(node.id, "/check_phone_status", byteArrayOf()).await()
                 }
                 Log.d(TAG, "📲 휴대폰으로 상태 신호 송신 후 응답 대기 시작 (타임아웃 3초)")
 
-                // 2. 💡 [핵심 예외 방어] 코루틴 타임아웃 지정 (3000ms = 3초)
-                // 3초 내에 WatchCentralService의 이벤트 버스로 신호가 오는지 대기합니다.
+                // 3초 내에 WatchCentralService의 이벤트 버스로 신호가 오는지 대기합
                 val resultStatus = withTimeoutOrNull(3000L) {
                     mobileStatusEventBus.first()
                 }
 
-                // 3. 결과에 따른 상태 제어
+                // 결과에 따른 상태 제어
                 if (resultStatus == null) {
                     // 3초 동안 휴대폰 서비스로부터 아무런 응답이 오지 않은 경우 (프로세스 Dead 상태 등)
                     Log.w(TAG, "⏳ 휴대폰 응답 타임아웃 초과! 서비스를 제한합니다.")
@@ -221,7 +220,7 @@ class WatchMainViewModel(application: Application) :
         }
     }
 
-    // 🔥 필수: 메모리 누수 방지를 위한 리스너 해제
+    // 메모리 누수 방지를 위한 리스너 해제
     override fun onCleared() {
         super.onCleared()
         Wearable.getMessageClient(getApplication()).removeListener(this)
@@ -259,10 +258,6 @@ class WatchMainViewModel(application: Application) :
 
             val voiceData = WatchVoiceData(messageId, voiceUrl, senderProfileImage, senderName)
 
-//            // 💡 중요: 서비스를 블로킹하지 않고, 비동기로 SharedFlow에 데이터만 던진 후 메서드를 종료합니다.
-//            viewModelScope.launch(Dispatchers.Main) {
-//                VoiceEventBus.emitVoice(voiceData)
-//            }
             if (isWatchActiveInForeground) {
                 // 워치 포그라운드 → 바로 재생
                 viewModelScope.launch(Dispatchers.Main) {

@@ -1,6 +1,5 @@
 package com.bbip.bbipit.core.util
 
-import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.util.Log
@@ -9,7 +8,7 @@ import android.util.Log
  * 서버나 로컬 파일의 음성 데이터 재생 클래스
  * Android MediaPlayer API 기반 스트리밍 재생, 상태 관리 및 자원 해제 기능 수행
  */
-class AudioPlayer(private val context: Context) {
+class AudioPlayer {
 
     // 음성 재생 담당 시스템 객체
     private var mediaPlayer: MediaPlayer? = null

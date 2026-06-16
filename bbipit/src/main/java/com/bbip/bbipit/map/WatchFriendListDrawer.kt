@@ -45,8 +45,7 @@ fun WatchFriendListDrawer(
     val density = LocalDensity.current
     val offsetXDp = with(density) { draggableState.offset.toDp() }
 
-    // 💡 [데이터 분석]
-    // 0번째 인덱스는 항상 '나'의 상태입니다.
+    // 0번째 인덱스는 항상 '나'의 상태
     val myStatus = friends.firstOrNull()
     val isMeSharing = myStatus?.isSharing ?: true // 내가 위치 공유 중인지 여부
     val actualFriends = friends.drop(1)           // 나를 제외한 실제 친구들 목록
@@ -77,7 +76,6 @@ fun WatchFriendListDrawer(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
-            // 💡 [조건별 화면 분기 처리]
             when {
                 // Case 1: 본인이 위치 공유를 꺼둔 경우
                 !isMeSharing -> {
@@ -93,7 +91,7 @@ fun WatchFriendListDrawer(
                             text = "위치 공유 꺼짐",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFF43F5E), // 붉은 계열 경고 색상
+                            color = Color(0xFFF43F5E),
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -107,7 +105,7 @@ fun WatchFriendListDrawer(
                     }
                 }
 
-                // Case 2: 위치 공유는 켰으나 표시할 친구가 없는 경우 (나 혼자만 리스트에 있는 경우)
+                // Case 2: 위치 공유는 켰으나 표시할 친구가 없는 경우
                 actualFriends.isEmpty() -> {
                     Box(
                         modifier = Modifier
@@ -126,7 +124,7 @@ fun WatchFriendListDrawer(
                     }
                 }
 
-                // Case 3: 정상 상태 (수락된 친구 목록 렌더링)
+                // Case 3: 정상 상태
                 else -> {
                     ScalingLazyColumn(
                         state = rememberScalingLazyListState(),

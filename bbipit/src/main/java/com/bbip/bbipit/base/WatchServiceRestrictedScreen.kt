@@ -39,7 +39,7 @@ fun WatchServiceRestrictedScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp)
         ) {
-            // 1. 경고 아이콘
+            // 경고 아이콘
             item {
                 Icon(
                     imageVector = androidx.compose.material.icons.Icons.Outlined.WarningAmber,
@@ -51,7 +51,7 @@ fun WatchServiceRestrictedScreen(
                 )
             }
 
-            // 2. 제목
+            // 제목
             item {
                 Text(
                     text = "연동 서비스 불가",
@@ -62,7 +62,7 @@ fun WatchServiceRestrictedScreen(
                 )
             }
 
-            // 3. 설명문 (워치 화면 특성상 문구를 간결하게 축소)
+            // 설명문
             item {
                 Text(
                     text = "휴대폰의 앱이\n꺼져있거나 권한이 부족하여\n서비스를 이용할 수 없습니다.\n휴대폰 상태를 확인해주세요.",
@@ -74,10 +74,10 @@ fun WatchServiceRestrictedScreen(
                 )
             }
 
-            // 4. 여백 생성
+            // 여백 생성
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
-            // 5. 앱 종료 버튼 (워치 전용 콤팩트 버튼 디자인)
+            // 앱 종료 버튼 (워치 전용 콤팩트 버튼 디자인)
             item {
                 FilledTonalButton(
                     onClick = onExitClick,

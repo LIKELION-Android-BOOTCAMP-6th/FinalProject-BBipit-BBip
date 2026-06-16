@@ -134,7 +134,6 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(seoul, 15f)
     }
 
-    // MainActivity 참조 확보를 위한 Context 캐스팅
     val activity = context as? MainActivity
 
     val TAG = "MapScreen"
@@ -1203,11 +1202,6 @@ fun LocationSharingToggleButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-//            Box(
-//                modifier = Modifier
-//                    .size(10.dp)
-//                    .background(color = indicatorColor, shape = CircleShape)
-//            )
 
             Text(
                 text = if (isSharingEnabled) "실시간 위치 공유 중" else "위치 공유 꺼짐",
@@ -1224,7 +1218,7 @@ fun LocationSharingToggleButton(
                 colors = SwitchDefaults.colors(
                     // 활성화 상태 (체크됨) 테마 지정
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = online, // 혹은 프로젝트 테마 색상 (예: Color(0xFF5B4DFF))
+                    checkedTrackColor = online,
                     checkedBorderColor = Color.Transparent,
 
                     // 비활성화 상태 (체크 해제됨) 테마 지정

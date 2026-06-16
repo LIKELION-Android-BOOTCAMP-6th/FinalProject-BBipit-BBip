@@ -104,25 +104,6 @@ class VoiceRemoteDataSourceImpl @Inject constructor(
     }
 
     /**
-     * 음성 메시지를 상대방에게 직접 전송하는 함수
-     */
-//    override suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int) {
-//        val messageData = hashMapOf(
-//            "sender_id" to senderId,
-//            "receiver_id" to receiverId,
-//            "voice_url" to voiceUrl,
-//            "duration" to duration,
-//            "sent_at" to com.google.firebase.Timestamp.now(),
-//            "is_read" to false
-//        )
-//        firestore.collection("VoiceMessages")
-//            .document(receiverId)
-//            .collection("Messages")
-//            .add(messageData)
-//            .await()
-//    }
-
-    /**
      * 음성 메시지를 읽음 상태로 업데이트하는 함수
      */
     override suspend fun markVoiceMessageAsRead(messageId: String) {

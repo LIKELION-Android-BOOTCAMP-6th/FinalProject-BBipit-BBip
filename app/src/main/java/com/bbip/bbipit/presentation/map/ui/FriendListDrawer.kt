@@ -45,7 +45,7 @@ fun FriendListDrawer(
         drawerContainerColor = Color.White,
         drawerContentColor = Color.Gray
     ) {
-        // [HEADER 영역]
+        // HEADER 영역
         Column(
             modifier = Modifier
                 .fillMaxWidth()
