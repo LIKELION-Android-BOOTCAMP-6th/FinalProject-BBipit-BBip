@@ -42,6 +42,22 @@
 
 ---
 
+## ⚙️ Getting Started
+
+### 환경 설정
+* `google-services.json` 파일이 프로젝트 루트 디렉토리에 필요합니다.
+* API 로컬 키는 보안을 위해 커밋하지 않고 별도의 설정 파일로 관리합니다.
+* **Firestore 인덱스:** 일부 쿼리는 복합 인덱스가 필요합니다. 최초 실행 시 Logcat에 출력되는 링크를 통해 Firebase Console에서 인덱스를 등록해야 합니다.
+
+### 실행 방법
+* **IDE:** Android Studio Otter 이상 권장
+* **JDK:** 11 버전 이상
+* **SDK:** minSdk 26 / targetSdk 36 / compileSdk 36
+* 프로젝트 오픈 후 **Gradle Sync**를 진행합니다.
+* 에뮬레이터 또는 실기기에 빌드하여 실행합니다.
+
+---
+
 ## 🚀 Key Features
 
 ### 1. 프라이빗 위치 기반 무전 (Walkie-Talkie)
