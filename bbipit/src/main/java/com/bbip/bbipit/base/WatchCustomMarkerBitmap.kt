@@ -46,8 +46,6 @@ suspend fun createCustomMarkerBitmap(
     val circleRadius = markerWidth / 2f // 테두리를 포함하는 메인 원형 반지름
     val circleCenterY = circleRadius    // 상단 배치를 위한 원형 중심 Y좌표
 
-    // 하단 지시선 삼각형 형태 생성을 위한 치수 정의
-    val triangleHeight = 10 * density // 지시선 세로 길이
     val triangleWidth = 24 * density  // 지시선 가로 폭
 
     // 원형 하단 경계선에서 맨 아래 꼭지점으로 이어지는 지시선 경로 설정

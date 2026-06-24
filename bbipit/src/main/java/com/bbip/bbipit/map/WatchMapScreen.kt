@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -318,8 +316,8 @@ fun WatchMapScreen(
         Button(
             onClick = { showHistories = !showHistories },
             modifier = Modifier
-                .align(Alignment.CenterEnd) // 내 위치 버튼과 같은 라인
-                .padding(end = 16.dp, bottom = 90.dp) // 내 위치 버튼(44dp + 간격) 위로 올림
+                .align(Alignment.CenterEnd)
+                .padding(end = 16.dp, bottom = 90.dp)
                 .size(44.dp)
                 .border(
                     width = 2.dp,
@@ -358,7 +356,7 @@ fun WatchMapScreen(
                 }
             },
             modifier = Modifier
-                .align(Alignment.CenterEnd) // 우측 중앙 정렬
+                .align(Alignment.CenterEnd)
                 .padding(end = 8.dp, top = 10.dp)
                 .size(44.dp)
                 .border(
@@ -367,20 +365,20 @@ fun WatchMapScreen(
                     shape = CircleShape
                 ),
             colors = ButtonDefaults.buttonColors(
-                backgroundColor = Color(0xFFF1F5F9) // 배경색
+                backgroundColor = Color(0xFFF1F5F9)
             )
         ) {
             Icon(
                 imageVector = Icons.Default.MyLocation,
                 contentDescription = "내 위치",
                 modifier = Modifier.size(22.dp),
-                tint = Color(0xFF956AFC) // 보라색 포인트
+                tint = Color(0xFF956AFC)
             )
         }
 
         // WearOS 전용 에지 스와이프 친구 추적 드로어 배치
         WatchFriendListDrawer(
-            draggableState = drawerDraggableState, // 주입식으로 변경한 상태를 바인딩
+            draggableState = drawerDraggableState,
             friends = liveStatusList,
             selectedFriendUid = uiState.selectedFriendUid,
             drawerWidth = drawerWidth,

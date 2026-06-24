@@ -30,24 +30,5 @@ data class LiveStatusDto(
     // 상태 업데이트 시간
     val updatedAt: Timestamp? = null,
     val isSharing: Boolean = true,
-    val sessionId: String? = null //중복로그인 여부 판별용
-) {
-    /**
-     * 원격 저장소 업로드용 맵 변환 함수
-     */
-    fun toMap(): Map<String, Any?> {
-        // 프로퍼티 키값 매핑 및 데이터 직렬화
-        return mapOf(
-            "nickname" to nickname,
-            "profile_image_url" to profileImageUrl,
-            "status" to status,
-            "is_online" to isOnline,
-            "current_room_id" to currentRoomId,
-            "latitude" to latitude,
-            "longitude" to longitude,
-            "updated_at" to (updatedAt ?: Timestamp.now()),
-            "is_sharing" to isSharing,
-            "current_session_id" to sessionId
-        )
-    }
-}
+    val sessionId: String? = null,
+)

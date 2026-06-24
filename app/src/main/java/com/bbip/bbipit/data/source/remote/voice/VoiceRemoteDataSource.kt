@@ -1,7 +1,6 @@
 package com.bbip.bbipit.data.source.remote.voice
 
 import com.bbip.bbipit.data.source.model.VoiceMessageDto
-import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.flow.Flow
 
 /**

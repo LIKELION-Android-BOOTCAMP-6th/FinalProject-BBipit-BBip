@@ -11,10 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
  * 워치 앱 전체에서 공유되는 전역 실시간 데이터 저장소 (싱글톤)
  */
 object WatchDataRepository {
-    private val TAG = "WatchDataRepository"
-
-    // 🎯 친구들의 실시간 위치 목록을 보관하는 StateFlow
-    // 싱글톤이므로 메모리에 항상 최신 상태가 유지됩니다.
     private val _liveStatusList = MutableStateFlow<List<WatchLiveStatus>>(emptyList())
     val liveStatusList: StateFlow<List<WatchLiveStatus>> = _liveStatusList.asStateFlow()
 

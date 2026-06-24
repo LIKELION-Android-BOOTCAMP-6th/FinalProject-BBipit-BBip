@@ -32,12 +32,9 @@ class WatchConnectionManager @javax.inject.Inject constructor(
     private val capabilityClient by lazy { Wearable.getCapabilityClient(context) }
     private val nodeClient by lazy { Wearable.getNodeClient(context) }
     private val messageClient by lazy { Wearable.getMessageClient(context) }
-
-    // 1. 물리적 연결 상태 Flow
     private val _isPhysicalConnected = MutableStateFlow(false)
     val isPhysicalConnected: StateFlow<Boolean> = _isPhysicalConnected.asStateFlow()
 
-    // 2. 워치 앱 포그라운드 활성화 상태 Flow (서비스에서 이관됨)
     private val _isWatchInForeground = MutableStateFlow(false)
     val isWatchInForeground: StateFlow<Boolean> = _isWatchInForeground.asStateFlow()
 
@@ -75,7 +72,7 @@ class WatchConnectionManager @javax.inject.Inject constructor(
     }
 
     /**
-     * [MessageClient 구현] 워치 앱 상태 패킷 수신
+     * 워치 앱 상태 패킷 수신
      */
     override fun onMessageReceived(messageEvent: MessageEvent) {
         if (messageEvent.path == PATH_WATCH_STATE) {

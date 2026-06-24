@@ -1,8 +1,5 @@
 package com.bbip.bbipit.core.base
 
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.ServerValue
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -11,21 +8,13 @@ import android.net.NetworkRequest
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.widget.Toast
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
-import com.bbip.bbipit.domain.repository.UserRepository
-import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.ValueEventListener
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,10 +64,6 @@ class LifeCycleManager @Inject constructor(
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private val _isNetworkConnected = MutableStateFlow(true)
     val isNetworkConnected: StateFlow<Boolean> = _isNetworkConnected.asStateFlow()
-
-    init {
-
-    }
 
     /**
      * 현재 활성화된 채팅방 정보 갱신 및 상태 전송 함수

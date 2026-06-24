@@ -4,7 +4,6 @@ import com.bbip.bbipit.core.result.Result
 import com.bbip.bbipit.domain.entity.VoiceMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 
 /**
  * 음성 메시지 및 무전 데이터 처리 Repository 인터페이스
@@ -28,11 +27,6 @@ interface VoiceRepository {
      * 음성 파일을 스토리지에 업로드하는 함수
      */
     suspend fun uploadVoiceFile(myUid: String, localFileUri: android.net.Uri): Result<String>
-
-    /**
-     * 음성 메시지를 상대방에게 직접 전송하는 함수
-     */
-//    suspend fun sendVoiceMessageDirect(senderId: String, receiverId: String, voiceUrl: String, duration: Int): Result<Boolean>
 
     /**
      * 음성 메시지를 읽음 상태로 업데이트하는 함수
