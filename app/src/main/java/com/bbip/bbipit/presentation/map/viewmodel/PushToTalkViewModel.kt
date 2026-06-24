@@ -8,6 +8,8 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.core.util.AudioRecorder
 import com.bbip.bbipit.domain.repository.AuthRepository
 import com.bbip.bbipit.domain.repository.VoiceRepository
+import com.bbip.bbipit.domain.usecase.SendVoiceMessageUseCase
+import com.bbip.bbipit.domain.usecase.VoiceUploadResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,8 +30,7 @@ data class VoiceUiState(
  */
 @HiltViewModel
 class PushToTalkViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
-    private val voiceRepository: VoiceRepository,
+    private val sendVoiceMessageUseCase: SendVoiceMessageUseCase, // 유즈케이스로 교체
     private val audioRecorder: AudioRecorder
 ) : BaseViewModel<VoiceUiState>(VoiceUiState()) {
 
@@ -51,10 +52,10 @@ class PushToTalkViewModel @Inject constructor(
     }
 
     /**
-     * 무전 녹음 중단 및 파일 전송 함수
+     * 무전 녹음 중단 및 파일 전송 함수 (UseCase 위임으로 간소화)
      */
     fun stopRecording(duration: Int) {
-        // 최소 녹음 시간 제한 가드레일
+        // UI 검증 규칙: 최소 녹음 시간 제한 가드레일
         if (duration < 1) {
             audioRecorder.stop()
             updateState {
@@ -69,68 +70,38 @@ class PushToTalkViewModel @Inject constructor(
 
         updateState { copy(isRecording = false, isUploading = true) }
 
-        // 전송 딜레이 보정을 위해 오디오 길이에 1초 추가
-        val correctedDuration = duration + 1
-
         viewModelScope.launch {
-            if(authRepository.getCurrentUserUid() == null) return@launch
-            val myUid = authRepository.getCurrentUserUid()
-
-            // 파일 기록 안정화를 위해 대기
-            kotlinx.coroutines.delay(500)
-
-            // 녹음 중단 및 파일 Uri 획득
+            // 녹음 정지 및 파일 로컬 Uri 획득
             val uri = audioRecorder.stop()
-
             updateState { copy(recordedFileUri = uri?.toString()) }
             Log.d(TAG, "Recording stopped inside ViewModel, uri: $uri")
 
-            // 파일 유효성 검증
-            if (uri == null) {
-                updateState { copy(isUploading = false, error = "녹음된 파일이 없거나 유효하지 않습니다.") }
-                return@launch
-            }
+            // 복잡한 전송 프로세스는 UseCase에 전적으로 위임
+            val result = sendVoiceMessageUseCase(
+                audioUri = uri,
+                duration = duration,
+                targetUid = currentState.selectedTargetUid
+            )
 
-            val senderUid = authRepository.getCurrentUserUid()
-            val targetUid = currentState.selectedTargetUid
-
-            // 인증 및 수신자 정보 확인
-            if (senderUid == null || targetUid == null) {
-                updateState { copy(isUploading = false, error = "사용자 인증 정보 또는 수신자 정보가 올바르지 않습니다.") }
-                return@launch
-            }
-
-            // 스토리지 파일 업로드
-            val uploadResult = voiceRepository.uploadVoiceFile(myUid!!,uri)
-
-            uploadResult.onSuccess { url ->
-                Log.d("Voice", "Storage upload success: $url")
-
-                // 상대방에게 무전 메시지 전송
-                val sendResult =
-                    voiceRepository.sendVoiceMessage( targetUid, url, correctedDuration)
-
-                sendResult.onSuccess {
+            // 결과 상태에 맞춰 UI State만 단순 업데이트
+            when (result) {
+                is VoiceUploadResult.Success -> {
                     updateState { copy(isUploading = false, recordedFileUri = null) }
-                }.onFailure { e ->
-                    updateState { copy(isUploading = false, error = e.message) }
                 }
-            }.onFailure { e ->
-                updateState { copy(isUploading = false, error = "스토리지 업로드 실패: ${e.message}") }
+                is VoiceUploadResult.Failure -> {
+                    updateState { copy(isUploading = false, error = result.message) }
+                }
+                is VoiceUploadResult.FileReady -> {
+                    updateState { copy(recordedFileUri = result.fileUri) }
+                }
             }
         }
     }
 
-    /**
-     * 수신자 UID 설정 함수
-     */
     fun setTargetUid(uid: String?) {
         updateState { copy(selectedTargetUid = uid) }
     }
 
-    /**
-     * 에러 상태 초기화 함수
-     */
     fun clearError() {
         updateState { copy(error = null) }
     }

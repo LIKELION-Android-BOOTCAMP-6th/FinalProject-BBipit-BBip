@@ -11,6 +11,7 @@ import com.bbip.bbipit.core.result.onSuccess
 import com.bbip.bbipit.data.repository.ChatRepositoryImpl
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.domain.repository.LiveStatusRepository
+import com.bbip.bbipit.domain.usecase.CreateOrGetChatRoomUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -32,7 +33,7 @@ data class MapUiState(
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val liveStatusRepository: LiveStatusRepository,
-    private val chatRepository: ChatRepositoryImpl,
+    private val createOrGetChatRoomUseCase: CreateOrGetChatRoomUseCase
 ): BaseViewModel<MapUiState>(MapUiState()) {
     private val myLiveStatus = MutableStateFlow<LiveStatus?>(null)
     private val TAG = "MapViewModel"
@@ -50,30 +51,13 @@ class MapViewModel @Inject constructor(
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            chatRepository.createOrGetChatRoom(targetUid)
-                .onSuccess { result ->
-                    if (result.success && result.roomId != null) {
-                        onSuccess(result.roomId)
-                    } else {
-                        onError(result.message.ifEmpty { "채팅방 ID를 가져올 수 없습니다." })
-                    }
-                }
-                .onFailure { error ->
-                    onError(error.message ?: "채팅방 생성 중 오류가 발생했습니다.")
-                }
+            createOrGetChatRoomUseCase(
+                targetUid = targetUid,
+                onSuccess = onSuccess,
+                onError = onError
+            )
         }
     }
-
-//    fun fetchLiveStatusAndRefreshCache() {
-//        viewModelScope.launch {
-//
-//            liveStatusRepository.refreshMyLiveStatusCache().onSuccess {
-//                Log.d(TAG, it)
-//            }.onFailure {
-//                Log.d(TAG, "${it.message}")
-//            }
-//        }
-//    }
 
     /**
      * Repository 관찰 흐름을 ViewModel의 상태 구조와 연결
