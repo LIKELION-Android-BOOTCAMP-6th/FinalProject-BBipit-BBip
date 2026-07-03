@@ -1,5 +1,7 @@
 package com.bbip.bbipit.presentation.auth.ui
 
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,7 +66,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
     val context = LocalContext.current.findActivity()
     val focusManager = LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
+    var backPressedTime by remember { mutableLongStateOf(0L) }
     val isAllEntered by remember {
         derivedStateOf {
             uiState.email.isNotBlank() && uiState.password.isNotBlank()
@@ -80,6 +84,14 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
                         popUpTo(0){ inclusive = true }
                     }
             }
+        }
+    }
+    BackHandler {
+        if (System.currentTimeMillis() - backPressedTime <= 2000) {
+            context?.finish()
+        } else {
+            backPressedTime = System.currentTimeMillis()
+            Toast.makeText(context, "한 번 더 누르면 종료됩니다", Toast.LENGTH_SHORT).show()
         }
     }
 
