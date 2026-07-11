@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import com.bbip.bbipit.data.source.model.HistoryDto
 import com.bbip.bbipit.domain.entity.History
+import com.google.firebase.firestore.AggregateSource
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
@@ -236,5 +237,21 @@ class HistoryRemoteDataSourceImpl @Inject constructor(
 
         val responseData = result.data as? Map<*, *>
         return responseData?.get("success") as? Boolean ?: false
+    }
+
+    override fun observeHistoryCommentCount(historyId: String): Flow<Int> = callbackFlow {
+        val registration = firestore
+            .collection("History")
+            .document(historyId)
+            .collection("Comments")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                snapshot?.let { trySend(it.size()) } // 문서 파싱 없이 개수만
+            }
+
+        awaitClose { registration.remove() }
     }
 }

@@ -32,6 +32,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.bbip.bbipit.core.ui.theme.Typography
 import com.bbip.bbipit.core.ui.theme.background
@@ -40,6 +41,7 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.HistoryComment
 import com.bbip.bbipit.presentation.map.ui.HistoryViewerScreen
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
+import kotlinx.coroutines.flow.StateFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +68,7 @@ fun MyHistoryGridViewerDialog(
         histories.filter { it.userId == myUid }
     }
 
+    val commentCounts by viewModel.commentCounts.collectAsStateWithLifecycle()
     val filteredHistories = remember(selectedCategory, myHistories) {
         if (selectedCategory == "전체") {
             myHistories
@@ -214,6 +217,7 @@ fun MyHistoryGridViewerDialog(
                             GridHistoryItem(
                                 myUid = myUid,
                                 history = history,
+                                comments = commentCounts[history.id] ?: 0,
                                 onClick = {
                                     targetHistoryId = history.id
                                     isViewerOpen = true
@@ -268,6 +272,7 @@ fun MyHistoryGridViewerDialog(
 fun GridHistoryItem(
     myUid: String,
     history: History,
+    comments: Int,
     onClick: () -> Unit
 ) {
     val themeColor = remember(history.category) {
@@ -455,7 +460,7 @@ fun GridHistoryItem(
                             modifier = Modifier.size(13.dp)
                         )
                         Text(
-                            text = "${history.content.length}",
+                            text = "$comments",
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Black

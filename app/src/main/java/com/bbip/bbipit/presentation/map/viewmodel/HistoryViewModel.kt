@@ -12,7 +12,11 @@ import com.bbip.bbipit.domain.repository.HistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import jakarta.inject.Inject
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 // 히스토리 화면 상태 데이터 모델
@@ -34,6 +38,10 @@ class HistoryViewModel @Inject constructor(
     private var historyStreamJob: Job? = null
     private var commentStreamJob: Job? = null
 
+    private val _commentCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val commentCounts : StateFlow<Map<String, Int>> = _commentCounts
+
+    private var commentCountJob: Job? = null
     private val TAG = "HistoryViewModel"
 
     // 특정 히스토리 데이터 수정 요청
@@ -86,6 +94,7 @@ class HistoryViewModel @Inject constructor(
                             histories = sharedHistories
                         )
                     }
+                    observeCommentCounts(sharedHistories)
                     Log.d(TAG, "🔄 [UI 최적화 완료] 서비스가 캐싱한 데이터 ${sharedHistories.size}건을 화면에 매핑")
                 }
         }
@@ -95,6 +104,31 @@ class HistoryViewModel @Inject constructor(
     fun closeHistoryObservation() {
         historyStreamJob?.cancel()
         historyStreamJob = null
+    }
+
+    private fun observeCommentCounts(histories: List<History>) {
+        commentCountJob?.cancel()
+
+        if (histories.isEmpty()) {
+            _commentCounts.value = emptyMap()
+            return
+        }
+
+        commentCountJob = viewModelScope.launch {
+            val flows = histories.map { history ->
+                historyRepository.observeHistoryCommentCount(history.id)
+                    .map { count -> history.id to count }
+                    .catch { e ->
+                        Log.e(TAG, "댓글 수 구독 실패: historyId=${history.id}", e)
+                        emit(history.id to 0)
+                    }
+            }
+
+            combine(flows) { pairs -> pairs.toMap() }
+                .collect { counts ->
+                    _commentCounts.value = counts
+                }
+        }
     }
 
     // 특정 히스토리의 실시간 댓글 스트림 관측 시작

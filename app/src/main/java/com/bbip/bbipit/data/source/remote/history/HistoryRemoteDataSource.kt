@@ -21,4 +21,6 @@ interface HistoryRemoteDataSource {
     // 히스토리 구독 (단일)
     fun observeHistoriesByUidList(uidList: List<String>): Flow<List<History>>
     suspend fun updateHistory(historyId: String, content: String): Boolean
+
+    fun observeHistoryCommentCount(historyId: String): Flow<Int>
 }
