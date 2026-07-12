@@ -57,6 +57,7 @@ import com.bbip.bbipit.presentation.auth.ui.components.InputField
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
 import com.bbip.bbipit.presentation.auth.viewmodel.SignInViewModel
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ExitHandler
 import com.bbip.bbipit.presentation.base.LoadingBox
 import com.bbip.bbipit.presentation.base.ShowToast
 
@@ -66,7 +67,6 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
     val context = LocalContext.current.findActivity()
     val focusManager = LocalFocusManager.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var backPressedTime by remember { mutableLongStateOf(0L) }
     val isAllEntered by remember {
         derivedStateOf {
             uiState.email.isNotBlank() && uiState.password.isNotBlank()
@@ -86,14 +86,7 @@ fun SignInScreen(navController: NavController, viewModel: SignInViewModel = hilt
             }
         }
     }
-    BackHandler {
-        if (System.currentTimeMillis() - backPressedTime <= 2000) {
-            context?.finish()
-        } else {
-            backPressedTime = System.currentTimeMillis()
-            Toast.makeText(context, "한 번 더 누르면 종료됩니다", Toast.LENGTH_SHORT).show()
-        }
-    }
+    ExitHandler()
 
     Box(modifier = Modifier.fillMaxSize().background(background).imePadding().navigationBarsPadding()) {
         Column(modifier = Modifier.fillMaxSize().padding(30.dp)

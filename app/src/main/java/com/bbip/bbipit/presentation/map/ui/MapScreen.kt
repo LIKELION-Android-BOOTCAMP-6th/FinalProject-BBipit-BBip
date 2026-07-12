@@ -78,6 +78,7 @@ import com.bbip.bbipit.domain.entity.History
 import com.bbip.bbipit.domain.entity.LiveStatus
 import com.bbip.bbipit.presentation.base.BackgroundBox
 import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.ExitHandler
 import com.bbip.bbipit.presentation.main.BottomBarViewModel
 import com.bbip.bbipit.presentation.main.MainActivity
 import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
@@ -116,6 +117,8 @@ fun MapScreen(
     val uiState by viewModel.uiState.collectAsState()
     val voiceUiState by pushToTalkViewModel.uiState.collectAsState()
     val historyUiState by historyViewModel.uiState.collectAsState()
+
+    ExitHandler()
 
     var clickedFriendUid by remember { mutableStateOf<String?>(null) }
     var isDrawerOpen by remember { mutableStateOf(false) }
