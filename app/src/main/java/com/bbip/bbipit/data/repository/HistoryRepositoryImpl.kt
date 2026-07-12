@@ -222,4 +222,8 @@ class HistoryRepositoryImpl @Inject constructor(
             Result.Failure(AppError.Unknown(e.message ?: "히스토리 삭제 도중 오류 발생"))
         }
     }
+
+    override fun observeHistoryCommentCount(historyId: String): Flow<Int> {
+        return remoteDataSource.observeHistoryCommentCount(historyId)
+    }
 }
