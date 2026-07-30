@@ -127,7 +127,7 @@ fun PermissionRequestScreen(
                         icon = Icons.Outlined.LocationOn,
                         iconTint = Color(0xFF3B82F6), // text-blue-500
                         title = "위치 (필수)",
-                        subtitle = "내 주변 친구 탐색 및 지도 표시"
+                        subtitle = "친구에게 내 위치를 표시하기 위해 필요해요. \n(정확한 위치 표시를 위해 앱이 사용 중이 아닌 상태에서도 수집됩니다.)"
                     )
 
                     // 알림 권한 항목
@@ -135,7 +135,7 @@ fun PermissionRequestScreen(
                         icon = Icons.Outlined.Notifications,
                         iconTint = mainColor, // text-[#956AFC]
                         title = "알림 (필수)",
-                        subtitle = "새로운 무전 및 친구 요청 수신"
+                        subtitle = "무전이 만료되기 전 재빠르게 알려드릴게요. \n(무전, 친구 요청 알림 등이 표시됩니다.)"
                     )
 
                     // 💡 [추가] 마이크 권한 레이아웃 항목 반영
