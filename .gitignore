@@ -15,6 +15,9 @@
 local.properties
 /.idea
 app/google-services.json
-
+bbipit/google-services.json
+app/src/main/assets/adi-registration.properties
 *.jks
 *.keystore
+app/release/
+bbipit/release/

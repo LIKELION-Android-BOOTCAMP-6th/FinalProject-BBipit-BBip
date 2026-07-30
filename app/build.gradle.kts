@@ -1,14 +1,17 @@
-plugins {
-    id("org.jetbrains.kotlin.kapt")
+import java.util.Properties
 
+val properties = Properties().apply {
+    load(rootProject.file("local.properties").inputStream())
+}
+plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     id("com.google.gms.google-services")
     alias(libs.plugins.hilt.android)
-    kotlin("plugin.serialization") version "2.0.21"
-
-
+    kotlin("plugin.serialization") version "2.2.10"
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -19,13 +22,29 @@ android {
     buildFeatures {
         buildConfig = true  // BuildConfig 활성화
     }
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/bbip_keystore.jks")
+            storePassword = properties.getProperty("password") ?: ""
+            keyAlias = "release"
+            keyPassword = properties.getProperty("password") ?: ""
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release") // 릴리즈 빌드에 이 키를 쓰겠다고 연결
+        }
+    }
+
 
     defaultConfig {
         applicationId = "com.bbip.bbipit"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 8
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["MAP_KEY"] =
@@ -66,6 +85,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.foundation)
+    implementation(libs.firebase.appcheck.debug)
+    implementation(libs.androidx.runtime)
+    implementation(libs.play.services.auth)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -75,8 +99,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     //파이어베이스 버전 관리자 bom
-    implementation (platform("com.google.firebase:firebase-bom:34.10.0"))
-    implementation("com.google.firebase:firebase-analytics")
+    implementation (platform("com.google.firebase:firebase-bom:34.13.0"))
+//    implementation("com.google.firebase:firebase-analytics")
 
     //파이어베이스 인증(이메일/구글)
     implementation("com.google.firebase:firebase-auth")
@@ -87,14 +111,19 @@ dependencies {
 
     ///파이어스토어
     implementation("com.google.firebase:firebase-firestore")
+//    implementation("com.google.firebase:firebase-firestore-ktx:25.0.0")
+
+    // Geofire 라이브러리
+    implementation(libs.firebase.geofire)
+
     //fcm
     implementation("com.google.firebase:firebase-messaging")
     //storage
     implementation("com.google.firebase:firebase-storage")
     //functions
     implementation("com.google.firebase:firebase-functions")
-//    realtime-database
-//    implementation("com.google.firebase:firebase-database")
+    //    realtime-database
+    implementation(libs.firebase.database)
 
     //coil
     implementation(libs.coil)
@@ -110,10 +139,10 @@ dependencies {
 
     //hilt
     implementation(libs.hilt.android)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
     implementation(libs.compose.nav)
     implementation(libs.coroutine.core)
@@ -123,4 +152,7 @@ dependencies {
 
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.service)
+
+    //비정상종료 감지용
+    implementation("com.google.firebase:firebase-crashlytics")
 }

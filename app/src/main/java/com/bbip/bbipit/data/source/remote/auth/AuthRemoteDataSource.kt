@@ -1,12 +1,29 @@
 package com.bbip.bbipit.data.source.remote.auth
 
+import android.net.Uri
+import com.bbip.bbipit.domain.type.LoginType
+import com.bbip.bbipit.domain.type.TermsType
+import com.google.firebase.auth.AuthResult
+import kotlinx.coroutines.flow.Flow
+
 /**
- 서버와 통신을 위한 함수명만 선언
+ * 인증 관련 원격 데이터 소스 인터페이스
  */
 interface AuthRemoteDataSource {
-    suspend fun loginWithKakao(): String
-    suspend fun loginWithGoogle(idToken: String)
-    suspend fun signInWithCustomToken(accessToken: String)
-    suspend fun signUpWithEmail(email: String, password: String)
-    suspend fun signInWithEmail(email: String, password: String)
+    suspend fun signInWithCustomToken(accessToken: String, type: LoginType)
+    suspend fun signOutGoogle()
+    suspend fun signOutKakao()
+    suspend fun signUpWithEmail(email: String, password: String, nickname: String): AuthResult
+    suspend fun signInWithEmail(email: String, password: String): AuthResult
+    fun getCurrentUserUid(): String?
+    fun getAuthStateFlow(): Flow<String?>
+    suspend fun getTerms(type: TermsType): String
+    fun isAutoLogin() : Boolean
+    suspend fun reloadCurrentUser()
+    fun isEmailVerified(): Boolean
+    suspend fun deleteAccountData()
+    suspend fun logoutServerCleanup()
+    fun getLocalSessionId(): String?
+    fun saveSessionId(id: String)
+    fun deleteSessionId()
 }

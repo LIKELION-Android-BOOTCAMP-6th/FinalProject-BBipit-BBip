@@ -2,20 +2,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--    필수 권한 설정   -->
+    <!-- 필수 권한 설정 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 외부 앱 연동 설정 -->
     <queries>
         <package android:name="com.kakao.talk" />
     </queries>
@@ -30,18 +32,53 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Bbipit">
+
+        <!-- 위치 및 음성 수신 서비스 -->
+        <service
+            android:name=".core.base.BackgroundListenerService"
+            android:foregroundServiceType="connectedDevice|location|dataSync"
+            android:exported="false"/>
+
+        <!-- 데이터 및 메시지 수신 리스너 서비스 -->
+        <service
+            android:name=".core.base.MobileMessageListenerService"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+
+                <data android:host="*" android:scheme="wear" android:path="/mark_voice_read" />
+                <data android:host="*" android:scheme="wear" android:path="/check_phone_status" />
+                <data android:host="*" android:scheme="wear" android:path="/request_locations" />
+                <data android:host="*" android:scheme="wear" android:path="/request_open_history" />
+            </intent-filter>
+        </service>
+        <!-- fcm 토큰 자동 갱신 서비스-->
+        <service
+            android:name=".data.source.remote.notification.MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 메인 액티비티 -->
         <activity
             android:name=".presentation.main.MainActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true"
+            android:launchMode="singleTop"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Bbipit">
+            android:theme="@style/Theme.Bbipit"
+            android:screenOrientation="portrait"
+            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- 카카오 인증 핸들러 액티비티 -->
         <activity
             android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
             android:exported="true">
@@ -49,13 +86,28 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
                 <data android:host="oauth" android:scheme="kakao${KAKAO_KEY}" />
             </intent-filter>
         </activity>
+
+        <!-- 지도 API 키 메타데이터 -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAP_KEY}" />
+
+        <!-- 워치에 알림 미러링하지 않도록 설정-->
+        <meta-data
+            android:name="com.google.android.wearable.notificationBridgeMode"
+            android:value="NO_BRIDGING" />
+
+        <!-- 테스트 알림 브로드캐스트 리시버 -->
+<!--        <receiver-->
+<!--            android:name=".presentation.notification.TestNotificationReceiver"-->
+<!--            android:exported="true">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="com.bbip.bbipit.TEST_NOTIFICATION" />-->
+<!--            </intent-filter>-->
+<!--        </receiver>-->
     </application>
 
 </manifest>

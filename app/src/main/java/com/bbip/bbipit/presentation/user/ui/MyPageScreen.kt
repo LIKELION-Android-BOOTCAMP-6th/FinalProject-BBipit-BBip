@@ -1,10 +1,510 @@
-package com.bbip.bbipit.presentation.user.ui
+package com.bbip.bbipit.presentation.mypage
 
-import androidx.compose.material3.Text
+import android.util.Log
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.navigation.NavController
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import coil.compose.AsyncImage
+import com.bbip.bbipit.core.extension.findActivity
+import com.bbip.bbipit.core.navigation.Routes
+import com.bbip.bbipit.core.ui.theme.Typography
+import com.bbip.bbipit.core.ui.theme.background
+import com.bbip.bbipit.core.ui.theme.fontDefault
+import com.bbip.bbipit.core.ui.theme.primary
+import com.bbip.bbipit.core.ui.theme.subBackground
+import com.bbip.bbipit.presentation.auth.ui.components.InputField
+import com.bbip.bbipit.presentation.auth.viewmodel.SignInEvent
+import com.bbip.bbipit.presentation.base.ConfirmDialog
+import com.bbip.bbipit.presentation.base.LoadingBox
+import com.bbip.bbipit.presentation.base.ShowToast
+import com.bbip.bbipit.presentation.main.BottomBarViewModel
+import com.bbip.bbipit.presentation.map.viewmodel.HistoryViewModel
+import com.bbip.bbipit.presentation.user.ui.MyHistoryGridViewerDialog
+import com.bbip.bbipit.presentation.user.ui.SettingsDrawer
+import com.google.firebase.auth.FirebaseAuth
+
+val KakaoYellow = Color(0xFFFEE500)
+
 
 @Composable
-fun MyPageScreen(navController: NavController) {
-    Text("마이페이지")
+fun MyPageScreen(
+    navController: NavController,
+    viewModel: MyPageViewmodel = hiltViewModel(),
+    historyViewModel: HistoryViewModel = hiltViewModel(),
+    bottomBarViewModel: BottomBarViewModel =
+        hiltViewModel(viewModelStoreOwner = (LocalActivity.current as ComponentActivity)), //드로어블 열렸을 때 하단바 안보이게 하기 위해 하단바 관련 뷰모델 생성
+    onCopyIdClick: (String) -> Unit = {},
+    onShareKakaoClick: (String) -> Unit = {}
+) {
+    // 뷰모델의 UI 상태 구독
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isShownDrawer by bottomBarViewModel.isDrawerShown.collectAsState()
+    val context = LocalContext.current.findActivity()
+
+    // 히스토리 그리드 상태
+    var isHistoryGridOpen by remember { mutableStateOf(false) }
+    // 히스토리 구독 상태
+    val historyUiState by historyViewModel.uiState.collectAsStateWithLifecycle()
+
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // 마이페이지가 열릴 때 내 히스토리 리스너 시작
+    LaunchedEffect(Unit) {
+        historyViewModel.startHistoryObservation()
+    }
+
+    // 마이페이지가 화면에서 사라질 때 자원 해제
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        historyViewModel.closeHistoryObservation()
+    }
+
+    // 화면이 그려지자마자 내 데이터를 서버에서 가져옴
+    LaunchedEffect(Unit) {
+        viewModel.fetchUserProfile()
+    }
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when(event){
+                is MyPageEvent.NavigateToSignIn ->
+                    navController.navigate(Routes.SignIn) {
+                        popUpTo(0){ inclusive = true }
+                    }
+            }
+        }
+    }
+    LaunchedEffect(isShownDrawer) {
+        if (isShownDrawer) {
+            drawerState.open()
+        } else {
+            drawerState.close()
+        }
+    }
+
+    LaunchedEffect(drawerState.currentValue) {
+        val isDrawerUiOpen = drawerState.isOpen
+        if (isDrawerUiOpen != isShownDrawer) {
+            bottomBarViewModel.onUpdateDrawerShown(isDrawerUiOpen)
+        }
+    }
+
+    // 상태 변수에 값이 채워지는 순간, ShowToast 공통 컴포저블 호출
+    uiState.toast?.let { message ->
+        ShowToast(message = message)
+        viewModel.onUpdateToast(null) // 띄운 직후 다시 null로 비워주어야 다음 클릭 때 또 반응합니다.
+    }
+
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                Log.d("마이페이지", "${uiState.email}, ${uiState.loginType}")
+                SettingsDrawer(
+                    email = uiState.email,
+                    loginType = uiState.loginType,
+                    modifier = Modifier.fillMaxWidth(0.7f).fillMaxHeight(),
+                    onClose = { bottomBarViewModel.onUpdateDrawerShown(false) },
+                    viewModel = viewModel
+                )
+
+            }
+        ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = background
+                ) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // 상단 타이틀 및 설정 헤더 영역
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 24.dp, bottom = 32.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "내 정보",
+                                style = Typography.bodyLarge,
+                            )
+                            IconButton(
+                                onClick = {
+                                    bottomBarViewModel.onUpdateDrawerShown(true)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "설정",
+                                    tint = primary,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
+
+                        // 프로필 이미지 영역
+                        Box(
+                            modifier = Modifier
+                                .size(130.dp)
+                                .background(primary, shape = CircleShape)
+                                .padding(4.dp)
+                                ,
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // profileImageUrl이 비어있지 않으면 사진을, 비어있으면 아이콘을 보여줌
+                            if (uiState.profileImageUrl.isNotEmpty()) {
+                                AsyncImage(
+                                    model = uiState.profileImageUrl,
+                                    contentDescription = "프로필 이미지",
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.LightGray, shape = CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "기본 프로필",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(78.dp) // 130.dp의 60%
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // 이름 및 상태 메시지 텍스트 영역
+                        Text(
+                            text = uiState.nickname,
+                            style = Typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // 상태 메시지 캡슐
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        ) {
+                            Text(
+                                text = uiState.status.ifBlank { "등록된 상태메세지가 없습니다." },
+                                style = Typography.bodySmall,
+                                color = primary,
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // 프로필 편집 버튼
+                        Button(
+                            onClick = {
+                                navController.navigate(
+                                    Routes.EditProfile(
+                                        currentNickname = uiState.nickname,
+                                        currentStatus = uiState.status,
+                                        profileImageUrl = uiState.profileImageUrl
+                                    )
+                                )
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = subBackground
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 10.dp),
+                        ) {
+                            Text(
+                                text = "프로필 편집",
+                                color = primary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                style = Typography.bodySmall
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(48.dp))
+
+                        // ID 입체 카드 컴포넌트
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(32.dp),
+                            color = subBackground,
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp, horizontal = 20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "내 CODE : ${uiState.userCode} ",
+                                    style = Typography.bodyMedium,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.5.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // 고유 ID 텍스트
+                                    Text(
+                                        text = uiState.uniqueId,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = fontDefault,
+                                        modifier = Modifier.padding(end = 12.dp)
+                                    )
+
+                                    // 복사 버튼
+                                    IconButton(
+                                        onClick = { viewModel.copyToClipboard(uiState.userCode) },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(background, shape = RoundedCornerShape(8.dp))
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = "ID 복사하기",
+                                            tint = fontDefault,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+
+//                                    Spacer(modifier = Modifier.width(20.dp))
+//
+//                                    // 카카오톡 공유 버튼
+//                                    IconButton(
+//                                        onClick = { onShareKakaoClick(uiState.uniqueId) },
+//                                        modifier = Modifier
+//                                            .size(36.dp)
+//                                            .background(KakaoYellow, shape = RoundedCornerShape(8.dp))
+//                                    ) {
+//                                        // 💡 실제 카카오 이모지 아이콘 리소스가 있다면 대체 가능합니다!
+//                                        Text(
+//                                            text = "💬",
+//                                            fontSize = 14.sp,
+//                                            textAlign = TextAlign.Center
+//                                        )
+//                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp),
+                            shape = RoundedCornerShape(20.dp),
+                            color = subBackground,
+                            shadowElevation = 1.dp,
+                            onClick = {
+                                isHistoryGridOpen = true
+                            }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 24.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "👣",
+                                        fontSize = 18.sp,
+                                        modifier = Modifier.padding(end = 12.dp)
+                                    )
+                                    Text(
+                                        text = "내가 남긴 발자취 보기",
+                                        style = Typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = fontDefault
+
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = "이동하기",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
+
+
+
+    }
+    if (uiState.isLoading) { LoadingBox() }
+
+    if (uiState.isSignOutDialogShown){
+        ConfirmDialog(text = "로그아웃 하시겠습니까?",
+            onDismiss = {viewModel.onChangeSignOutDialog(false)},
+            onConfirm = {
+                viewModel.onChangeSignOutDialog(false)
+                viewModel.signOut()
+            }
+        )
+    }
+    if (uiState.isDeleteDialogShown){
+        InputDialog(
+            value = uiState.token,
+            onValueChange = {viewModel.onUpdateToken(it)},
+            onDismiss = {
+                viewModel.onUpdateLoading(false)
+                viewModel.onUpdateDeleteDialogShown(false)
+            },
+            onConfirm = {
+                viewModel.onUpdateLoading(true)
+                viewModel.deleteAccount()
+
+            }
+        )
+    }
+
+    if(uiState.isSocialDeleteDialog){
+        ConfirmDialog(text = "계정을 삭제하시겠습니까?", semiText = "한 번 삭제한 계정은 다시 복구되지 않습니다.\n탈퇴를 진행하려면 예를 눌러 계정 인증을 진행해주세요.",
+            onDismiss = {
+                viewModel.onSocialDeleted(false)
+            },
+            onConfirm = {
+                viewModel.onSocialDeleted(false)
+                viewModel.deleteAccount(context)
+            }
+        )
+    }
+
+    if (isHistoryGridOpen) {
+        MyHistoryGridViewerDialog(
+            myUid = historyViewModel.getMyUid(),
+            histories = historyUiState.histories,
+            comments = historyUiState.currentComments,
+            viewModel = historyViewModel,
+            onHistoryChanged = { currentId ->
+                historyViewModel.observeComments(currentId)
+            },
+            onLikeToggle = { targetHistory ->
+                historyViewModel.toggleHistoryLike(targetHistory.id)
+            },
+            onCommentSubmit = { historyId, commentText ->
+                historyViewModel.addHistoryComment(historyId, commentText)
+            },
+            onDeleteClick = { historyId ->
+                historyViewModel.deleteHistory(historyId)
+            },
+            onDismiss = {
+                isHistoryGridOpen = false
+                historyViewModel.closeCommentsObservation()
+            },
+            onHistoryUpdate = { historyId, commentText ->
+                historyViewModel.updateHistory(historyId, commentText)
+            }
+        )
+    }
+}
+
+@Composable
+fun InputDialog(value: String, onValueChange: (String) -> Unit, error : String? = null, onDismiss : () -> Unit, onConfirm: () -> Unit){
+    Dialog(onDismissRequest = {}) {
+        Card(shape = RoundedCornerShape(30.dp),
+            colors = CardDefaults.cardColors(Color.White),
+            elevation = CardDefaults.cardElevation(3.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(22.dp)) {
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("회원 인증을 위해 비밀번호를 입력해주세요.", style = Typography.bodyMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+
+                InputField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    placeholder = "소문자, 특수문자 필수 포함 최소 8자 최대 16지",
+                    keyboardType = KeyboardType.Password,
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(onClick = onDismiss,
+                        modifier = Modifier.height(50.dp).weight(1f),
+                        shape = RoundedCornerShape(40.dp),
+                        colors = ButtonDefaults.buttonColors(Color.LightGray),
+                        elevation = ButtonDefaults.buttonElevation(5.dp)) {
+                        Text("취소", style = Typography.bodyMedium)
+                    }
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    Button(onClick = onConfirm,
+                        modifier = Modifier.height(50.dp).weight(1f),
+                        shape = RoundedCornerShape(40.dp),
+                        colors = ButtonDefaults.buttonColors(primary),
+                        elevation = ButtonDefaults.buttonElevation(5.dp)) {
+                        Text("예", style = Typography.bodyMedium, color = Color.White)
+                    }
+                }
+
+            }
+        }
+    }
 }

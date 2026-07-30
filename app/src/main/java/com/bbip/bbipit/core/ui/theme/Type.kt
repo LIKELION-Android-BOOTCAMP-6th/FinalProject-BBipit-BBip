@@ -9,45 +9,72 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.bbip.bbipit.R
 
-val regular = FontFamily(
-    Font(R.font.tmoney_round_wind_regular)
+val pretendard = FontFamily(
+    Font(R.font.pretendard_thin, FontWeight.Thin),
+    Font(R.font.pretendard_light, FontWeight.Light),
+    Font(R.font.pretendard_regular, FontWeight.Normal),
+    Font(R.font.pretendard_medium, FontWeight.Medium),
+    Font(R.font.pretendard_semibold, FontWeight.SemiBold),
+    Font(R.font.pretendard_bold, FontWeight.Bold),
+    Font(R.font.pretendard_bold, FontWeight.ExtraBold),
+    Font(R.font.pretendard_black, FontWeight.Black),
+
 )
-val extraBold = FontFamily(
-    Font(R.font.tmoney_round_wind_extra_bold)
-)
+
 val Typography = Typography(
 
     //앱 이름 등 강조되는 글씨
     titleLarge = TextStyle(
-        fontFamily = extraBold,
+        fontFamily = pretendard,
         fontSize = 40.sp,
         lineHeight = 60.sp,
         letterSpacing = -2.sp,
-        color = primary
+        color = primary,
+        fontWeight = FontWeight.ExtraBold
+    ),
+    //캐치프라이즈
+    titleSmall = TextStyle(
+      fontFamily = pretendard,
+        fontSize = 17.sp,
+        lineHeight = 21.sp,
+        color = Color.DarkGray,
+        fontWeight = FontWeight.Thin
     ),
 
     //앱 바 타이틀등 세미 강조
     bodyLarge = TextStyle(
-        fontFamily = regular,
-        fontSize = 27.sp,
+        fontFamily = pretendard,
+        fontSize = 32.sp,
         color = primary,
+        letterSpacing = 1.2.sp,
         fontWeight = FontWeight.Bold
     ),
 
     //기본 글씨
     bodyMedium = TextStyle(
-        fontFamily = regular,
-        fontSize = 19.sp,
+        fontFamily = pretendard,
+        fontSize = 17.sp,
         lineHeight = 27.sp,
-        color = fontDefault
+        color = fontDefault,
+        fontWeight = FontWeight.Normal
     ),
 
-    //세미 글씨용
+    //세미 글씨, 힌트용
     bodySmall = TextStyle(
-        fontFamily = regular,
+        fontFamily = pretendard,
         fontSize = 15.sp,
         lineHeight = 21.sp,
-        color = Color.Gray
+        color = Color.DarkGray,
+        fontWeight = FontWeight.Thin
+    ),
+
+    //시간 등 작은 글씨
+    labelSmall = TextStyle(
+        fontFamily = pretendard,
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        color = Color.DarkGray,
+        fontWeight = FontWeight.Thin
     )
 
 )

@@ -1,9 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 기기 절전 모드 제어 권한 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Wear OS 하드웨어 유형 필수 설정 -->
     <uses-feature android:name="android.hardware.type.watch" />
+
+    <!-- 네트워크 접근 필수 권한 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 오디오 녹음 권한 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <queries>
+        <package android:name="com.google.android.gms" />
+    </queries>
+
 
     <application
         android:allowBackup="true"
@@ -11,32 +26,70 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
+
+        <!-- Google Play 서비스 버전 메타데이터 -->
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+
+        <!-- Wearable 라이브러리 설정 -->
         <uses-library
             android:name="com.google.android.wearable"
             android:required="true" />
+
+        <!-- 웨어러블 SDK 설정 -->
         <uses-library
             android:name="wear-sdk"
             android:required="false" />
 
-        <!--
-               Set to true if your app is Standalone, that is, it does not require the handheld
-               app to run.
-        -->
+        <!-- 지도 API 키 설정 -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAP_KEY}" />
+
+        <!-- 독립형 웨어러블 앱 설정 -->
         <meta-data
             android:name="com.google.android.wearable.standalone"
-            android:value="true" />
+            android:value="false" />
 
+        <!-- walkie 타입 브릿지 차단 -->
+        <meta-data
+            android:name="com.google.android.wearable.notificationBridgeMode"
+            android:value="NO_BRIDGING_WITH_DISMISSAL_SYNC" />
+        <meta-data
+            android:name="com.google.android.wearable.notificationChannelBridgeMode.walkie_local_only_channel"
+            android:value="NO_BRIDGING" />
+
+        <!-- 메인 액티비티 설정 -->
         <activity
-            android:name=".presentation.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:taskAffinity=""
-            android:theme="@style/MainActivityTheme.Starting">
+            android:theme="@style/MainActivityTheme.Starting"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".notification.WatchMessageListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:path="/launch_and_play" />
+                <data android:scheme="wear" android:host="*" android:path="/show_notification" />
+                <data android:scheme="wear" android:host="*" android:path="/walkie_notification" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name=".notification.WalkieChoiceActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.bbip.bbipit.ACTION_LISTEN_ON_WATCH" />
+                <action android:name="com.bbip.bbipit.ACTION_LISTEN_ON_PHONE" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
