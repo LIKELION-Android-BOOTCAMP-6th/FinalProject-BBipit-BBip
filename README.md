@@ -81,9 +81,9 @@
 ## 📂 Project & Demo
 프로젝트의 상세 기획 과정과 실제 동작을 확인할 수 있는 자료입니다.
 
-* **[기획 및 문서]** [프로젝트 상세 기획서 바로가기 (Notion)]
-* **[시연 영상]** [BBip-it 주요 기능 시연 영상 보기 (YouTube)]
-
+* **[기획 및 문서]** [노션](https://mammoth-sassafras-ff5.notion.site/3-BBip-35673873401a80ed9fbfc3297840b573)
+* **[시연 영상]** [유튜브](https://www.youtube.com/watch?v=-RHNEl47FFc)
+* **[앱 설치하기]** [플레이스토어](https://play.google.com/store/apps/details?id=com.bbip.bbipit)
 ---
 
 ## 🏗 Architecture & Collaboration
