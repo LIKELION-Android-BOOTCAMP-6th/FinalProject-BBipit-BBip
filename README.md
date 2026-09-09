@@ -64,6 +64,12 @@
 * 프로젝트 오픈 후 **Gradle Sync**를 진행합니다.
 * 에뮬레이터 또는 실기기에 빌드하여 실행합니다.
 
+또는\
+<a href="https://play.google.com/store/apps/details?id=com.bbip.bbipit">
+  <img src="https://raw.githubusercontent.com/pioug/google-play-badges/refs/heads/main/svg/ko.svg" alt="다운로드하기 Google Play" width="180" />
+</a>
+
+
 ---
 
 ## 🚀 Key Features
@@ -83,7 +89,9 @@
 
 * **[기획 및 문서]** [노션](https://mammoth-sassafras-ff5.notion.site/3-BBip-35673873401a80ed9fbfc3297840b573)
 * **[시연 영상]** [유튜브](https://www.youtube.com/watch?v=-RHNEl47FFc)
-* **[앱 설치하기]** [플레이스토어](https://play.google.com/store/apps/details?id=com.bbip.bbipit)
+* **[앱 설치하기]** <a href="https://play.google.com/store/apps/details?id=com.bbip.bbipit">
+  <img src="https://raw.githubusercontent.com/pioug/google-play-badges/refs/heads/main/svg/ko.svg" alt="다운로드하기 Google Play" width="100" />
+</a>
 ---
 
 ## 🏗 Architecture & Collaboration
